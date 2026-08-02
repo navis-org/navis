@@ -87,7 +87,7 @@ def plot1d(x: 'core.NeuronObject',
 
     >>> plt.close('all')
 
-    See the [`flat plotting tutorial`](generated/gallery/1_plotting/tutorial_plotting_02_1d/)
+    See the [`flat plotting tutorial`](generated/gallery/1d_plotting_misc/tutorial_plotting_misc_00_barcode/)
     for more examples.
 
     """

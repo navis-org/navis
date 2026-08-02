@@ -3,7 +3,7 @@ import pint
 import numpy as np
 import matplotlib as mpl
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Union, List, Tuple, Optional
 from typing_extensions import Literal
 
@@ -55,8 +55,22 @@ class Settings:
         for k, v in kwargs.items():
             self.__setattr__(k, v, check_valid=VALIDATE_SETTINGS)
 
+        # Remember which ones were actually asked for - a default and the same
+        # value passed explicitly are not always the same thing (see `was_set`)
+        self.__dict__.setdefault("_explicit", set()).update(kwargs)
+
         # For method chaining
         return self
+
+    def was_set(self, key):
+        """Whether `key` was passed explicitly rather than left at its default.
+
+        Use this where "the user did not say" has to mean something other than
+        the default value does - e.g. a default that only applies when nothing
+        else has already settled the question.
+
+        """
+        return key in self.__dict__.get("_explicit", ())
 
     def to_dict(self):
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
@@ -94,6 +108,10 @@ class BasePlottingSettings(Settings):
     cn_layout: dict = field(default_factory=dict)
     cn_colors: dict = field(default_factory=dict)
     cn_mesh_colors: bool = False
+    # Colour connectors by a column of the connector table (or an array of one
+    # value per connector) instead of by their `type`.
+    cn_color_by: Optional[Union[str, np.ndarray]] = None
+    cn_palette: Optional[Union[str, list, dict]] = None
     color: Optional[
         Union[
             str,
@@ -141,15 +159,31 @@ class Matplotlib2dSettings(BasePlottingSettings):
     view: Tuple[str, str] = ("x", "y")
     figsize: Optional[Tuple[float, float]] = None
     ax: Optional[mpl.axes.Axes] = None
-    mesh_shade: bool = False
+    # Surface shading for meshes and volumes. In 2d this takes a mode name (see
+    # `dd.MESH_SHADE_MODES`) or a dict with "mode" plus any of "light", "ambient"
+    # and "strength"; the 3d methods only understand the bool.
+    mesh_shade: Union[bool, str, dict] = False
     non_view_axes3d: Literal["hide", "show", "fade"] = "hide"
     cn_zorder: Optional[int] = None
+    cn_legend: bool = False
 
     depth_coloring: bool = False
     depth_scale: bool = True
     # Normalizer for depth coloring. Generated from the data in `plot2d` unless
     # explicitly provided.
     norm: Optional[mpl.colors.Normalize] = None
+
+    # Named bundle of the settings below - see `dd.PLOT_STYLES`
+    style: Optional[str] = None
+    # Background-coloured stroke under each neuron: width in points, or a dict
+    # with "width" and/or "color"
+    halo: Union[bool, float, dict] = False
+    # Number of depth bins to interleave neurons by (True picks a default);
+    # negative flips which end of the depth axis is nearest the viewer.
+    # "global" sorts exactly instead, at the cost of one artist per neuron type
+    depth_sort: Union[bool, int, str] = False
+    # Width from a topological measure instead of a constant
+    taper: Optional[Literal["strahler", "subtree"]] = None
 
 
 @dataclass
@@ -214,20 +248,41 @@ class OctarineSettings(BasePlottingSettings):
     offscreen: bool = False
     spacing: Optional[Tuple[float, float, float]] = None
 
-    # These are viewer-specific settings that we must not pass to the plotting
-    # function
-    _viewer_settings: tuple[str] = (
-        "clear",
-        "center",
-        "viewer",
-        "camera",
-        "control",
-        "show",
-        "size",
-        "offscreen",
-        "scatter_kws",
-        "spacing"
-    )
+    # `snapshot=True` swaps the interactive viewer for a matplotlib figure with
+    # the rendered image on it - see `plotting/render.py`. The settings below it
+    # only have an effect in that case.
+    snapshot: bool = False
+    # "auto" means: default view for a new viewer, leave an existing one alone.
+    # `None` never touches the camera.
+    view: Optional[Union[str, Tuple[str, str], dict]] = "auto"
+    margin: float = 0.05
+    hide_axes: bool = True
+    bgcolor: Optional[str] = None
+    # Supersampling on top of `size`. `None` leaves pygfx's own default, which
+    # is 2 for an offscreen canvas.
+    pixel_ratio: Optional[float] = None
+    figsize: Optional[Tuple[float, float]] = None
+    dpi: Optional[int] = None
+    ax: Optional[mpl.axes.Axes] = None
+
+    @property
+    def _neuron_settings(self):
+        """Names of the settings that describe the neurons rather than the view.
+
+        This is what `octarine.Viewer.add_neurons` is given. It is derived
+        rather than listed because `add_neurons` has no `**kwargs`: a window or
+        figure option that slipped into it would surface as a `TypeError` from
+        octarine, and a hand-maintained list has to be updated for every field
+        added here.
+
+        """
+        drawing = {
+            f.name for f in fields(BasePlottingSettings) if not f.name.startswith("_")
+        }
+        # `scatter_kws` is for points, not neurons; `cn_color_by`/`cn_palette` are
+        # resolved by the backends that can draw per-connector colors, which the
+        # octarine plugin cannot; `random_ids` is octarine-only
+        return (drawing - {"scatter_kws", "cn_color_by", "cn_palette"}) | {"random_ids"}
 
 
 @dataclass

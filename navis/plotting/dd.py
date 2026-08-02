@@ -17,6 +17,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
+import matplotlib.path as mpath
 import matplotlib.colors as mcl
 from mpl_toolkits.mplot3d.art3d import (
     Line3DCollection,
@@ -24,7 +25,7 @@ from mpl_toolkits.mplot3d.art3d import (
     Path3DCollection,
     Patch3DCollection,
 )
-from matplotlib.collections import LineCollection, PolyCollection
+from matplotlib.collections import LineCollection, PathCollection, PolyCollection
 from matplotlib.cm import ScalarMappable
 
 import numpy as np
@@ -37,14 +38,20 @@ from typing import Union, List, Tuple
 from .. import utils, config, core, conversion
 from ._common import (
     apply_shade_by,
-    resolve_cn_color,
+    connector_colors,
+    prepare_cn_colors,
     resolve_cn_layout,
     resolve_connectors,
     resolve_somata,
     use_radius,
 )
 from .colors import prepare_colormap, vertex_colors, parse_color_by
-from .plot_utils import segments_to_coords, tn_pairs_to_coords
+from .plot_utils import (
+    mesh_faces,
+    segments_to_coords,
+    skeleton_capsules,
+    tn_pairs_to_coords,
+)
 from .settings import Matplotlib2dSettings
 
 __all__ = ["plot2d"]
@@ -57,6 +64,55 @@ with warnings.catch_warnings():
 
 # Default colormap for depth coloring
 DEPTH_CMAP = mpl.cm.jet
+
+#: Named bundles of arguments for `plot2d(..., style=...)`. A style only fills in
+#: arguments the caller did not pass themselves, so every part of it stays
+#: overridable - there is nothing in here you cannot also switch on by hand.
+PLOT_STYLES = {
+    "publication": dict(
+        radius="auto", depth_sort=True, soma=True, mesh_shade=True
+    ),
+}
+
+# Arguments that can be spelled more than one way, so that a style does not
+# override a value the caller passed under an alias. Styles are applied before
+# the settings object exists, which is the one place that otherwise resolves
+# these - so take the table from there rather than writing it out again.
+_STYLE_ALIASES = {syn[0]: tuple(syn) for syn in Matplotlib2dSettings()._synonyms}
+
+# Default number of depth bins for `depth_sort=True`. More bins resolve overlaps
+# more finely but cost two artists each, per neuron.
+DEPTH_BINS = 10
+
+#: `depth_sort="global"`: sort every element of a kind together rather than
+#: bucketing each neuron separately. See `_GlobalSort` for what that costs.
+DEPTH_SORT_GLOBAL = "global"
+
+# Default halo width in points for `halo=True`.
+HALO_WIDTH = 3.0
+
+# Width range for `taper`, as a fraction of `linewidth`.
+TAPER_RANGE = (0.35, 3.5)
+
+#: Surface shading modes for `plot2d(..., mesh_shade=...)` with `method="2d"`.
+#: `True` is an alias for "lambert".
+MESH_SHADE_MODES = ("lambert", "cel", "rim", "ghost")
+
+# Direction the key light comes from, in view space (x right, y up, z at the
+# viewer): over the viewer's left shoulder and slightly above, which is where
+# every anatomical illustration puts it.
+MESH_LIGHT = (-0.4, 0.6, 0.7)
+
+# How much light a face gets when it faces straight away from the key light.
+MESH_AMBIENT = 0.25
+
+# Number of tones in "cel".
+CEL_BANDS = 3
+
+# Default z-order for meshes: well clear of skeletons at 1-2, which is how they
+# have always been stacked. `depth_sort` overrides it and puts them in the
+# skeleton band so the two interleave.
+MESH_ZORDER = 100
 
 
 def plot2d(
@@ -82,7 +138,7 @@ def plot2d(
 
     Parameters
     ----------
-    x :                 Skeleton | Mesh | NeuronList | Volume | Dotprops | np.ndarray
+    x :                 Skeleton | Mesh | Dotprops | Voxels | NeuronList | Volume | np.ndarray
                         Objects to plot:
                          - multiple objects can be passed as list (see examples)
                          - numpy array of shape (N, 3) is intepreted as points for
@@ -90,6 +146,12 @@ def plot2d(
 
     Object parameters
     -----------------
+    Each of these notes which objects it applies to and, where it matters, which
+    `methods` it works with. Unless an entry says otherwise, a parameter that does
+    not apply is simply ignored - `taper` on a `Mesh`, say - so these are safe to
+    set for a mixed scene. The few that raise instead say so, and setting a
+    `method="2d"`-only parameter for a 3d method logs a warning.
+
     soma :              bool | dict, default=True
 
                         Plot soma if one exists. Size of the soma is determined
@@ -98,7 +160,10 @@ def plot2d(
                         pass `soma` as a dictionary to customize the appearance
                         of the soma - for example `soma={"color": "red", "lw": 2, "ec": 1}`.
 
-    radius :            bool | "auto", default=False
+                        `Skeletons` only, since no other neuron type has a soma.
+                        Works with all `methods`.
+
+    radius :            bool | "auto" | "lw", default=False
 
                         If "auto" will plot neurites of `Skeletons` with radius
                         if they have radii. If True, will try plotting neurites of
@@ -106,13 +171,120 @@ def plot2d(
                         scaled by `linewidth`. Note that this will increase rendering
                         time.
 
+                        With `method="2d"` the neurites are outlined directly in the
+                        view plane; the 3d methods mesh them with
+                        [`navis.conversion.tree2meshneuron`][] instead.
+
+                        Use `"lw"` to map the radius onto the line width instead of
+                        drawing an outline. It looks near-identical, gets exact
+                        round joins for free, and more than halves the size of
+                        vector output - at the cost of being somewhat slower to
+                        render, and of only being correct on axes it can measure:
+                        line widths are in points, so the conversion from data
+                        units is redone on every draw.
+
+                        `Skeletons` only. Works with all `methods`, but `"lw"` is
+                        a `method="2d"` feature - the 3d methods have no line width
+                        in data units and fall back to meshing, i.e. to `True`.
+
+    taper :             "strahler" | "subtree", default=None
+
+                        Vary the width of neurites by a topological measure instead
+                        of keeping it constant - useful for the many skeletons whose
+                        `radius` column is a placeholder. "strahler" tapers by
+                        Strahler index (chunky, shows the branch hierarchy),
+                        "subtree" by the height of the subtree below each node
+                        (smooth). Widths range from 0.35x to 3.5x `linewidth`.
+                        Ignored when neurites are drawn with `radius`.
+
+                        `method="2d"` only, and only meaningful for `Skeletons`:
+                        `Dotprops` are drawn as skeletons but have no branch
+                        hierarchy to taper by, so they come out at a single width.
+
+    halo :              bool | float | dict, default=False
+
+                        Draw each neuron with a background-coloured outline
+                        underneath, so that crossings read as one neuron passing in
+                        front of another. Pass a number for the width in points
+                        (`True` uses 3), or a dict with "width" and/or "color" keys.
+                        The colour defaults to the axes' background.
+
+                        `method="2d"` only. Applies to `Skeletons`, `Dotprops` and
+                        `Meshes`; `Volumes` never get one, since they are scenery
+                        and belong behind everything.
+
+    depth_sort :        bool | int | "global", default=False
+
+                        Interleave neurons by depth instead of drawing them one
+                        after the other, which is as close to real occlusion as
+                        matplotlib gets. Two ways to do it:
+
+                          - `True` or an integer: bucket everything into that many
+                            bins along the axis pointing into the screen (`True`
+                            uses 10) and give each bin its own z-order. Approximate,
+                            but cheap and it interleaves the different neuron types
+                            with each other. A negative number flips which end of
+                            the depth axis counts as nearest.
+                          - `"global"`: sort *exactly*, merging each neuron type
+                            into one artist so that two neurons interleave element
+                            by element rather than bin by bin.
+
+                        Bins cost one artist per bin per neuron (two with `halo`),
+                        so keep the count modest for large `NeuronLists`.
+                        `"global"` costs the aggregate artists that make 2d
+                        plotting fast: a flat `Mesh` is normally one filled outline
+                        and a `Skeleton` a handful of polylines, and sorting across
+                        neurons forces both down to their elements. For skeletons
+                        that still comes out cheaper than 10 bins; for meshes it is
+                        several times the cost of either. It also gives up the
+                        fill-once `alpha` that a single outline buys a `Mesh` or a
+                        `radius` ribbon. Which is to say: reach for it on a finished
+                        figure, not while you are exploring.
+
+                        With `"global"`, artists are stacked in the order their
+                        neuron type first appears in `x`, `Dotprops` merge with the
+                        `Skeletons` they are drawn as, per-neuron legend entries
+                        become proxy handles, and `halo` is not available - a halo
+                        has to sit *between* two neurons of a type, which a single
+                        artist cannot express, so passing both warns and falls back
+                        to bins.
+
+                        `method="2d"` only - the 3d methods do their own z-ordering.
+                        Applies to `Skeletons`, `Dotprops` and `Meshes`; `Voxels`
+                        are a scatter and keep their own artist, and `Volumes` stay
+                        behind all of them either way.
+
+    style :             str, default=None
+
+                        Name of a bundle of the settings above, see
+                        `navis.plotting.dd.PLOT_STYLES` for what each one sets.
+                        Currently only "publication" (radius, depth-sorted, soma,
+                        shaded meshes). A style never overrides an argument you
+                        passed yourself, so e.g. `style="publication",
+                        radius=False` does what it says.
+
+                        A style is just a set of defaults, so it inherits the
+                        applicability of whatever it sets - "publication" has parts
+                        that only apply to `Skeletons` and parts that only work with
+                        `method="2d"`.
+
     linewidth :         int | float, default=1
 
-                        Width of neurites. Also accepts alias `lw`.
+                        Width of neurites, and the scaling factor for `radius`.
+                        Also accepts alias `lw`.
+
+                        `Skeletons` and `Dotprops` only, with all `methods`. The
+                        contour drawn by `volume_outlines` has a fixed width of its
+                        own and does not follow this.
 
     linestyle :         str, default='-'
 
                         Line style of neurites. Also accepts alias `ls`.
+
+                        `Skeletons` and `Dotprops` only, and only where they are
+                        actually drawn as lines - an outline (`radius` in 2d) or a
+                        mesh (`radius` in 3d) has no line style, though
+                        `radius="lw"` keeps it. Works with all `methods`.
 
     color :             None | str | tuple | list | dict, default=None
 
@@ -122,10 +294,16 @@ def plot2d(
                         Use `dict` to map colors to neuron IDs:
                         `{id: (r, g, b), ...}`.
 
+                        Applies to every neuron type and to `Volumes`, with all
+                        `methods`. Bare `(N, 3)` point arrays take their color from
+                        `scatter_kws` instead.
+
     palette :           str | array | list of arrays, default=None
 
                         Name of a matplotlib or seaborn palette. If `color` is
                         not specified will pick colors from this palette.
+
+                        Same scope as `color`.
 
     color_by :          str | array | list of arrays, default = None
 
@@ -137,6 +315,11 @@ def plot2d(
                         Numerical values will be normalized. You can control
                         the normalization by passing a `vmin` and/or `vmax` parameter.
 
+                        One value per neuron works for any neuron type. Colouring
+                        *within* a neuron needs a node or vertex table, so it is
+                        `Skeletons` and `Meshes` only - `Dotprops` and `Voxels`
+                        raise. Works with all `methods`.
+
     shade_by :          str | array | list of arrays, default=None
 
                         Similar to `color_by` but will affect only the alpha
@@ -146,6 +329,9 @@ def plot2d(
                         normalized. You can control the normalization by passing
                         a `smin` and/or `smax` parameter.
 
+                        Always per node/vertex, so `Skeletons` and `Meshes` only.
+                        Works with all `methods`.
+
     alpha :             float [0-1], default=None
 
                         Alpha value for neurons. `None` means "leave alone", so
@@ -153,22 +339,57 @@ def plot2d(
                         (rgb*a*); setting `alpha` explicitly overrides that. You
                         can set the alpha value for connectors with `cn_alpha`.
 
-    mesh_shade :        bool, default=False
+                        Applies to every neuron type except `Voxels` (whose opacity
+                        encodes their value), and to `Volumes`. Works with all
+                        `methods`.
 
-                        Only relevant for meshes (e.g. `Meshes`) and
-                        `Skeletons` with radius, and when method is 3d or
-                        3d complex. Whether to shade the object which will give it
-                        a 3D look.
+    mesh_shade :        bool | str | dict, default=False
+
+                        Shade `Mesh` neurons and `Volumes` so they look like
+                        surfaces rather than flat blobs. Shading multiplies into
+                        whatever colour they already have, so it composes with
+                        `color`, `color_by` and `depth_coloring`.
+
+                        With `method="2d"` this takes a mode:
+
+                          - `True` or `"lambert"`: diffuse shading
+                          - `"cel"`: the same, posterised into three tones
+                          - `"rim"`: diffuse plus a bright rim at grazing angles
+                          - `"ghost"`: opacity from the grazing angle instead of
+                            brightness, so a neuron inside a neuropil stays visible
+
+                        Pass a dict to tune it, e.g.
+                        `mesh_shade={"mode": "lambert", "ambient": .4}`; `light` is
+                        a direction in view space (x right, y up, z at the viewer)
+                        and `strength` scales the "rim" and "ghost" terms.
+
+                        The 3d methods only understand `True`/`False`, and there it
+                        covers everything that is real geometry: `Meshes`, somata and
+                        `Skeletons` drawn with `radius`. `Volumes` are the exception -
+                        matplotlib always shades those in 3d, whatever you pass.
+
+                        Note that culling back faces and painting the rest from
+                        back to front happens either way in 2d - `mesh_shade` only
+                        controls the lighting on top of that. A shaded mesh does
+                        need one polygon per face rather than a single filled
+                        outline, though, so where a translucent mesh overlaps
+                        itself it will double-darken instead of filling once.
 
     depth_coloring :    bool, default=False
 
                         If True, will use neuron color to encode depth (Z).
                         Overrides `color` argument. Does not work with
-                        `method = '3d_complex'`.
+                        `method = '3d_complex'` (raises).
+
+                        Applies to `Skeletons`, `Dotprops` and `Meshes`; `Volumes`
+                        and `Voxels` keep their own colors.
 
     depth_scale :       bool, default=True
 
                         If True and `depth_coloring=True` will plot a scale.
+
+                        `method="2d"` only - with `method="3d"` the depth colors are
+                        recomputed as you rotate, so there is no fixed scale to draw.
 
     connectors :        bool | "presynapses" | "postsynapses" | str | list, default=False
 
@@ -190,28 +411,93 @@ def plot2d(
                                 as their neuron
                           - `cn_layout` (dict): Layout of the connectors. See
                             `navis.config.default_connector_colors` for options.
+                            `display` is either `"lines"` (the default: a stalk
+                            from each connector back to its node, `Skeletons`
+                            only) or `"circles"`.
                           - `cn_size` (float): Size of the connectors.
                           - `cn_alpha` (float): Transparency of the connectors.
                           - `cn_mesh_colors` (bool): Whether to color the connectors
                             by the neuron's color.
 
+                        All connectors of a neuron go into a single artist, drawn
+                        in a fixed, shuffled order. Painting one type after
+                        another would let a rare type bury a common one wherever
+                        markers overlap; interleaving them keeps the visible mix
+                        a fair sample of the real one.
+
+                        Applies to any neuron that carries a connector table,
+                        whatever its type, and works with all `methods`.
+
     connectors_only :   boolean, default=False
 
-                        Plot only connectors, not the neuron.
+                        Plot only connectors, not the neuron. Same scope as
+                        `connectors`.
+
+    cn_color_by :       str | array, optional
+
+                        Color connectors by a column of the connector table (or
+                        by an array with one value per connector) rather than by
+                        their `type`. Numerical data gets a colormap, categorical
+                        data one color per level - and either way the scale is
+                        shared by all neurons, so the same value is the same color
+                        throughout. Missing values are drawn grey.
+
+                        Overrides `cn_colors`/`cn_mesh_colors`. The `plotly` and
+                        `k3d` backends fall back to markers when this is set,
+                        since a line there carries a single color; `plot2d` colors
+                        stalks per connector like anything else.
+
+                        Same scope as `connectors`; works with all `methods`.
+
+    cn_palette :        str | list | dict, optional
+
+                        Palette for `cn_color_by`: the name of a colormap for
+                        numerical data, and for categorical data a palette name,
+                        a list of colors or a dict keyed by level. Falls back to
+                        `palette`, then to `"viridis"`.
+
+    cn_legend :         bool, default=False
+
+                        Add a legend entry per connector *type* - not per type
+                        per neuron, which is why this is not simply a label on
+                        the artists. With a numerical `cn_color_by` you get a
+                        colorbar instead. Call `ax.legend()` afterwards as usual.
+
+                        `method="2d"` and `"3d"` only.
+
+    cn_zorder :         int, optional
+
+                        Where connectors sit in the stack. Defaults to 1000,
+                        i.e. above everything, so that a synapse is never hidden
+                        by the neurite it sits on; pass a lower value to put them
+                        behind the neurons instead.
+
+                        `method="2d"` only - the 3d methods leave stacking to
+                        `matplotlib`.
 
     scatter_kws :       dict, default={}
 
                         Parameters to be used when plotting points. Accepted
                         keywords are: `size` and `color`.
 
+                        Applies to bare `(N, 3)` point arrays and to `Voxels`, which
+                        are drawn as a scatter too - though `Voxels` only take `size`
+                        from here and their color from `color`/`palette`. Works with
+                        all `methods`.
+
     volume_outlines :   bool | "both", default=False
 
                         If True will plot volume outline with no fill. Only
                         works with `method="2d"`. Requires the `shapely` package.
+                        The contour is always drawn opaque - a volume's alpha is
+                        a fill alpha, and there is nothing to see through a line.
+
+                        `Volumes` only; `Meshes` are always drawn as surfaces.
 
     dps_scale_vec :     float
 
-                        Scale vector for dotprops.
+                        Scale vector for dotprops. `Dotprops` only; works with all
+                        `methods`.
 
     Figure parameters
     -----------------
@@ -249,7 +535,8 @@ def plot2d(
 
     autoscale :         bool, default=True
 
-                        If True, will scale the axes to fit the data.
+                        If True, will scale the axes to fit the data. Works with all
+                        `methods`.
 
     scalebar :          int | float | str | pint.Quantity | dict, default=False
 
@@ -281,6 +568,10 @@ def plot2d(
                         this parameter to rasterize neurons and meshes/volumes
                         (but not axes or labels) to reduce file size.
 
+                        Applies to neurons and `Volumes` with all `methods`. The
+                        scatter artists - `Voxels`, point arrays and connectors -
+                        are left as vectors.
+
     orthogonal :        bool, default=True
 
                         Whether to use orthogonal or perspective view for
@@ -288,8 +579,13 @@ def plot2d(
 
     group_neurons :     bool, default=False
 
-                        If True, neurons will be grouped. Works with SVG export
-                        but not PDF. Does NOT work with `method='3d_complex'`.
+                        If True, neurons will be grouped by tagging their artists
+                        with the neuron ID. Works with SVG export but not PDF.
+
+                        The 3d `methods` only - nothing is tagged with
+                        `method="2d"`. With `method='3d_complex'` a `Skeleton` is
+                        drawn segment by segment, so it comes out as hundreds of
+                        groups sharing an ID rather than as one group.
 
     Returns
     -------
@@ -324,6 +620,19 @@ def plot2d(
     ...          )
     >>> plt.show() # doctest: +SKIP
 
+    Tell overlapping neurons apart by giving each a halo and letting them
+    interleave by depth:
+
+    >>> fig, ax = navis.plot2d(nl, method='2d', halo=True, depth_sort=True)
+    >>> plt.show() # doctest: +SKIP
+
+    Draw neurites at their real radius, with a soma - or taper them by branch
+    order if the radii are not trustworthy:
+
+    >>> fig, ax = navis.plot2d(nl[0], method='2d', style='publication')
+    >>> fig, ax = navis.plot2d(nl[0], method='2d', taper='strahler')
+    >>> plt.show() # doctest: +SKIP
+
     Plot in "fake" 3D:
 
     >>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
@@ -344,7 +653,7 @@ def plot2d(
     >>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True, view=('x', '-z'))
     >>> plt.show() # doctest: +SKIP
 
-    See the [plotting intro](../../generated/gallery/1_plotting/tutorial_plotting_00_intro)
+    See the [plotting intro](../../generated/gallery/1a_plotting_general/tutorial_plotting_00_intro)
     for more examples.
 
     See Also
@@ -359,8 +668,9 @@ def plot2d(
 
     """
     # This handles (1) checking for invalid arguments, (2) setting defaults and
-    # (3) synonyms
-    settings = Matplotlib2dSettings().update_settings(**kwargs)
+    # (3) synonyms. Styles are resolved first so that they only ever fill in
+    # arguments that are not already spoken for.
+    settings = Matplotlib2dSettings().update_settings(**_apply_style(kwargs))
 
     _METHOD_OPTIONS = ["2d", "3d", "3d_complex"]
     if settings.method not in _METHOD_OPTIONS:
@@ -368,6 +678,33 @@ def plot2d(
             f'Unknown method "{settings.method}". Please use either: '
             f'{",".join(_METHOD_OPTIONS)}'
         )
+
+    # Validate up front and for every method - a typo in the mode name should not
+    # depend on which one you asked for, and the 3d path would silently read it
+    # as a plain `True`
+    _mesh_shade_spec(settings)
+
+    # A halo has to sit *between* two neurons of the same kind, which one merged
+    # artist has no z-order to express - so the halo wins and we fall back to the
+    # bins, which are the same sort, only quantised.
+    if _depth_sort_mode(settings) == DEPTH_SORT_GLOBAL and settings.halo:
+        logger.warning(
+            'depth_sort="global" merges each neuron type into a single artist, '
+            "which leaves no room for a halo between two of them - falling back "
+            f"to {DEPTH_BINS} bins. Pass a bin count to choose your own."
+        )
+        settings.depth_sort = True
+
+    # These all work in the view plane, which the 3d methods do not have
+    if settings.method != "2d":
+        ignored = [p for p in ("halo", "depth_sort", "taper") if settings.get(p)]
+        if settings.mesh_shade and not isinstance(settings.mesh_shade, bool):
+            ignored.append("mesh_shade modes")
+        if ignored:
+            logger.warning(
+                f"{', '.join(ignored)} only work with `method=\"2d\"` and will be "
+                f'ignored for method "{settings.method}".'
+            )
 
     # Parse objects
     (neurons, volumes, points, _) = utils.parse_objects(x)
@@ -456,6 +793,17 @@ def plot2d(
         ax.set_aspect("equal")
         _set_view2d(ax, settings)
 
+    # Depth bins have to be shared by all neurons for them to interleave
+    _prepare_depth_bins(neurons, settings)
+    if _depth_sort_mode(settings) == DEPTH_SORT_GLOBAL and settings.method == "2d":
+        settings._global_sort = _GlobalSort()
+
+    # ... and so does the colour scale behind `cn_color_by`
+    prepare_cn_colors(neurons, settings)
+    # dict rather than list: one entry per connector *type*, however many neurons
+    # carry that type, and insertion-ordered so the legend follows the data
+    settings._cn_legend = {}
+
     # Prepare some stuff for depth coloring
     if settings.depth_coloring and not neurons.empty:
         if settings.method == "3d_complex":
@@ -480,6 +828,9 @@ def plot2d(
 
     # Create lines from segments
     visuals = {}
+    # width of one neuron's z-order slot, for when there are no depth bins to
+    # stack them by instead - see `_neuron_slot`
+    settings._z_step = 1 / max(len(neurons), 1)
     for i, neuron in enumerate(
         config.tqdm(
             neurons,
@@ -488,6 +839,7 @@ def plot2d(
             disable=config.pbar_hide or (len(neurons) <= 10),
         )
     ):
+        settings._z_index = i
         if not settings.connectors_only:
             if isinstance(neuron, core.Skeleton) and neuron.nodes.empty:
                 logger.warning(f"Skipping Skeleton w/o nodes: {neuron.label}")
@@ -502,7 +854,11 @@ def plot2d(
                 logger.warning(f"Skipping Dotprops w/o points: {neuron.label}")
                 continue
 
-            if use_radius(neuron, settings):
+            # asked once per neuron and handed down: `use_radius` rescans the
+            # radius column and warns when it cannot be used, so calling it again
+            # further in would repeat the warning
+            radius = use_radius(neuron, settings)
+            if radius:
                 # Warn once if more than 5% of nodes have missing radii
                 if not getattr(fig, "_radius_warned", False):
                     if (
@@ -516,20 +872,29 @@ def plot2d(
                         )
                         fig._radius_warned = True
 
-                _neuron = conversion.tree2meshneuron(
-                    neuron,
-                    warn_missing_radii=False,
-                    radius_scale_factor=settings.get("linewidth", 1),
-                )
-                _neuron.connectors = neuron.connectors
-                neuron = _neuron
+                # In 2d we can outline the tube in the view plane directly, which
+                # is both cheaper and gives us something we can shade, fade and
+                # halo. The 3d methods need actual geometry, so they still mesh.
+                if settings.method != "2d":
+                    _neuron = conversion.tree2meshneuron(
+                        neuron,
+                        warn_missing_radii=False,
+                        radius_scale_factor=settings.get("linewidth", 1),
+                    )
+                    _neuron.connectors = neuron.connectors
+                    neuron = _neuron
 
-                # See if we need to map colors to vertices
-                if isinstance(neuron_cmap[i], np.ndarray) and neuron_cmap[i].ndim == 2:
-                    neuron_cmap[i] = neuron_cmap[i][neuron.vertex_map]
+                    # See if we need to map colors to vertices
+                    if (
+                        isinstance(neuron_cmap[i], np.ndarray)
+                        and neuron_cmap[i].ndim == 2
+                    ):
+                        neuron_cmap[i] = neuron_cmap[i][neuron.vertex_map]
 
             if isinstance(neuron, core.Skeleton):
-                lc, sc = _plot_skeleton(neuron, neuron_cmap[i], ax, settings)
+                lc, sc = _plot_skeleton(
+                    neuron, neuron_cmap[i], ax, settings, radius=radius
+                )
                 # Keep track of visuals related to this neuron
                 visuals[neuron] = {"skeleton": lc, "somata": sc}
             elif isinstance(neuron, core.Mesh):
@@ -553,6 +918,14 @@ def plot2d(
                 )
 
         _plot_connectors(neuron, neuron_cmap[i], ax, settings)
+
+    # Nothing has been drawn yet under `depth_sort="global"` - this is where the
+    # collected geometry becomes one artist per neuron type
+    if _global_sort(settings) is not None:
+        settings._global_sort.flush(ax, settings)
+
+    if settings.cn_legend:
+        _add_cn_legend(ax, settings)
 
     # Plot points
     for p in points:
@@ -811,55 +1184,156 @@ def _plot_dotprops(dp, color, ax, settings):
     # which we can then pass to _plot_skeleton
     tn = dp.to_skeleton(scale_vec=settings.dps_scale_vec)
 
-    return _plot_skeleton(tn, color, ax, settings)
+    # the decision is normally made in `plot2d`, which only sees the dotprops
+    return _plot_skeleton(tn, color, ax, settings, radius=use_radius(tn, settings))
+
+
+def _add_cn_legend(ax, settings):
+    """Explain the connector colours - as legend entries or as a colorbar.
+
+    Entries are collected across neurons and keyed by label, so three neurons
+    with pre- and postsynapses contribute two entries, not six. A continuous
+    `cn_color_by` has no entries to collect and gets a colorbar instead, which is
+    the only honest way to show a ramp.
+    """
+    kind, scale = getattr(settings, "_cn_scale", None) or (None, None)
+    if kind == "numeric":
+        palette = settings.get("cn_palette", None) or settings.get("palette", None)
+        mappable = ScalarMappable(
+            norm=mpl.colors.Normalize(*scale),
+            cmap=plt.get_cmap(palette if isinstance(palette, str) else "viridis"),
+        )
+        label = settings.cn_color_by
+        ax.get_figure().colorbar(
+            mappable,
+            ax=ax,
+            fraction=0.03,
+            pad=0.02,
+            label=label if isinstance(label, str) else None,
+        )
+        return
+
+    for label, rgba in settings._cn_legend.items():
+        # empty data, so the entry costs nothing and does not pull on the limits
+        ax.add_line(
+            mlines.Line2D([], [], color=rgba, label=label, marker="o", ls="none")
+        )
+
+
+def _cn_shuffle(n_items, colors):
+    """A fixed shuffle of `n_items`, or None if there is nothing to interleave.
+
+    Drawing one type after another means the type painted last wins wherever
+    markers overlap, so a rare type can bury a common one - on the example neuron
+    232 presynapses hide 1933 postsynapses and the arbour reads as an output
+    region. Interleaving the draw order makes the visible mix a fair sample of
+    the real one.
+
+    The permutation is seeded, so the same data always produces the same figure -
+    a plot that reshuffled itself on every call would be worse than the problem.
+    """
+    if n_items < 2 or len(np.unique(colors, axis=0)) < 2:
+        return None
+    return np.random.default_rng(0).permutation(n_items)
+
+
+def _cn_stalks(neuron, connectors):
+    """`(n, 2, 3)` segments from each connector back to the node it sits on, and
+    a mask saying which connectors got one.
+
+    This is what `cn_layout={"display": "lines"}` draws instead of a marker. It
+    needs somewhere to draw *to*, so it is skeletons only - and only those whose
+    `node_id`s still resolve, which pruning can easily break.
+    """
+    if not isinstance(neuron, core.Skeleton) or "node_id" not in connectors:
+        return None
+
+    nodes = neuron.nodes.set_index("node_id")
+    ends = nodes.reindex(connectors.node_id.values)[["x", "y", "z"]].values
+    keep = np.isfinite(ends).all(axis=1)
+    if not keep.any():
+        return None
+
+    starts = connectors[["x", "y", "z"]].values
+    return np.stack([starts[keep], ends[keep]], axis=1), keep
 
 
 def _plot_connectors(neuron, color, ax, settings):
-    """Plot connectors."""
+    """Plot connectors, all of them in one artist.
+
+    One artist rather than one per type is what lets the draw order be shuffled
+    (see `_cn_shuffle`) and what `cn_color_by` needs, since that colours every
+    connector individually and has no groups to speak of.
+    """
     connectors = resolve_connectors(neuron, settings)
 
     if connectors.empty:
         return
 
     cn_layout = resolve_cn_layout(settings)
-    # Normalize to RGBA once per type: a partial `cn_colors` dict leaves some
-    # types with their default rgb tuple and others with whatever the user
-    # passed, and matplotlib can't build an array out of a mixed str/tuple
-    # sequence. Doing it per type rather than per connector matters because an
-    # unhashable color (e.g. an rgb array) misses matplotlib's colour cache.
-    cn_color = {
-        ty: mcl.to_rgba(resolve_cn_color(ty, cn_layout, color, settings))
-        for ty in connectors.type.unique()
-    }
+    # Resolved to RGBA per row: a partial `cn_colors` dict leaves some types with
+    # their default rgb tuple and others with whatever the user passed, and
+    # matplotlib cannot build an array out of a mixed str/tuple sequence.
+    colors, legend = connector_colors(connectors, cn_layout, color, settings)
 
-    if settings.method == "2d":
-        for c, this_cn in connectors.groupby("type"):
-            x, y = _parse_view2d(this_cn[["x", "y", "z"]].values, settings.view)
+    if settings.cn_legend:
+        settings._cn_legend.update(legend)
 
-            ax.scatter(
-                x,
-                y,
-                color=cn_color[c],
-                edgecolor="none",
-                s=settings.cn_size if settings.cn_size else cn_layout["size"],
-                alpha=settings.get('cn_alpha', None),
-                zorder=settings.cn_zorder if settings.cn_zorder is not None else 1000,
-            )
-            ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
-    elif settings.method in ["3d", "3d_complex"]:
-        c = [cn_color[i] for i in connectors.type.values]
-        ax.scatter(
-            connectors.x.values,
-            connectors.y.values,
-            connectors.z.values,
-            color=c,
-            s=settings.cn_size if settings.cn_size else cn_layout["size"],
+    size = settings.cn_size if settings.cn_size else cn_layout["size"]
+    alpha = settings.get("cn_alpha", None)
+    flat = settings.method == "2d"
+    zorder = settings.cn_zorder
+    if zorder is None:
+        # 2d: above everything, so a synapse is never hidden by its own neurite.
+        # 3d: `zorder` does very little there - matplotlib sorts by depth instead.
+        zorder = 1000 if flat else 0
+
+    stalks = (
+        _cn_stalks(neuron, connectors) if cn_layout.get("display") == "lines" else None
+    )
+    geometry = connectors[["x", "y", "z"]].values
+    if stalks is not None:
+        geometry, keep = stalks
+        colors = colors[keep]
+
+    # Same treatment either way: a stalk can bury its neighbour exactly as a
+    # marker can, and the shuffle has to run before the view is applied so that
+    # 2d and 3d end up with the same order
+    order = _cn_shuffle(len(geometry), colors)
+    if order is not None:
+        geometry, colors = geometry[order], colors[order]
+
+    if stalks is not None:
+        x_ix, y_ix, _ = _view_axes(settings.view)
+        artist = (LineCollection if flat else Line3DCollection)(
+            geometry[:, :, [x_ix, y_ix]] if flat else geometry,
+            colors=colors,
+            # `cn_size` is a marker *area* everywhere else, so take its root to
+            # get something that reads as about the same weight in line widths
+            linewidths=np.sqrt(size),
+            alpha=alpha,
+            rasterized=settings.rasterize,
+            zorder=zorder,
+        )
+        (ax.add_collection if flat else ax.add_collection3d)(artist)
+    elif flat:
+        x_ix, y_ix, _ = _view_axes(settings.view)
+        artist = ax.scatter(
+            geometry[:, x_ix], geometry[:, y_ix],
+            color=colors, edgecolor="none", s=size, alpha=alpha, zorder=zorder,
+        )
+    else:
+        artist = ax.scatter(
+            geometry[:, 0], geometry[:, 1], geometry[:, 2],
+            color=colors,
+            s=size,
             depthshade=cn_layout.get("depthshade", False),
-            alpha=settings.get('cn_alpha', None),
-            zorder=settings.cn_zorder if settings.cn_zorder is not None else 0,  # not sure this does anything in 3d
+            alpha=alpha,
+            zorder=zorder,
             edgecolor="none",
         )
-        ax.get_children()[-1].set_gid(f"CN_{neuron.id}")
+
+    artist.set_gid(f"CN_{neuron.id}")
 
 
 def _plot_mesh(neuron, color, ax, settings):
@@ -867,45 +1341,21 @@ def _plot_mesh(neuron, color, ax, settings):
     # Map vertex colors to faces (if need be)
     if isinstance(color, np.ndarray) and color.ndim == 2:
         if len(color) != len(neuron.faces) and len(color) == len(neuron.vertices):
-            color = np.array([color[f].mean(axis=0)[:4].tolist() for f in neuron.faces])
+            color = color[neuron.faces].mean(axis=1)[:, :4]
 
     ts = None
     if settings.method == "2d":
-        # Generate 2d representation
-        xy = np.dstack(_parse_view2d(neuron.vertices, settings.view))[0]
-
-        pc = PolyCollection(
-            xy[neuron.faces],
-            linewidth=0,
-            rasterized=settings.rasterize,
-            edgecolor="none",
+        _plot_surface(
+            neuron.vertices,
+            neuron.faces,
+            color,
+            ax,
+            settings,
             label=getattr(neuron, "name"),
-            zorder=100,  # unless we set this, the mesh will always be behind the grid
+            zorder=MESH_ZORDER,
+            depth_color=settings.depth_coloring,
+            key=type(neuron).__name__,
         )
-
-        if settings.depth_coloring:
-            if settings.palette:
-                cmap = plt.get_cmap(settings.palette)
-            else:
-                cmap = DEPTH_CMAP
-
-            pc.set_cmap(cmap)
-            pc.set_norm(settings.norm)
-            pc.set_alpha(settings.alpha if isinstance(settings.alpha, float) else None)
-
-            # Get face centers
-            if hasattr(neuron, "trimesh"):
-                centers = neuron.trimesh.triangles_center[
-                    :, _get_depth_axis(settings.view)
-                ]
-            else:
-                centers = neuron.triangles_center[:, _get_depth_axis(settings.view)]
-            # Set face centers to color the scale
-            pc.set_array(centers)
-        else:
-            pc.set_facecolor(color)
-
-        ax.add_collection(pc)
     else:
         ts = ax.plot_trisurf(
             neuron.vertices[:, 0],
@@ -914,7 +1364,7 @@ def _plot_mesh(neuron, color, ax, settings):
             neuron.vertices[:, 2],
             label=getattr(neuron, "name"),
             rasterized=settings.rasterize,
-            shade=settings.mesh_shade,
+            shade=bool(settings.mesh_shade),
         )
 
         if settings.depth_coloring:
@@ -932,12 +1382,557 @@ def _plot_mesh(neuron, color, ax, settings):
     return ts
 
 
+def _plot_surface(
+    vertices,
+    faces,
+    color,
+    ax,
+    settings,
+    label=None,
+    zorder=MESH_ZORDER,
+    depth_color=False,
+    depth_bins=True,
+    halo=True,
+    key=None,
+):
+    """Draw a triangle mesh into a 2d axes: culled, depth-sorted, maybe shaded.
+
+    Back faces are dropped and the rest painted furthest-first, always - it costs
+    less than drawing every face in mesh order and it is the difference between a
+    flat blob and a surface with a front and a back.
+
+    A mesh in one colour is filled as a single path rather than as one polygon per
+    face. Under the nonzero winding rule the union of the front faces is filled
+    exactly once, which is both an order of magnitude fewer paths and the only way
+    a translucent mesh reads as translucent rather than as its own triangulation.
+    Per-face colours (shading, `color_by`, depth coloring) rule that out, so those
+    fall back to a `PolyCollection` - with antialiasing off, since neighbouring
+    triangles would otherwise show a hairline of background between them.
+
+    Parameters
+    ----------
+    color :         Colour, or one RGB(A) per *face*.
+    label :         Legend entry; only the first artist gets it.
+    zorder :        Base z-order, used when the faces are not put into depth bins.
+    depth_color :   Colour faces by depth instead of by `color`.
+    depth_bins :    Let `depth_sort` split the faces across the shared bins. Also
+                    gates `depth_sort="global"`, which volumes stay out of too.
+    halo :          Honour the `halo` setting.
+    key :           Bucket name under `depth_sort="global"`, i.e. the neuron type.
+
+    """
+    vertices = np.asarray(vertices, dtype=float)
+    faces = np.asarray(faces)
+    if not faces.size:
+        return
+
+    x_ix, y_ix, d_ix = _view_axes(settings.view)
+    shade = _mesh_shade_spec(settings)
+
+    tri, normals, depth, ix = mesh_faces(
+        vertices,
+        faces,
+        (x_ix, y_ix),
+        d_ix,
+        front=_view_front(settings.view),
+        smooth=shade is not None,
+    )
+    if not len(tri):
+        return
+
+    cmap = array = facecolors = None
+    if depth_color:
+        cmap = plt.get_cmap(settings.palette) if settings.palette else DEPTH_CMAP
+        array = depth
+    elif isinstance(color, np.ndarray) and color.ndim == 2:
+        facecolors = color[ix]
+
+    if shade is not None:
+        if array is not None:
+            # resolve the depth ramp to colours first, so shading multiplies into
+            # it rather than replacing it
+            facecolors = cmap(_norm_for(settings, array))
+            cmap = array = None
+        facecolors = _shade_faces(
+            normals, color if facecolors is None else facecolors, shade, settings.view
+        )
+
+    halo = _halo_spec(settings, ax) if halo else None
+    uniform = array is None and facecolors is None
+
+    merge = _global_sort(settings, depth_bins)
+    if merge is not None:
+        resolved = cmap(_norm_for(settings, array)) if array is not None else (
+            color if facecolors is None else facecolors
+        )
+        merge.add((key, "faces"), tri, depth, resolved)
+        merge.label(label, resolved, "faces")
+        return
+
+    for z_under, z_over, sub in _depth_groups(depth, settings, zorder, depth_bins):
+        sub_tri = tri if sub is None else tri[sub]
+        path = _compound_path(sub_tri) if uniform or halo is not None else None
+
+        if halo is not None:
+            halo_width, halo_color = halo
+            _outline_under(
+                ax, path, halo_color, halo_width, z_under, settings.rasterize
+            )
+
+        z = z_over if halo is not None else z_under
+        if uniform:
+            artist = PathCollection(
+                [path],
+                facecolors=color,
+                edgecolors="none",
+                linewidths=0,
+                rasterized=settings.rasterize,
+                zorder=z,
+                label=label,
+            )
+        else:
+            artist = PolyCollection(
+                sub_tri,
+                cmap=cmap,
+                norm=settings.norm if cmap is not None else None,
+                edgecolors="none",
+                linewidth=0,
+                antialiased=False,
+                rasterized=settings.rasterize,
+                zorder=z,
+                label=label,
+            )
+            if array is not None:
+                artist.set_array(array if sub is None else array[sub])
+                artist.set_alpha(
+                    settings.alpha if isinstance(settings.alpha, float) else None
+                )
+            else:
+                artist.set_facecolor(facecolors if sub is None else facecolors[sub])
+
+        ax.add_collection(artist)
+        label = None  # one legend entry per neuron, not one per bin
+
+
 def _get_depth_axis(view):
     """Return index of axis which is not used for x/y."""
     view = [v.replace("-", "").replace("+", "") for v in view]
     depth = [ax for ax in ["x", "y", "z"] if ax not in view][0]
     map = {"x": 0, "y": 1, "z": 2}
     return map[depth]
+
+
+def _view_axes(view):
+    """Return coordinate indices for (x, y, depth) of a 2d view."""
+    map = {"x": 0, "y": 1, "z": 2}
+    xy = [map[v.replace("-", "").replace("+", "")] for v in view]
+    return xy[0], xy[1], _get_depth_axis(view)
+
+
+def _view_frame(view):
+    """`(u, v, w)`: screen right, screen up and out-of-the-screen, in data space.
+
+    Coordinates are never flipped - a `"-z"` in the view inverts the axis instead -
+    so which way is "up" or "towards the viewer" has to be worked out from the view
+    rather than read off the data. All three come out as signed unit axes.
+    """
+    map = {"x": 0, "y": 1, "z": 2}
+    u, v = np.zeros(3), np.zeros(3)
+    for e, spec in ((u, view[0]), (v, view[1])):
+        e[map[spec.replace("-", "").replace("+", "")]] = (
+            -1 if spec.startswith("-") else 1
+        )
+    return u, v, np.cross(u, v)
+
+
+def _view_front(view):
+    """Sign along the depth axis that points at the viewer."""
+    _, _, w = _view_frame(view)
+    return int(np.sign(w[_get_depth_axis(view)])) or 1
+
+
+def _mesh_shade_spec(settings):
+    """`dict(mode, light, ambient, strength)` for `mesh_shade`, or None if flat."""
+    shade = settings.mesh_shade
+    if not shade:
+        return None
+
+    mode, light, ambient, strength = "lambert", MESH_LIGHT, MESH_AMBIENT, 1.0
+    if isinstance(shade, dict):
+        mode = shade.get("mode", mode)
+        light = shade.get("light", light)
+        ambient = shade.get("ambient", ambient)
+        strength = shade.get("strength", strength)
+    elif not isinstance(shade, bool):
+        mode = shade
+
+    mode = str(mode).lower()
+    if mode not in MESH_SHADE_MODES:
+        raise ValueError(
+            f'Unknown mesh_shade mode "{mode}". Available modes: '
+            f"{', '.join(MESH_SHADE_MODES)}"
+        )
+
+    return dict(mode=mode, light=light, ambient=float(ambient),
+                strength=float(strength))
+
+
+def _shade_ramp(color, shade):
+    """Map a 0-1 shade onto a dark -> `color` -> light ramp.
+
+    A shade of 0.5 is the colour that was asked for, so a mid-lit neuron still
+    matches its legend entry. `color` may be one colour or one per face, which is
+    what lets shading multiply into `color_by` rather than replace it.
+    """
+    rgba = mcl.to_rgba_array(color)
+    base, alpha = rgba[:, :3], rgba[:, 3:]
+    dark = base * 0.38
+    light = base + (1 - base) * 0.5
+
+    s = np.clip(shade, 0, 1)[:, None]
+    out = np.where(
+        s < 0.5,
+        dark + (base - dark) * (s / 0.5),
+        base + (light - base) * ((s - 0.5) / 0.5),
+    )
+    return np.clip(np.hstack([out, np.broadcast_to(alpha, (len(out), 1))]), 0, 1)
+
+
+def _shade_faces(normals, color, spec, view):
+    """One RGBA per face for a `mesh_shade` mode.
+
+    `color` may be a single colour or one per face - shading multiplies into it
+    either way, so `color_by`, depth coloring and palettes all survive it.
+    """
+    mode = spec["mode"]
+    u, v, w = _view_frame(view)
+
+    if mode == "ghost":
+        # opaque where the surface turns away from the viewer and clear where it
+        # faces them, which is what keeps a neuron inside a neuropil visible
+        rgba = np.broadcast_to(mcl.to_rgba_array(color), (len(normals), 4)).copy()
+        rgba[:, 3] *= np.clip(
+            (1 - np.abs(normals @ w)) ** 2 * spec["strength"], 0.02, 1
+        )
+        return rgba
+
+    # the light direction is given in view space, so put it back on the data axes
+    light = np.asarray(spec["light"], dtype=float)
+    light = light[0] * u + light[1] * v + light[2] * w
+    light = light / (np.linalg.norm(light) or 1)
+
+    ambient = spec["ambient"]
+    shade = np.clip(normals @ light, 0, 1) * (1 - ambient) + ambient
+
+    if mode == "cel":
+        shade = np.floor(np.clip(shade, 0, 0.999) * CEL_BANDS) / (CEL_BANDS - 1)
+    elif mode == "rim":
+        shade = shade + 0.55 * spec["strength"] * (1 - np.abs(normals @ w)) ** 3
+
+    return _shade_ramp(color, shade)
+
+
+def _apply_style(kwargs):
+    """Fill `kwargs` with the defaults of `kwargs["style"]`.
+
+    Anything the caller passed themselves wins, including under an alias - so
+    `style="publication", radius=False` really does turn the radius off.
+    """
+    name = kwargs.get("style")
+    if name is None:
+        return kwargs
+
+    if name not in PLOT_STYLES:
+        raise ValueError(
+            f'Unknown style "{name}". Available styles: '
+            f"{', '.join(sorted(PLOT_STYLES))}"
+        )
+
+    kwargs = dict(kwargs)
+    for key, value in PLOT_STYLES[name].items():
+        if not any(alias in kwargs for alias in _STYLE_ALIASES.get(key, (key,))):
+            kwargs[key] = value
+    return kwargs
+
+
+def _background_color(ax):
+    """Colour to draw halos in: whatever the neuron is sitting on."""
+    for color in (ax.get_facecolor(), ax.get_figure().get_facecolor()):
+        # a fully transparent patch tells us nothing about what will show through
+        if mcl.to_rgba(color)[3] > 0:
+            return color
+    return "w"
+
+
+def _halo_spec(settings, ax):
+    """`(width, color)` for the halo stroke, or None if there is no halo.
+
+    Note that the halo has to be drawn as its own artist *underneath* the neuron
+    rather than as a `patheffects.withStroke`: path effects are applied per path,
+    so within a single collection each segment's halo would erase the segments
+    drawn before it and the neuron would come out dashed.
+    """
+    halo = settings.halo
+    if not halo:
+        return None
+
+    width, color = HALO_WIDTH, None
+    if isinstance(halo, dict):
+        width = halo.get("width", halo.get("lw", HALO_WIDTH))
+        color = halo.get("color", halo.get("c", None))
+    elif not isinstance(halo, bool):
+        width = float(halo)
+
+    return width, _background_color(ax) if color is None else color
+
+
+def _depth_sort_mode(settings):
+    """`None`, `"bins"` or `"global"` for the `depth_sort` setting."""
+    value = settings.depth_sort
+    if isinstance(value, str):
+        if value != DEPTH_SORT_GLOBAL:
+            raise ValueError(
+                f'Unknown depth_sort "{value}". Use False, True, an integer '
+                f'number of bins, or "{DEPTH_SORT_GLOBAL}".'
+            )
+        return DEPTH_SORT_GLOBAL
+    return "bins" if value else None
+
+
+def _prepare_depth_bins(neurons, settings):
+    """Work out global depth bin edges for `depth_sort`.
+
+    They have to be global: the whole point is that neurons interleave, which
+    only works if the same depth maps to the same z-order for all of them.
+    """
+    if _depth_sort_mode(settings) != "bins" or settings.method != "2d" or neurons.empty:
+        return
+
+    if isinstance(settings.depth_sort, bool):
+        n_bins, flip = DEPTH_BINS, False
+    else:
+        n_bins, flip = int(abs(settings.depth_sort)), settings.depth_sort < 0
+
+    if n_bins < 2:
+        return
+
+    # bins are indexed along the raw depth axis, which for half the views runs away
+    # from the viewer rather than towards them - `_view_front` is what tells them
+    # apart, and a negative `depth_sort` still flips whatever it works out
+    reverse = (_view_front(settings.view) < 0) != flip
+
+    lo, hi = neurons.bbox[_get_depth_axis(settings.view)]
+    if not np.isfinite([lo, hi]).all() or lo == hi:
+        return
+
+    settings._depth_edges = np.linspace(lo, hi, n_bins + 1)
+    settings._depth_reverse = reverse
+
+
+def _neuron_slot(settings, base):
+    """`(z, step)` for the neuron being drawn, inside `[base, base + 1)`.
+
+    Without depth bins every neuron would otherwise land on `base` itself, and a
+    halo sharing a z-order with the neuron in front of it is background colour
+    under everything - i.e. invisible. Giving each neuron its own slot makes input
+    order the stacking order, which is what one-artist-per-neuron should mean.
+    """
+    step = getattr(settings, "_z_step", 1.0)
+    return base + getattr(settings, "_z_index", 0) * step, step
+
+
+def _depth_groups(depth, settings, base=1, bins=True):
+    """Yield `(z_under, z_over, indices)` for each depth bin, back to front.
+
+    `z_under` is for the halo, `z_over` for the artist itself: the halo has to sit
+    below its own neuron but above everything further away.
+
+    Without `depth_sort` this yields a single group of everything, with `None` for
+    the indices and the neuron's own slot for its z-order. `bins=False` - which is
+    how volumes stay out of the stack - pins it to `base` instead.
+    """
+    edges = getattr(settings, "_depth_edges", None) if bins else None
+    if edges is None:
+        z, step = _neuron_slot(settings, base) if bins else (base, 1.0)
+        yield z, z + step / 2, None
+        return
+
+    n_bins = len(edges) - 1
+    step = 1 / n_bins
+    which = np.clip(np.digitize(depth, edges[1:-1]), 0, n_bins - 1)
+    order = range(n_bins - 1, -1, -1) if settings._depth_reverse else range(n_bins)
+    for rank, b in enumerate(order):
+        ix = np.flatnonzero(which == b)
+        if len(ix):
+            # keep z-orders inside [1, 2) so somata (4) and connectors stay on top
+            z = 1 + rank * step
+            yield z, z + step / 2, ix
+
+
+class _GlobalSort:
+    """Geometry collected across neurons for `depth_sort="global"`.
+
+    Bins approximate a depth sort by quantising it; this is the exact version.
+    Everything drawn the same way - all skeleton lines, all mesh faces - goes
+    into one artist and is sorted together, so two neurons interleave face by
+    face rather than bin by bin.
+
+    What it costs is the *aggregate* artists that make 2d plotting fast. A flat
+    mesh is normally one compound path and a skeleton a handful of polylines;
+    sorting across neurons forces both down to their elements, which is why this
+    is opt-in and `depth_sort=<int>` remains the cheap approximation.
+
+    Buckets come out in the order their neuron type first appeared in the input.
+    Colours are resolved to RGBA on the way in - a merged artist has no room for
+    a colormap that only made sense for one neuron - and per-neuron legend
+    entries survive as proxy handles, since one artist carries one label.
+    """
+
+    def __init__(self):
+        self.buckets = {}
+        self.proxies = []
+
+    def add(self, key, paths, depth, colors, widths=None):
+        """Stash one neuron's worth of elements under `key = (type, kind)`."""
+        bucket = self.buckets.setdefault(
+            key, dict(paths=[], depth=[], colors=[], widths=[])
+        )
+        depth = np.asarray(depth, dtype=float)
+        # one colour for the whole neuron still has to arrive per element, since
+        # it is about to be interleaved with everyone else's
+        rgba = mcl.to_rgba_array(colors, None)
+        if len(rgba) == 1 and len(depth) != 1:
+            rgba = np.repeat(rgba, len(depth), axis=0)
+
+        bucket["paths"].append(paths)
+        bucket["depth"].append(depth)
+        bucket["colors"].append(rgba)
+        if widths is not None:
+            bucket["widths"].append(np.broadcast_to(
+                np.asarray(widths, dtype=float), depth.shape
+            ).copy())
+
+    def label(self, label, colors, kind):
+        """Remember a legend entry to re-create once the buckets are merged.
+
+        `colors` is whatever the neuron was drawn in; a per-element array is
+        averaged, since a swatch can only show one colour.
+        """
+        if label is None:
+            return
+        rgba = mcl.to_rgba_array(colors, None)
+        self.proxies.append((label, tuple(rgba.mean(axis=0)), kind))
+
+    def flush(self, ax, settings):
+        """Emit one artist per bucket, back to front, and the legend proxies."""
+        common = dict(
+            linestyle=settings.linestyle,
+            rasterized=settings.rasterize,
+            joinstyle="round",
+            capstyle="round",
+        )
+        # depth is the raw coordinate, which for half the views runs away from the
+        # viewer rather than towards them - same correction the bins make
+        front = _view_front(settings.view)
+        # keep z-orders inside [1, 2), as the bins do, so that somata (4) and
+        # connectors stay on top of every kind
+        step = 1 / max(len(self.buckets), 1)
+        for rank, ((_, kind), bucket) in enumerate(self.buckets.items()):
+            paths = _concat_paths(bucket["paths"])
+            order = np.argsort(np.concatenate(bucket["depth"]) * front)
+            colors = np.concatenate(bucket["colors"])[order]
+            sub = paths[order] if isinstance(paths, np.ndarray) else [paths[i] for i in order]
+            zorder = 1 + rank * step
+
+            if kind in ("lines", "radius_lines"):
+                widths = np.concatenate(bucket["widths"])[order]
+                if kind == "radius_lines":
+                    artist = RadiusLineCollection(
+                        sub, radii=widths, colors=colors, zorder=zorder, **common
+                    )
+                else:
+                    artist = LineCollection(
+                        sub, linewidths=widths, colors=colors, zorder=zorder, **common
+                    )
+            else:
+                artist = PolyCollection(
+                    sub,
+                    facecolors=colors,
+                    edgecolors="none",
+                    linewidth=0,
+                    # neighbouring mesh faces would otherwise show a hairline of
+                    # background between them; ribbon capsules overlap and don't
+                    antialiased=kind != "faces",
+                    rasterized=settings.rasterize,
+                    zorder=zorder,
+                )
+            ax.add_collection(artist)
+
+        for label, color, kind in self.proxies:
+            # empty data, so these carry a legend entry without drawing anything
+            # or pulling on the axis limits
+            ax.add_line(
+                mlines.Line2D(
+                    [], [], color=color, label=label,
+                    **(dict(lw=4) if kind in ("lines", "radius_lines")
+                       else dict(marker="s", ls="none", ms=8)),
+                )
+            )
+
+
+def _concat_paths(chunks):
+    """Join per-neuron path chunks, keeping an array an array where possible."""
+    if all(isinstance(c, np.ndarray) and c.ndim == 3 for c in chunks):
+        if len({c.shape[1] for c in chunks}) == 1:
+            return np.concatenate(chunks)
+    return [p for chunk in chunks for p in chunk]
+
+
+def _global_sort(settings, active=True):
+    """The `_GlobalSort` accumulator, or None if this artist is not part of it."""
+    return getattr(settings, "_global_sort", None) if active else None
+
+
+def _norm_for(settings, values):
+    """Normalise `values` against the shared depth normaliser, or their own range.
+
+    A merged artist cannot carry a colormap, so depth coloring has to be resolved
+    to RGBA up front - which means normalising here rather than in the artist.
+    """
+    norm = settings.norm or plt.Normalize(np.min(values), np.max(values))
+    return norm(values)
+
+
+def _taper_widths(neuron, settings):
+    """Per-node line widths from a topological measure.
+
+    Skeletons without a trustworthy `radius` column can still be tapered: both
+    measures shrink monotonically towards the tips, so the result reads like a
+    tree rather than a wireframe. Widths are relative to `linewidth`.
+    """
+    kind = settings.taper
+    node_ids = neuron.nodes.node_id.values
+    parent_ids = neuron.nodes.parent_id.values
+
+    if kind == "strahler":
+        # already computed? then respect whatever options it was computed with
+        if "strahler_index" in neuron.nodes.columns:
+            value = neuron.nodes.strahler_index.values.astype(float)
+        else:
+            value = utils.fastcore.strahler_index(node_ids, parent_ids).astype(float)
+    elif kind == "subtree":
+        # cable below each node, which grows smoothly rather than in steps
+        value = utils.fastcore.subtree_height(node_ids, parent_ids).astype(float)
+        # heavily skewed towards the root, so pull it back towards linear
+        value = value**0.35
+    else:
+        raise ValueError(
+            f'Unknown taper "{kind}". Use either "strahler" or "subtree".'
+        )
+
+    top = value.max()
+    frac = value / top if top > 0 else np.ones(len(value))
+    return settings.linewidth * (TAPER_RANGE[0] + np.diff(TAPER_RANGE)[0] * frac)
 
 
 def _parse_view2d(co, view):
@@ -1099,95 +2094,415 @@ def _collapse_colored_segments(neuron, node_colors):
     return lines, colors
 
 
-def _plot_skeleton(neuron, color, ax, settings):
-    """Plot skeleton."""
+def _plot_skeleton_2d(neuron, color, ax, settings, radius=False):
+    """Plot a skeleton's neurites for `method="2d"`.
 
-    if settings.method == "2d":
-        if not settings.depth_coloring and not (
-            isinstance(color, np.ndarray) and color.ndim == 2
-        ):
-            # Generate by-segment coordinates
-            coords = segments_to_coords(neuron, modifier=(1, 1, 1))
+    Three renderers, picked in this order:
 
-            # We have to add (None, None, None) to the end of each
-            # slab to make that line discontinuous there
-            coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
+    1. `radius` - one filled outline at the neuron's real radius
+    2. anything that needs per-path z-order, width or colour - a LineCollection
+    3. the plain single-colour case - one Line2D, which stays the fast path
 
-            x, y = _parse_view2d(coords, settings.view)
-            this_line = mlines.Line2D(
+    """
+    label = f'{getattr(neuron, "name", "NA")} - #{neuron.id}'
+    per_node_color = isinstance(color, np.ndarray) and color.ndim == 2
+
+    if radius and settings.radius != "lw":
+        _plot_ribbon(neuron, color, ax, settings, label)
+        return
+
+    widths = None
+    radius_lw = False
+    if settings.taper:
+        widths = _taper_widths(neuron, settings)
+    elif radius:
+        # `radius="lw"`: same idea as the ribbon, but the width is converted from
+        # data units at draw time. See `RadiusLineCollection`. Note `use_radius`
+        # is False if there are no radii to work with, in which case we fall
+        # through to plain lines.
+        widths = (
+            neuron.nodes.radius.fillna(0).values.astype(float) * settings.linewidth
+        )
+        radius_lw = True
+
+    # Merging contiguous same-color edges into polylines only works if we have
+    # exactly one color per node, and only pays off for categorical colors
+    can_collapse = (
+        per_node_color
+        and color.shape[0] == neuron.nodes.shape[0]
+        and _colors_are_categorical(color)
+    )
+
+    # Anything that varies along the neuron needs per-edge segments; anything that
+    # only varies between neurons can keep whole slabs and their proper joins.
+    per_edge = (
+        settings.depth_coloring
+        or widths is not None
+        or (per_node_color and not can_collapse)
+    )
+
+    fancy = per_edge or per_node_color or settings.depth_sort or settings.halo
+    if not fancy:
+        # Nothing to vary within the neuron: one Line2D with NaNs in between is
+        # by far the cheapest way to draw it.
+        coords = segments_to_coords(neuron, modifier=(1, 1, 1))
+        # We have to add (None, None, None) to the end of each
+        # slab to make that line discontinuous there
+        coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
+
+        x, y = _parse_view2d(coords, settings.view)
+        ax.add_line(
+            mlines.Line2D(
                 x,
                 y,
                 lw=settings.linewidth,
                 ls=settings.linestyle,
                 color=color,
                 rasterized=settings.rasterize,
-                label=f'{getattr(neuron, "name", "NA")} - #{neuron.id}',
+                label=label,
             )
-            ax.add_line(this_line)
-        elif (
-            not settings.depth_coloring
-            and isinstance(color, np.ndarray)
-            and color.ndim == 2
-            and color.shape[0] == neuron.nodes.shape[0]
-            and _colors_are_categorical(color)
-        ):
-            # Categorical per-node colors (e.g. `color_by='strahler_index'`):
-            # merge contiguous same-color edges into continuous polylines. This
-            # gives proper line joins (instead of a pile of short segments) and
-            # far fewer artists, which keeps vector exports small.
-            lines, line_colors = _collapse_colored_segments(neuron, color)
-            xy = [
-                np.column_stack(_parse_view2d(line, settings.view)) for line in lines
-            ]
-            lc = LineCollection(
-                xy,
-                colors=line_colors,
+        )
+        return
+
+    array = None
+    cmap = None
+    if per_edge:
+        # kept as the (n_edges, 2, 3) array it comes as - `_add_lines` projects
+        # it in one slice, where a list of one-edge arrays would be a Python loop
+        paths = coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
+        line_colors = None
+        if settings.depth_coloring:
+            cmap = (
+                plt.get_cmap(settings.palette)
+                if isinstance(settings.palette, str)
+                else DEPTH_CMAP
+            )
+            # Colour each edge by its child node, as we always have
+            array = coords[:, 0, _get_depth_axis(settings.view)]
+        elif per_node_color:
+            # If we have a color for each node, we need to drop the roots
+            line_colors = (
+                color[neuron.nodes.parent_id.values >= 0]
+                if color.shape[0] != coords.shape[0]
+                else color
+            )
+        if widths is not None:
+            # per-node -> per-edge, again taking the child's value
+            widths = widths[neuron.nodes.parent_id.values >= 0]
+    elif per_node_color:
+        # Categorical per-node colors (e.g. `color_by='strahler_index'`):
+        # merge contiguous same-color edges into continuous polylines. This
+        # gives proper line joins (instead of a pile of short segments) and
+        # far fewer artists, which keeps vector exports small.
+        paths, line_colors = _collapse_colored_segments(neuron, color)
+    else:
+        paths = segments_to_coords(neuron, modifier=(1, 1, 1))
+        line_colors = None
+
+    _add_lines(
+        ax,
+        paths,
+        settings,
+        label=label,
+        color=color if line_colors is None else None,
+        colors=line_colors,
+        widths=widths,
+        array=array,
+        cmap=cmap,
+        scale_to_radius=radius_lw,
+        key=type(neuron).__name__,
+    )
+
+
+def _add_lines(
+    ax,
+    paths,
+    settings,
+    label=None,
+    color=None,
+    colors=None,
+    widths=None,
+    array=None,
+    cmap=None,
+    scale_to_radius=False,
+    key=None,
+):
+    """Add one neuron's lines, honouring `halo` and `depth_sort`.
+
+    `paths` are xyz because we need the depth axis to bin them, not just the two
+    axes we are drawing. They come either as one `(n, 2, 3)` array of per-edge
+    segments or as a ragged list of polylines - the former is worth keeping whole,
+    since a Python loop over one-edge arrays costs more than the projection does.
+    """
+    x_ix, y_ix, d_ix = _view_axes(settings.view)
+    if isinstance(paths, np.ndarray) and paths.ndim == 3:
+        xy = paths[:, :, [x_ix, y_ix]]
+        depth = paths[:, :, d_ix].mean(axis=1)
+    else:
+        paths = [np.asarray(p, dtype=float) for p in paths]
+        xy = [p[:, [x_ix, y_ix]] for p in paths]
+        depth = np.array([p[:, d_ix].mean() for p in paths])
+    if widths is None:
+        widths = np.full(len(xy), float(settings.linewidth))
+    halo = _halo_spec(settings, ax)
+
+    merge = _global_sort(settings)
+    if merge is not None:
+        kind = "radius_lines" if scale_to_radius else "lines"
+        resolved = (
+            cmap(_norm_for(settings, array)) if array is not None
+            else colors if colors is not None
+            else color
+        )
+        merge.add((key, kind), xy, depth, resolved, widths)
+        merge.label(label, resolved, kind)
+        return
+
+    common = dict(
+        linestyle=settings.linestyle,
+        rasterized=settings.rasterize,
+        joinstyle="round",
+        # Round caps make the individual node-to-node segments blend
+        # into contiguous-looking lines instead of leaving notches at
+        # every joint (`joinstyle` has no effect on 2-point segments).
+        capstyle="round",
+    )
+
+    def build(sub, sub_widths, margin=0.0, **kwargs):
+        # With `radius="lw"` the width is a radius in data units, which only the
+        # collection itself can turn into points - see `RadiusLineCollection`.
+        if scale_to_radius:
+            return RadiusLineCollection(
+                sub, radii=sub_widths, margin=margin, **common, **kwargs
+            )
+        return LineCollection(sub, linewidths=sub_widths + margin, **common, **kwargs)
+
+    for z_under, z_over, ix in _depth_groups(depth, settings):
+        sub = xy if ix is None else (
+            xy[ix] if isinstance(xy, np.ndarray) else [xy[i] for i in ix]
+        )
+        sub_widths = widths if ix is None else widths[ix]
+
+        if halo is not None:
+            halo_width, halo_color = halo
+            ax.add_collection(
+                build(sub, sub_widths, margin=halo_width, colors=halo_color,
+                      zorder=z_under)
+            )
+
+        lc = build(
+            sub,
+            sub_widths,
+            cmap=cmap,
+            norm=settings.norm if cmap is not None else None,
+            zorder=z_over if halo is not None else z_under,
+        )
+        if label is not None:
+            lc.set_label(label)
+            label = None  # only the first group carries the legend entry
+
+        if array is not None:
+            lc.set_array(array if ix is None else array[ix])
+        elif colors is not None:
+            lc.set_color(colors if ix is None else np.asarray(colors)[ix])
+        elif color is not None:
+            lc.set_color(color)
+
+        ax.add_collection(lc)
+
+
+class RadiusLineCollection(LineCollection):
+    """Lines whose width tracks a radius given in *data* units.
+
+    This is what `radius="lw"` draws: one stroked path per edge instead of a
+    polygon per edge plus a disc per node, which makes for a much smaller vector
+    file and gives us exact round joins and caps for free.
+
+    The catch is that matplotlib line widths are in points, so the conversion
+    depends on the current axes scale. Doing it in `draw` rather than off a
+    `draw_event` is what makes it correct: `draw_event` fires *after* the artist
+    has been rendered, so the first `savefig` would go out with whatever the
+    scale happened to be before the axes were autoscaled.
+    """
+
+    def __init__(self, *args, radii=None, margin=0.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._radii = np.asarray(radii, dtype=float)
+        # constant width added on top, in points - this is how the halo keeps a
+        # fixed margin around a neurite whose own width changes with the zoom
+        self._margin = float(margin)
+        self._scale = None
+
+    def draw(self, renderer):
+        if self.axes is not None and self._radii.size:
+            trans = self.axes.transData
+            p0, p1 = trans.transform((0, 0)), trans.transform((1, 0))
+            points_per_unit = abs(p1[0] - p0[0]) * 72.0 / self.figure.dpi
+            # `set_linewidth` rebuilds the dash list for every segment, which at
+            # 100k edges is not free - and most draws are not zooms
+            if points_per_unit != self._scale:
+                self._scale = points_per_unit
+                self.set_linewidth(2 * self._radii * points_per_unit + self._margin)
+        super().draw(renderer)
+
+
+def _compound_path(polys):
+    """Merge polygons into a single path, so their union is filled just once.
+
+    A `PolyCollection` composites each polygon separately, which is invisible
+    while they are opaque but turns a translucent neuron into a chain of visible
+    discs and quads. One path with many subpaths is filled in a single operation
+    under the nonzero winding rule, so overlaps stay flat - which only holds if
+    every subpath is wound the same way (`skeleton_capsules` takes care of that;
+    wound against each other they cancel and leave a hole).
+    """
+    if isinstance(polys, np.ndarray) and polys.ndim == 3:
+        # fast path: every subpath the same length (mesh triangles), so none of
+        # the bookkeeping below is needed. The general branch handles this too.
+        n, k, _ = polys.shape
+        verts = np.empty((n * (k + 1), 2), dtype=float)
+        view = verts.reshape(n, k + 1, 2)
+        view[:, :k] = polys
+        view[:, k] = polys[:, 0]
+        codes = np.full(len(verts), mpath.Path.LINETO, dtype=mpath.Path.code_type)
+        codes[:: k + 1] = mpath.Path.MOVETO
+        return mpath.Path(verts, codes)
+
+    # Built by scattering rather than by concatenating per polygon: at ~9k
+    # polygons for a mid-sized neuron, a `vstack` per polygon costs more than
+    # everything else in the renderer put together.
+    lengths = np.fromiter((len(p) for p in polys), dtype=int, count=len(polys))
+    src = np.concatenate(polys)
+
+    # each subpath is its own vertices plus a repeat of the first, which closes
+    # it without needing a CLOSEPOLY vertex
+    sizes = lengths + 1
+    ends = np.cumsum(sizes)
+    starts = ends - sizes
+
+    verts = np.empty((int(ends[-1]), 2), dtype=float)
+    is_repeat = np.zeros(len(verts), dtype=bool)
+    is_repeat[ends - 1] = True
+    verts[~is_repeat] = src
+    verts[is_repeat] = src[np.cumsum(lengths) - lengths]
+
+    codes = np.full(len(verts), mpath.Path.LINETO, dtype=mpath.Path.code_type)
+    codes[starts] = mpath.Path.MOVETO
+
+    return mpath.Path(verts, codes)
+
+
+def _outline_under(ax, path, color, width, zorder, rasterized=False):
+    """Stroke a compound path *behind* its own fill, to outline the union.
+
+    Stroking a compound path strokes every subpath, so drawn on top of a mesh you
+    would get a wireframe of all its triangles. Underneath, the only part of the
+    stroke that survives is the half sticking out past the fill - which is exactly
+    the outline of the union. Same trick as the skeleton halo, for the same reason.
+
+    `width` is the stroke width, so the margin it leaves is half of it - matching
+    what `halo` means everywhere else (`_add_lines` adds it to the line width, so
+    that too shows half on each side).
+    """
+    ax.add_collection(
+        PathCollection(
+            [path],
+            facecolors=color,
+            edgecolors=color,
+            linewidths=width,
+            joinstyle="round",
+            capstyle="round",
+            rasterized=rasterized,
+            zorder=zorder,
+        )
+    )
+
+
+def _plot_ribbon(neuron, color, ax, settings, label):
+    """Plot a skeleton's neurites at their real radius, as filled outlines."""
+    x_ix, y_ix, d_ix = _view_axes(settings.view)
+    per_node_color = isinstance(color, np.ndarray) and color.ndim == 2
+
+    # depth coloring throws per-node colours away again, so don't carry them
+    carry = per_node_color and not settings.depth_coloring
+    polys, depth, poly_colors = skeleton_capsules(
+        neuron,
+        (x_ix, y_ix),
+        d_ix,
+        radius_scale=settings.linewidth,
+        node_values=color if carry else None,
+    )
+
+    cmap = None
+    array = None
+    if settings.depth_coloring:
+        cmap = (
+            plt.get_cmap(settings.palette)
+            if isinstance(settings.palette, str)
+            else DEPTH_CMAP
+        )
+        array = depth
+        poly_colors = None
+
+    halo = _halo_spec(settings, ax)
+    # One colour for the whole neuron means we can fill it as a single path,
+    # which keeps a translucent neuron from showing every capsule it is made of
+    uniform = array is None and poly_colors is None
+
+    merge = _global_sort(settings)
+    if merge is not None:
+        resolved = cmap(_norm_for(settings, array)) if array is not None else (
+            color if poly_colors is None else poly_colors
+        )
+        merge.add((type(neuron).__name__, "polys"), polys, depth, resolved)
+        merge.label(label, resolved, "polys")
+        return
+
+    for z_under, z_over, ix in _depth_groups(depth, settings):
+        sub = polys if ix is None else [polys[i] for i in ix]
+        path = _compound_path(sub) if uniform or halo is not None else None
+
+        if halo is not None:
+            halo_width, halo_color = halo
+            _outline_under(
+                ax, path, halo_color, halo_width, z_under, settings.rasterize
+            )
+
+        zorder = z_over if halo is not None else z_under
+        if uniform:
+            artist = PathCollection(
+                [path],
+                facecolors=color,
+                edgecolors="none",
                 rasterized=settings.rasterize,
-                joinstyle="round",
-                capstyle="round",
+                zorder=zorder,
             )
-            lc.set_linewidth(settings.linewidth)
-            lc.set_linestyle(settings.linestyle)
-            lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
-            ax.add_collection(lc)
         else:
-            if isinstance(settings.palette, str):
-                cmap = plt.get_cmap(settings.palette)
-            else:
-                cmap = DEPTH_CMAP
-
-            coords = tn_pairs_to_coords(neuron, modifier=(1, 1, 1))
-            xy = _parse_view2d(coords, settings.view)
-            lc = LineCollection(
-                xy,
-                cmap=cmap if settings.depth_coloring else None,
-                norm=settings.norm if settings.depth_coloring else None,
+            artist = PolyCollection(
+                sub,
+                cmap=cmap,
+                norm=settings.norm if cmap is not None else None,
+                edgecolors="none",
                 rasterized=settings.rasterize,
-                joinstyle="round",
-                # Round caps make the individual node-to-node segments blend
-                # into contiguous-looking lines instead of leaving notches at
-                # every joint (`joinstyle` has no effect on 2-point segments).
-                capstyle="round",
+                zorder=zorder,
             )
+            if array is not None:
+                artist.set_array(array if ix is None else array[ix])
+            else:
+                artist.set_facecolor(poly_colors if ix is None else poly_colors[ix])
 
-            lc.set_linewidth(settings.linewidth)
-            lc.set_linestyle(settings.linestyle)
-            lc.set_label(f'{getattr(neuron, "name", "NA")} - #{neuron.id}')
+        if label is not None:
+            artist.set_label(label)
+            label = None
 
-            if settings.depth_coloring:
-                lc.set_array(
-                    neuron.nodes.loc[neuron.nodes.parent_id >= 0][
-                        ["x", "y", "z"]
-                    ].values[:, _get_depth_axis(settings.view)]
-                )
-            elif isinstance(color, np.ndarray) and color.ndim == 2:
-                # If we have a color for each node, we need to drop the roots
-                if color.shape[0] != coords.shape[0]:
-                    lc.set_color(color[neuron.nodes.parent_id.values >= 0])
-                else:
-                    lc.set_color(color)
+        ax.add_collection(artist)
 
-            ax.add_collection(lc)
+
+def _plot_skeleton(neuron, color, ax, settings, radius=False):
+    """Plot skeleton."""
+
+    if settings.method == "2d":
+        _plot_skeleton_2d(neuron, color, ax, settings, radius=radius)
 
         for soma in resolve_somata(neuron, color, settings):
             soma_color = soma.color
@@ -1291,7 +2606,7 @@ def _plot_skeleton(neuron, color, ax, settings):
 
             soma_defaults = dict(
                 color=soma.color,
-                shade=settings.mesh_shade,
+                shade=bool(settings.mesh_shade),
                 rasterized=settings.rasterize,
             )
             if isinstance(settings.soma, dict):
@@ -1323,23 +2638,27 @@ def _plot_volume(volume, color, ax, settings):
 
     if settings.method == "2d":
         if settings.volume_outlines in (False, "both"):
-            # Generate 2d representation
-            xy = np.dstack(_parse_view2d(volume.verts, settings.view))[0]
-
-            # Generate a patch for each face
-            pc = PolyCollection(
-                xy[volume.faces],
-                linewidth=lw,
-                facecolor=fc,
-                rasterized=settings.rasterize,
-                edgecolor=ec,
-                alpha=this_alpha,
+            # A neuropil is nearly always translucent, which is precisely the case
+            # a per-face collection gets wrong - hence the same culled, sorted,
+            # single-path treatment neurons get. Volumes stay out of the depth bins
+            # and never take a halo: they are scenery, and belong behind everything.
+            _plot_surface(
+                np.asarray(volume.vertices),
+                np.asarray(volume.faces),
+                mcl.to_rgba(color, this_alpha),
+                ax,
+                settings,
+                label=name,
                 zorder=0,
+                depth_bins=False,
+                halo=False,
             )
-            ax.add_collection(pc)
 
         if settings.volume_outlines in (True, "both"):
-            verts = volume.to_2d(view=settings.view, alpha=settings.get("volume_outlines_alpha", 0.001))
+            verts = volume.to_2d(
+                view=settings.view,
+                alpha=settings.get("volume_outlines_alpha", 0.001),
+            )
             vpatch = mpatches.Polygon(
                 verts,
                 closed=True,
@@ -1349,7 +2668,11 @@ def _plot_volume(volume, color, ax, settings):
                 fc=fc,
                 ec=ec,
                 zorder=0,
-                alpha=1 if settings.volume_outlines == "both" else this_alpha,
+                # A volume's alpha is a *fill* alpha - it exists so you can see the
+                # neuron through the neuropil. There is nothing to see through a
+                # contour, and at the 10-20% volumes default to it would be all but
+                # invisible, so the contour is always drawn opaque.
+                alpha=1,
             )
             ax.add_patch(vpatch)
 
@@ -1449,3 +2772,57 @@ def update_axes3d_bounds(ax):
             points[:, 2].tolist(),
             had_data=True,
         )
+
+
+def style_ax3d(ax):
+    """Customize 3d axes."""
+    ax.set_axis_off()
+
+    # Trigger one rendering cycle to get the correct bounds
+    ax.figure.canvas.draw()
+
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    zlim = ax.get_zlim()
+
+    xmin, xmax = sorted(ax.get_xlim())
+    ymin, ymax = sorted(ax.get_ylim())
+    zmin, zmax = sorted(ax.get_zlim())
+
+    x_interval = (xmax - xmin) / 10
+    y_interval = (ymax - ymin) / 10
+    z_interval = (zmax - zmin) / 10
+
+    # Round to the nearest order of magnitude
+    x_interval = np.floor(x_interval / 10 ** np.floor(np.log10(x_interval))) * 10 ** np.floor(np.log10(x_interval))
+    y_interval = np.floor(y_interval / 10 ** np.floor(np.log10(y_interval))) * 10 ** np.floor(np.log10(y_interval))
+    z_interval = np.floor(z_interval / 10 ** np.floor(np.log10(z_interval))) * 10 ** np.floor(np.log10(z_interval))
+
+    # Use the largest interval
+    interval = max(x_interval, y_interval, z_interval)
+
+    xmin = np.floor(xmin / interval) * interval
+    xmax = np.ceil(xmax / interval) * interval
+    ymin = np.floor(ymin / interval) * interval
+    ymax = np.ceil(ymax / interval) * interval
+    zmin = np.floor(zmin / interval) * interval
+
+    for d in np.arange(0, 11):
+        color, linewidth, zorder = "0.75", 0.5, -100
+        if d in [0, 5, 10]:
+            color, linewidth, zorder = "0.5", 0.75, -50
+
+        dx = xmin + d * interval
+        dy = ymin + d * interval
+        dz = zmin + d * interval
+
+        ax.plot([xmin, xmin], [dy, dy], [zmin, zmax], linewidth=linewidth, color=color, zorder=zorder)
+        ax.plot([xmin, xmin], [ymin, ymax], [dz, dz], linewidth=linewidth, color=color, zorder=zorder)
+        ax.plot([xmin, xmax], [ymin, ymin], [dz, dz], linewidth=linewidth, color=color, zorder=zorder)
+        ax.plot([dx, dx], [ymin, ymax], [zmin, zmin], linewidth=linewidth, color=color, zorder=zorder)
+        ax.plot([xmin, xmax], [dy, dy], [zmin, zmin], linewidth=linewidth, color=color, zorder=zorder)
+        ax.plot([dx, dx], [ymin, ymin], [zmin, zmax], linewidth=linewidth, color=color, zorder=zorder)
+
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.set_zlim(zlim)

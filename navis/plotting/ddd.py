@@ -21,6 +21,7 @@ from typing import Union, List
 from importlib.util import find_spec
 
 from .. import utils, config, core
+from . import render
 from .colors import prepare_colormap, parse_color_by
 from .settings import OctarineSettings, PlotlySettings, K3dSettings
 from .viewer_utils import import_octarine
@@ -119,6 +120,28 @@ def plot3d(
                       Plot only connectors (e.g. synapses) if available and
                       ignore the neurons.
 
+    cn_color_by :     str | array, optional
+
+                      Color connectors by a column of the connector table (or by
+                      an array with one value per connector) rather than by their
+                      `type`. Numerical data gets a colormap, categorical data one
+                      color per level - and either way the scale is shared by all
+                      neurons. Missing values are drawn grey.
+
+                      Overrides `cn_colors`/`cn_mesh_colors`. `plotly` and `k3d`
+                      draw markers rather than stalks when this is set, since a
+                      line there carries a single color.
+
+                      `plotly` and `k3d` only - the octarine backend does not
+                      support it.
+
+    cn_palette :      str | list | dict, optional
+
+                      Palette for `cn_color_by`: the name of a colormap for
+                      numerical data, and for categorical data a palette name, a
+                      list of colors or a dict keyed by level. Falls back to
+                      `palette`, then to `"viridis"`.
+
     color_by :        str | array | list of arrays, default = None
 
                       Color neurons by a property. Can be:
@@ -193,6 +216,14 @@ def plot3d(
                           HTML file that can be opened in any browers.
                         - `k3d` generates 3D plots using k3d. Works only in
                           Jupyter notebooks!
+
+    hide_axes :       bool, default=True
+
+                      If True (default), hides the axes, ticks and tick labels
+                      for a clean render. Set to False to show the coordinate
+                      axes. Applies to the `plotly` backend and to
+                      `snapshot=True` (see below) - the interactive octarine
+                      viewer has no axes to hide.
 
     **Below parameters are for plotly backend only:**
 
@@ -281,12 +312,6 @@ def plot3d(
                       "orbit" rotates freely (trackball-style); "turntable"
                       keeps the z-axis pointing up.
 
-    hide_axes :       bool, default=True
-
-                      For plotly only! If True (default), hides the axes, ticks
-                      and tick labels for a clean render. Set to False to show
-                      the coordinate axes.
-
     **Below parameters are for the Octarine backend only:**
 
     clear :           bool, default = False
@@ -300,11 +325,65 @@ def plot3d(
 
     size :            (width, height) tuple, optional
 
-                      Use to adjust figure/window size.
+                      Use to adjust figure/window size. With `snapshot=True`
+                      this is the canvas size in logical pixels - see
+                      `pixel_ratio` for the supersampling applied on top. Leave
+                      it unset to have the canvas match the scene's proportions.
 
     show :            bool, default=True
 
                       Whether to immediately show the viewer.
+
+    snapshot :        bool, default=False
+
+                      If True, will render the scene offscreen and return a
+                      matplotlib `(fig, ax)` instead of an interactive viewer.
+                      The image is placed in *data* coordinates (see `view`),
+                      so you can add labels, arrows or scatter overlays in the
+                      neurons' own coordinate system afterwards.
+
+    **Below parameters are for `snapshot=True` only:**
+
+    view :            tuple | str | dict, default="auto"
+
+                      Which way to point the camera. Takes the same `("x", "y")`
+                      axis pairs as [`navis.plot2d`][] - first entry is the axis
+                      pointing right, second the one pointing up - or the same
+                      as a string (`"xy"`, `"x-z"`). Pass a camera state dict
+                      (from `viewer.get_view()`) to reproduce a view you set up
+                      interactively, or `None` to leave the camera alone.
+                      `"auto"` uses `("x", "-y")`, i.e. the same view you get
+                      from the interactive viewer.
+
+                      Note that only axis-aligned views can be expressed in data
+                      coordinates. For any other camera the axes are in world
+                      units in the view plane instead - distances are still to
+                      scale but no longer tied to a data axis.
+
+    margin :          float, default=0.05
+
+                      Padding around the scene, as a fraction of its size.
+
+    pixel_ratio :     float, optional
+
+                      Supersampling factor on top of `size`: the image comes
+                      back `size * pixel_ratio` pixels across and is scaled back
+                      down when drawn, which is what smooths the edges. Defaults
+                      to whatever pygfx uses (2 for an offscreen canvas), so
+                      pass `1` if you want `size` to mean actual image pixels.
+
+    bgcolor :         str, optional
+
+                      Background color. By default the render is transparent
+                      and picks up whatever is underneath it.
+
+    ax :              matplotlib.axes.Axes, optional
+
+                      Axes to draw the render on. If not provided, will create
+                      a new figure.
+
+    figsize/dpi :     Use to adjust the matplotlib figure. By default `figsize`
+                      matches the aspect ratio of the render.
 
     Returns
     -------
@@ -312,6 +391,8 @@ def plot3d(
 
         From terminal: opens a 3D window and returns :class:`octarine.Viewer`.
         From Jupyter: :class:`octarine.Viewer` displayed in an ipywidget.
+
+        With `snapshot=True`: a matplotlib `(fig, ax)` with the rendered image.
 
     If `backend='plotly'`
 
@@ -362,6 +443,14 @@ def plot3d(
     >>> # Clear canvas
     >>> navis.clear3d()
 
+    Rendering to matplotlib instead of an interactive viewer - the image comes
+    back in data coordinates, so you can annotate it as usual:
+
+    >>> nl = navis.example_neurons(2)
+    >>> fig, ax = navis.plot3d(nl, snapshot=True, view=('x', '-z'))  # doctest: +SKIP
+    >>> soma = nl[0].soma_pos[0]                                   # doctest: +SKIP
+    >>> _ = ax.annotate("soma", (soma[0], soma[2]))                # doctest: +SKIP
+
     Some more advanced examples:
 
     >>> # plot3d() can deal with combinations of objects
@@ -373,13 +462,24 @@ def plot3d(
     >>> # Clear viewer (works only with octarine)
     >>> v = navis.plot3d(nl, clear=True)
 
-    See the [plotting intro](../../generated/gallery/1_plotting/tutorial_plotting_00_intro)
+    See the [plotting intro](../../generated/gallery/1a_plotting_general/tutorial_plotting_00_intro)
     for even more examples.
 
     """
     # Select backend
     backend = kwargs.pop("backend", "auto").lower()
     allowed_backends = ("auto", "octarine", "plotly", "k3d")
+
+    # Rendering to matplotlib is octarine's offscreen canvas doing the work, so
+    # there is nothing to choose here
+    snapshot = bool(kwargs.get("snapshot"))
+    if snapshot:
+        if backend not in ("auto", "octarine"):
+            raise ValueError(
+                f'`snapshot=True` requires the "octarine" backend, got "{backend}".'
+            )
+        backend = "octarine"
+
     if backend == "auto":
         global AUTO_BACKEND
         if AUTO_BACKEND is not None:
@@ -427,6 +527,8 @@ def plot3d(
     elif backend == "plotly":
         return plot3d_plotly(x, **kwargs)
     elif backend == "octarine":
+        if snapshot:
+            return plot3d_snapshot(x, **kwargs)
         return plot3d_octarine(x, **kwargs)
     else:
         raise ValueError(
@@ -446,9 +548,6 @@ def plot3d_octarine(x, **kwargs):
 
     settings = OctarineSettings().update_settings(**kwargs)
 
-    # Parse objects to plot
-    (neurons, volumes, points, visuals) = utils.parse_objects(x)
-
     # Check if any existing viewer has already been closed
     if isinstance(getattr(config, "primary_viewer", None), oc.Viewer):
         try:
@@ -462,12 +561,12 @@ def plot3d_octarine(x, **kwargs):
             not isinstance(getattr(config, "primary_viewer", None), oc.Viewer)
             or settings.viewer == "new"
         ):
-            viewer = config.primary_viewer = oc.Viewer(
+            viewer = config.primary_viewer = _new_viewer(
+                oc,
+                settings,
                 size=settings.size,
-                camera=settings.camera,
-                control=settings.control,
-                show=False,
-                offscreen=settings.offscreen or os.environ.get("NAVIS_HEADLESS", False),
+                offscreen=settings.offscreen
+                or os.environ.get("NAVIS_HEADLESS", False),
             )
         else:
             viewer = getattr(config, "primary_viewer", None)
@@ -478,6 +577,91 @@ def plot3d_octarine(x, **kwargs):
     if settings.show:
         viewer.show()
 
+    _add_objects(viewer, x, settings)
+
+    return viewer
+
+
+def plot3d_snapshot(x, **kwargs):
+    """Plot3d() helper function to render a scene into a matplotlib figure.
+
+    Unlike `plot3d_octarine` this never touches the primary viewer: unless we
+    are handed one to take a picture of, the scene goes into a throwaway
+    offscreen viewer that is closed again on the way out.
+
+    """
+    # Lazy import because octarine is not a hard dependency
+    oc = import_octarine()
+
+    settings = OctarineSettings().update_settings(**kwargs)
+
+    temporary = not isinstance(settings.viewer, oc.Viewer)
+    viewer = (
+        _new_viewer(
+            oc,
+            settings,
+            size=settings.size or (render.DEFAULT_SIZE, render.DEFAULT_SIZE),
+            offscreen=True,
+        )
+        if temporary
+        else settings.viewer
+    )
+
+    if getattr(viewer, "canvas", None) is None:
+        raise RuntimeError(
+            "The viewer has no canvas to render from - octarine appears to be "
+            "running in headless mode (`octarine.config.HEADLESS`)."
+        )
+
+    try:
+        view = settings.view
+        if view == "auto":
+            # Frame the scene for a viewer we just made, but leave a camera that
+            # was handed to us (or set up interactively) alone
+            view = render.DEFAULT_VIEW if temporary else None
+
+        if view is not None:
+            # We are about to point the camera ourselves, so letting octarine
+            # center on every object we add is just thrown-away work
+            settings.center = False
+        elif not temporary and not settings.was_set("center"):
+            # ... and here centering would undo the camera we were asked to keep
+            settings.center = False
+
+        _add_objects(viewer, x, settings)
+
+        return render.to_mpl(
+            viewer,
+            settings,
+            view=view,
+            # Without an explicit size we can pick a canvas that matches the
+            # scene, which avoids rendering a lot of empty space
+            fit=temporary and not settings.size,
+        )
+    finally:
+        if temporary:
+            viewer.close()
+
+
+def _new_viewer(oc, settings, *, size, offscreen):
+    """A fresh octarine viewer, configured from the window-ish settings."""
+    v = oc.Viewer(
+        size=size,
+        camera=settings.camera,
+        control=settings.control,
+        show=False,
+        offscreen=offscreen,
+    )
+    # Uniform frontal lighting is a good default for neuron meshes
+    if hasattr(v, "headlight"):
+        v.headlight = True
+    return v
+
+
+def _add_objects(viewer, x, settings):
+    """Add everything in `x` to the viewer, as the settings ask for."""
+    (neurons, volumes, points, _) = utils.parse_objects(x)
+
     # We need to pop clear/clear3d to prevent clearing again later
     if settings.clear:
         settings.clear = False  # clear only once
@@ -485,11 +669,22 @@ def plot3d_octarine(x, **kwargs):
 
     # Add object (the viewer currently takes care of producing the visuals)
     if neurons:
-        # We need to pop viewer-specific settings to prevent errors in plotting functions
-        neuron_settings = settings.to_dict()
-        for key in settings._viewer_settings:
-            neuron_settings.pop(key, None)
-        viewer.add_neurons(neurons, center=settings.get("center", True), **neuron_settings)
+        if settings.was_set("cn_color_by"):
+            # Silently dropping it would leave connectors coloured by `type` and
+            # no hint as to why
+            logger.warning(
+                "`cn_color_by` is not supported by the octarine backend - "
+                "connectors will be coloured by type. Use `backend='plotly'` "
+                "or `navis.plot2d` for per-connector colours."
+            )
+        # `add_neurons` has no **kwargs, so it must only see the settings that
+        # describe the neurons - not the ones describing the window or figure
+        neuron_settings = {
+            k: v
+            for k, v in settings.to_dict().items()
+            if k in settings._neuron_settings
+        }
+        viewer.add_neurons(neurons, center=settings.center, **neuron_settings)
     if volumes:
         for v in volumes:
             viewer.add_mesh(
@@ -502,8 +697,6 @@ def plot3d_octarine(x, **kwargs):
     if points:
         for p in points:
             viewer.add_points(p, center=settings.center, **settings.scatter_kws)
-
-    return viewer
 
 
 def plot3d_plotly(x, **kwargs):

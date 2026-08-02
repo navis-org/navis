@@ -24,6 +24,7 @@ from scipy import ndimage
 
 from .._common import (
     apply_shade_by,
+    connector_colors,
     resolve_cn_color,
     resolve_cn_layout,
     resolve_connectors,
@@ -259,7 +260,33 @@ def neuron2plotly(x, colormap, settings):
                 raise TypeError(f'Unable to plot neurons of type "{type(neuron)}"')
 
         # Add connectors (empty frame when they aren't wanted)
-        for j, this_cn in resolve_connectors(neuron, settings).groupby("type"):
+        connectors = resolve_connectors(neuron, settings)
+
+        if settings.get("cn_color_by", None) is not None and not connectors.empty:
+            # A colour per connector rather than per type, which leaves no groups
+            # to loop over - and no way to draw stalks, since a plotly line trace
+            # carries a single colour
+            rgba, _ = connector_colors(connectors, cn_lay, color, settings)
+            trace_data.append(
+                go.Scatter3d(
+                    x=connectors.x.values,
+                    y=connectors.y.values,
+                    z=connectors.z.values,
+                    mode="markers",
+                    opacity=settings.get("cn_alpha", 1),
+                    marker=dict(
+                        color=[f"rgb({r},{g},{b})" for r, g, b in (rgba[:, :3] * 255).astype(int)],
+                        size=settings.cn_size if settings.cn_size else cn_lay["size"],
+                    ),
+                    name=f"Connectors of {name}",
+                    showlegend=False,
+                    legendgroup=legendgroup,
+                    hoverinfo="none",
+                )
+            )
+            connectors = connectors.iloc[:0]
+
+        for j, this_cn in connectors.groupby("type"):
                 c = resolve_cn_color(j, cn_lay, color, settings)
                 c = eval_color(c, color_range=255)
 

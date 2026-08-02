@@ -28,8 +28,11 @@ import copy
 
 from collections import namedtuple
 
+import matplotlib.colors as mcl
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 from .. import config, core, utils
 from .colors import vertex_colors
@@ -43,6 +46,9 @@ SOMA_COUNT_LIMIT = 10
 #: One soma to render.
 SomaSpec = namedtuple("SomaSpec", ["center", "radius", "color"])
 
+#: Colour for connectors whose `cn_color_by` value is missing.
+CN_NA_COLOR = (0.7, 0.7, 0.7, 1.0)
+
 
 def use_radius(neuron, settings) -> bool:
     """Whether this neuron should be rendered with radius.
@@ -52,6 +58,14 @@ def use_radius(neuron, settings) -> bool:
 
     """
     if not isinstance(neuron, core.Skeleton) or not settings.radius:
+        return False
+
+    # No radii at all: nothing to render with, and every renderer downstream
+    # assumes the column exists
+    if "radius" not in neuron.nodes.columns:
+        logger.warning(
+            f"Neuron {neuron.id} has no radius column - plotting it as lines."
+        )
         return False
 
     if settings.radius == "auto":
@@ -163,6 +177,137 @@ def resolve_cn_color(cn_type, layout, neuron_color, settings):
     return layout.get(cn_type, {"color": (0.04, 0.04, 0.04)})["color"]
 
 
+def connector_values(connectors, settings):
+    """The values `cn_color_by` asks to colour by, or None if it was not set.
+
+    Either the named column of the connector table or an array the caller passed
+    directly - in which case it has to be one value per connector *before* any
+    filtering, since that is the only length the caller can know about.
+
+    """
+    by = settings.get("cn_color_by", None)
+    if by is None:
+        return None
+
+    if isinstance(by, str):
+        if by not in connectors.columns:
+            raise ValueError(
+                f'`cn_color_by="{by}"` but the connector table has no such '
+                f"column. Available: {', '.join(map(str, connectors.columns))}."
+            )
+        return connectors[by].values
+
+    values = np.asarray(by)
+    if len(values) != len(connectors):
+        raise ValueError(
+            f"`cn_color_by` has {len(values)} values for {len(connectors)} "
+            "connectors."
+        )
+    return values
+
+
+def prepare_cn_colors(neurons, settings):
+    """Work out one colour scale for `cn_color_by` across all `neurons`.
+
+    Connectors are drawn a neuron at a time, so without this each neuron would
+    normalise against its own range and the same value would come out a different
+    colour in each - which is exactly what a shared scale is for. Stashed on the
+    settings rather than returned, so that the per-neuron call can stay ignorant
+    of how many neurons there are.
+
+    """
+    if settings.get("cn_color_by", None) is None:
+        return
+
+    values = []
+    for neuron in neurons:
+        cn = resolve_connectors(neuron, settings)
+        if not cn.empty:
+            v = connector_values(cn, settings)
+            if v is not None:
+                values.append(v)
+
+    if not values:
+        return
+
+    settings._cn_scale = _cn_scale(np.concatenate(values))
+
+
+def _cn_scale(values):
+    """`("numeric", (lo, hi))` or `("categorical", levels)` for `values`.
+
+    Missing values are deliberately not a level: they get their own neutral
+    colour and stay out of the legend, since "no value" is not a category anyone
+    wants a swatch for.
+    """
+    if utils.is_numeric(values, bool_numeric=False, try_convert=False):
+        lo, hi = np.nanmin(values), np.nanmax(values)
+        return "numeric", (lo, hi if hi > lo else lo + 1)
+    return "categorical", list(pd.unique(values[~pd.isnull(values)]))
+
+
+def connector_colors(connectors, layout, neuron_color, settings):
+    """One RGBA per connector, plus the legend entries that explain them.
+
+    Without `cn_color_by` this is the historical behaviour - one colour per
+    `type` - just resolved per row rather than per group, so that callers can
+    draw everything in one artist.
+
+    Returns
+    -------
+    colors :    (N, 4) array
+    legend :    list of `(label, rgba)`
+                What a legend would have to say. Empty for a continuous
+                `cn_color_by`: there is no finite set of entries to name.
+
+    """
+    values = connector_values(connectors, settings)
+
+    if values is None:
+        per_type = {
+            ty: mcl.to_rgba(resolve_cn_color(ty, layout, neuron_color, settings))
+            for ty in pd.unique(connectors.type.values)
+        }
+        colors = np.array([per_type[t] for t in connectors.type.values])
+        legend = [
+            (layout.get(ty, {}).get("name", str(ty)), rgba)
+            for ty, rgba in per_type.items()
+        ]
+        return colors, legend
+
+    # `prepare_cn_colors` runs once for all neurons; fall back to this neuron's
+    # own values for a backend that draws one neuron at a time
+    kind, scale = getattr(settings, "_cn_scale", None) or _cn_scale(values)
+    palette = settings.get("cn_palette", None) or settings.get("palette", None)
+
+    if kind == "numeric":
+        lo, hi = scale
+        cmap = plt.get_cmap(palette if isinstance(palette, str) else "viridis")
+        return cmap((np.asarray(values, dtype=float) - lo) / (hi - lo)), []
+
+    if isinstance(palette, dict):
+        lookup = palette
+    else:
+        swatches = (
+            sns.color_palette(palette, len(scale))
+            if palette is None or isinstance(palette, str)
+            else palette
+        )
+        lookup = dict(zip(scale, swatches))
+
+    missing = [v for v in scale if v not in lookup]
+    if missing:
+        raise ValueError(
+            "`cn_palette` has no colour for: " + ", ".join(map(str, missing))
+        )
+
+    rgba = {v: mcl.to_rgba(c) for v, c in lookup.items()}
+    colors = np.array([rgba.get(v, CN_NA_COLOR) for v in values])
+    present = set(values[~pd.isnull(values)])
+    # ... ordered by the shared scale, so several neurons agree on the legend
+    return colors, [(str(v), rgba[v]) for v in scale if v in present]
+
+
 def resolve_somata(neuron, color, settings):
     """Yield a [`SomaSpec`][] for each soma that should be rendered.
 
@@ -215,7 +360,7 @@ def resolve_somata(neuron, color, settings):
 
         n = nodes.loc[s]
         r = (
-            getattr(n, neuron.soma_radius)
+            n.get(neuron.soma_radius)
             if isinstance(neuron.soma_radius, str)
             else neuron.soma_radius
         )

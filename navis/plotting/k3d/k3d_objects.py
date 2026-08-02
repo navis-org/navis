@@ -20,6 +20,7 @@ import pandas as pd
 import trimesh as tm
 
 from .._common import (
+    connector_colors,
     resolve_cn_color,
     resolve_cn_layout,
     resolve_connectors,
@@ -168,7 +169,30 @@ def neuron2k3d(x, colormap, settings):
                 raise TypeError(f'Unable to plot neurons of type "{type(neuron)}"')
 
         # Add connectors (empty frame when they aren't wanted)
-        for j, this_cn in resolve_connectors(neuron, settings).groupby("type"):
+        connectors = resolve_connectors(neuron, settings)
+
+        if settings.get("cn_color_by", None) is not None and not connectors.empty:
+            # A colour per connector rather than per type, which leaves no groups
+            # to loop over - and no way to draw stalks, since a k3d line carries
+            # a single colour
+            rgba, _ = connector_colors(connectors, cn_lay, color, settings)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                trace_data.append(
+                    k3d.points(
+                        positions=connectors[["x", "y", "z"]].values,
+                        name=f"Connectors of {name}",
+                        shader="flat",
+                        point_size=settings.cn_size
+                        if settings.cn_size
+                        else cn_lay["size"] * 50,
+                        colors=[color_to_int(c) for c in (rgba[:, :3] * 255).astype(int)],
+                        opacity=settings.get("cn_alpha", 1),
+                    )
+                )
+            connectors = connectors.iloc[:0]
+
+        for j, this_cn in connectors.groupby("type"):
                 c = resolve_cn_color(j, cn_lay, color, settings)
                 c = color_to_int(eval_color(c, color_range=255))
 

@@ -122,6 +122,39 @@ def _slugify(title: str) -> str:
     return re.sub(r"[\s_]+", "-", s).strip("-")
 
 
+#: Opens a group of sections on the landing page. Goes in the README of the
+#: group's *first* section: the title on the marker line, an optional blurb
+#: under it. An HTML comment because `mkdocs_gallery.gen_single` strips those
+#: before it looks for a section's own title - so the marker cannot be mistaken
+#: for one and the left-hand nav keeps naming the section after its `##`.
+GROUP_MARKER = re.compile(
+    r"<!--\s*gallery-group:[ \t]*(?P<title>.+?)[ \t]*\n(?P<intro>.*?)-->", re.S
+)
+
+
+def _group_key(name: str) -> str:
+    """Sections whose folders share a leading number belong together.
+
+    `1a_plotting_general` and `1b_plotting_2d` are one group; `2_morpho` is its
+    own. This is the same digit the folders are already sorted by, so a group is
+    always contiguous.
+    """
+    m = re.match(r"(\d+)", name)
+    return m.group(1) if m else name
+
+
+def _pop_group(readme: str):
+    """`(group_title, group_intro, readme_without_the_marker)`."""
+    m = GROUP_MARKER.search(readme)
+    if not m:
+        return None, "", readme
+    return (
+        m.group("title").strip(),
+        m.group("intro").strip(),
+        (readme[: m.start()] + readme[m.end():]).strip(),
+    )
+
+
 def _strip_markdown(text: str) -> str:
     text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)  # [label](url) -> label
     return text.replace("`", "").strip()
@@ -222,26 +255,44 @@ def build_index(docs_dir: Path, navis_span: str = "NAVis") -> str:
     else:
         landing, root_header = root_body[:cut].strip(), root_body[cut:].strip()
 
-    # (heading markdown, tutorial files, url/thumb prefix)
-    sections = [(root_header, _list_tutorials(examples), "")]
+    # mkdocs-gallery is flat: one level of subsections and no deeper - a
+    # `GallerySubSection` reports `has_subsections() == False` unconditionally.
+    # We own the landing page though, so the grouping happens here. Sections
+    # whose folders share a leading number (`1a_...`, `1b_...`) collapse under
+    # one heading, taken from the `gallery-group` marker in the first of them.
+    #
+    # groups: [(title, intro_md, [(section_header_md, files, prefix)])]
+    groups = [(None, "", [(root_header, _list_tutorials(examples), "")])]
     for sub in sorted(p for p in examples.iterdir() if p.is_dir() and (p / "README.md").exists()):
-        header = _strip_frontmatter((sub / "README.md").read_text(encoding="utf-8")).strip()
-        sections.append((header, _list_tutorials(sub), f"{sub.name}/"))
+        readme = _strip_frontmatter((sub / "README.md").read_text(encoding="utf-8"))
+        title, intro, header = _pop_group(readme)
+        key = _group_key(sub.name)
+        if title is not None or key != _group_key(groups[-1][2][-1][2] or "\x00"):
+            groups.append((title, intro, []))
+        groups[-1][2].append((header.strip(), _list_tutorials(sub), f"{sub.name}/"))
 
-    # Jump-to-section chips.
+    # Jump-to-section chips: one per group, so five plotting subsections do not
+    # take over the whole bar.
     chips = []
-    for header, _, _ in sections:
-        m = re.search(r"^##\s+(.+)$", header, re.M)
-        if m:
-            title = m.group(1).strip()
-            chips.append(f'<a href="#{_slugify(title)}">{html.escape(title)}</a>')
+    for title, _, sections in groups:
+        for heading in ([f"## {title}"] if title else [s[0] for s in sections]):
+            m = re.search(r"^##\s+(.+)$", heading, re.M)
+            if m:
+                name = m.group(1).strip()
+                chips.append(f'<a href="#{_slugify(name)}">{html.escape(name)}</a>')
     jump = '<nav class="gallery-jump">\n' + "\n".join(chips) + "\n</nav>"
 
     parts = [STYLE, expand(landing), jump]
-    for header, files, prefix in sections:
-        parts.append(expand(header))
-        cards = "\n".join(_card(prefix, f, gen_dir, navis_span) for f in files)
-        parts.append(f'<div class="gallery-grid">\n{cards}\n</div>')
+    for title, intro, sections in groups:
+        if title:
+            parts.append(f"## {title}")
+            if intro:
+                parts.append(expand(intro))
+        for header, files, prefix in sections:
+            # inside a group the sections' own `##` headings drop a level
+            parts.append(expand(re.sub(r"^##(?= )", "###", header, flags=re.M) if title else header))
+            cards = "\n".join(_card(prefix, f, gen_dir, navis_span) for f in files)
+            parts.append(f'<div class="gallery-grid">\n{cards}\n</div>')
 
     return "\n\n".join(parts)
 

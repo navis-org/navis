@@ -673,6 +673,13 @@ class Volume(UnitObject, trimesh.Trimesh):
         try:
             return list(concave_hull.exterior.coords)
         except AttributeError:
+            # The shape fell apart into disconnected pieces. Worth saying out loud:
+            # silently retrying is why a too-large alpha looks like it did nothing
+            # at all rather than like it was ignored.
+            logger.warning(
+                f"Alpha shape for volume '{self.name}' fell apart at "
+                f"alpha={alpha}; retrying with {alpha / 10}."
+            )
             return self.to_2d(alpha=alpha / 10, view=view, invert_y=invert_y)
         except BaseException:
             raise

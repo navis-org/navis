@@ -96,3 +96,4 @@ n_pruned.nodes['root_dist'] = n_pruned.nodes.node_id.map(
 
 # Plot the barcode with segments colored by their distance to the root
 ax = navis.plot1d(n_pruned, color_by="root_dist", palette="jet")
+plt.tight_layout()
