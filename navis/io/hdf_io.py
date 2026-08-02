@@ -25,6 +25,7 @@ from abc import ABC, abstractmethod
 from typing import Union, Iterable, Dict, Optional, Any
 
 from .. import config, utils, core
+from ..compute.dispatch import init_pool_worker
 
 
 class BaseH5Reader(ABC):
@@ -876,7 +877,7 @@ def read_h5(filepath: str,
         # spawned processes without being any faster - reading and returning
         # one neuron at a time seems to be the most efficient way
         reader = READERS[info['format_spec']]
-        with mp.Pool(processes=n_cores) as pool:
+        with mp.Pool(processes=n_cores, initializer=init_pool_worker) as pool:
             futures = pool.imap(_h5_reader_worker, [dict(reader=reader,
                                                          filepath=filepath,
                                                          read=read,

@@ -35,6 +35,7 @@ from urllib.parse import urlparse, unquote
 from typing import List, Union, Iterable, Dict, Optional, Any, IO
 
 from .. import config, utils, core
+from ..compute.dispatch import init_pool_worker
 
 try:
     import zlib
@@ -1468,7 +1469,7 @@ def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
     else:
         n_cores = int(parallel)
 
-    with mp.Pool(processes=n_cores) as pool:
+    with mp.Pool(processes=n_cores, initializer=init_pool_worker) as pool:
         return list(prog(pool.imap(read_fn, objs)))
 
 
@@ -1574,7 +1575,7 @@ def parallel_read_archive(
         else:
             n_cores = int(parallel)
 
-        with mp.Pool(processes=n_cores) as pool:
+        with mp.Pool(processes=n_cores, initializer=init_pool_worker) as pool:
             results = pool.imap(read_fn, to_read)
             neurons = list(prog(results))
     else:
@@ -1717,7 +1718,9 @@ def parallel_read_ftp(
         # We can't send the FTP object to the process (because its socket is not pickleable)
         # Instead, we need to initialize a new FTP connection in each process via a global variable
         with mp.Pool(
-            processes=n_cores, initializer=_ftp_pool_init, initargs=(server, port, path)
+            processes=n_cores,
+            initializer=init_pool_worker,
+            initargs=(_ftp_pool_init, server, port, path),
         ) as pool:
             results = pool.imap(partial(read_fn, ftp="GLOBAL"), to_read)
             neurons = list(prog(results))

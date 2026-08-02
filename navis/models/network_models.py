@@ -20,6 +20,7 @@ import warnings
 from typing import Iterable, Union, Optional, Callable
 
 from .. import config
+from ..compute.dispatch import init_pool_worker
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -64,7 +65,8 @@ class BaseNetworkModel:
         """Run model using parallel processes."""
         # Note that we initialize each process by making "edges" a global argument
         with mp.Pool(processes=n_cores,
-                     initializer=self.initializer) as pool:
+                     initializer=init_pool_worker,
+                     initargs=(self.initializer,)) as pool:
 
             # Each process will take about the same amount of time
             # So we want each process to take a single batch of iterations/n_cores runs

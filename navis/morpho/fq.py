@@ -26,6 +26,7 @@ from typing import Union, Optional, Sequence, List, Dict, overload
 from typing_extensions import Literal
 
 from .. import config, core, utils
+from ..compute.dispatch import init_pool_worker
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -125,7 +126,8 @@ def form_factor(x: Union['core.Skeleton', 'core.Mesh'],
                                     start=start, stop=stop, num=num)
 
         if parallel:
-            with mp.Pool(processes=n_cores) as pool:
+            with mp.Pool(processes=n_cores,
+                         initializer=init_pool_worker) as pool:
                 results = pool.imap(_calc_form_factor, x)
                 Fq = list(pbar(results))
         else:

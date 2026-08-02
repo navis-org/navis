@@ -39,7 +39,8 @@ from .. import config
 
 logger = config.get_logger(__name__)
 
-__all__ = ['map_tasks', 'imap_tasks', 'default_n_workers', 'FailedRun']
+__all__ = ['map_tasks', 'imap_tasks', 'default_n_workers', 'FailedRun',
+           'init_pool_worker']
 
 
 def default_n_workers() -> int:
@@ -177,25 +178,57 @@ def _unshare_pbar_lock() -> None:
     The first progress bar built in a process - even a disabled one, since the
     lock is taken in `tqdm.__new__` - makes tqdm allocate a
     `multiprocessing.RLock`, i.e. a named POSIX semaphore, so that bars drawn
-    from several processes don't interleave. Our workers never draw one, so
-    that lock is pointless everywhere and actively harmful under `pathos`: its
-    workers are started by `multiprocess`, a fork of `multiprocessing` carrying
-    its own resource tracker, so the *stdlib* tracker has never been started
-    there and each worker spawns a fresh one. Nothing unlinks the semaphore
-    when the worker exits, so every one of them signs off with
+    from several processes don't interleave.
 
-        UserWarning: resource_tracker: There appear to be 1 leaked semaphore
+    In a worker started with `spawn` that lock is worse than pointless. Nothing
+    was inherited, so the worker's copy excludes nobody - but it *is* a named
+    semaphore, charged to a resource tracker that outlives the worker. Anything
+    that takes the worker down without letting it run its finalizers therefore
+    leaks one semaphore per worker, and somebody signs off with
+
+        UserWarning: resource_tracker: There appear to be N leaked semaphore
         objects to clean up at shutdown
+
+    Two ways to end up there, both of which navis managed to:
+
+    - `pathos`' workers come from `multiprocess`, a fork of `multiprocessing`
+      carrying its own resource tracker, so the *stdlib* tracker has never been
+      started in them and each worker spawns a fresh one that it then exits
+      (via `os._exit()`) without unlinking anything.
+    - a `multiprocessing.Pool` used as a context manager: `__exit__` is
+      `terminate()`, which SIGTERMs any worker that hasn't picked up its
+      sentinel yet. Those never reach their finalizers, and their semaphores
+      are registered against *our* tracker, so we report them at exit.
 
     `set_lock` is tqdm's own way of saying "these bars are not shared across
     processes"; a plain thread lock keeps them safe against navis' own threads.
     """
     from threading import RLock
-    # `hasattr` rather than an unconditional set: this runs once per chunk, and
-    # replacing the lock out from under a bar that is already using it would be
-    # a poor trade for saving a semaphore.
+    # `hasattr` rather than an unconditional set: replacing the lock out from
+    # under a bar that is already using it would be a poor trade for saving a
+    # semaphore. Under `fork` that is also the correct answer - the lock the
+    # child inherited is genuinely shared with its siblings, and the parent
+    # unlinks it.
     if not hasattr(config.tqdm_class, '_lock'):
         config.tqdm_class.set_lock(RLock())
+
+
+def init_pool_worker(initializer=None, *initargs) -> None:
+    """Set a freshly started worker up. Pass as a pool `initializer`.
+
+    For the `multiprocessing.Pool`s navis starts outside this module - the
+    readers, `form_factor`, the traversal models. :func:`run_chunk` does the
+    same for the pools the backends manage.
+
+    Module level so it pickles by reference. An initializer the call site has
+    of its own goes in `initargs` and runs after ours::
+
+        mp.Pool(n, initializer=init_pool_worker,
+                initargs=(_ftp_pool_init, server, port, path))
+    """
+    _unshare_pbar_lock()
+    if initializer is not None:
+        initializer(*initargs)
 
 
 def run_chunk(chunk: Chunk):

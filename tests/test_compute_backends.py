@@ -737,6 +737,71 @@ def test_pathos_workers_do_not_leak_semaphores(tmp_path):
     assert 'leaked semaphore' not in res.stderr
 
 
+#: The same lock, leaked the other way. `multiprocessing.Pool.__exit__` is
+#: `terminate()`, i.e. SIGTERM to every worker that hasn't picked up its
+#: sentinel yet - and a SIGTERMed worker runs no finalizers, so the semaphore
+#: it registered against *our* tracker is still there when we exit. The workers
+#: below are held mid-task (via the ready files) so that all of them are
+#: certain to be killed rather than allowed to finish.
+_PBAR_IN_POOL = '''
+import sys
+import time
+import multiprocessing as mp
+
+from pathlib import Path
+
+from navis import config
+from navis.compute.dispatch import init_pool_worker
+
+READY = Path(sys.argv[1])
+N = 2
+
+def bar(x):
+    # A *disabled* bar is enough: the lock is taken in `tqdm.__new__`.
+    with config.tqdm(total=1, disable=True):
+        pass
+    (READY / str(x)).touch()
+    time.sleep(60)
+
+if __name__ == '__main__':
+    with mp.Pool(processes=N, initializer=init_pool_worker) as pool:
+        pool.map_async(bar, range(N))
+        while len(list(READY.iterdir())) < N:
+            time.sleep(0.05)
+'''
+
+
+def test_pool_workers_do_not_leak_semaphores(tmp_path):
+    """Every `multiprocessing.Pool` navis starts must unshare tqdm's lock.
+
+    The readers, `form_factor` and the traversal models run their own pools
+    rather than going through the dispatcher, and a worker of theirs that draws
+    a bar allocates a named semaphore that nothing unlinks - `terminate()` is
+    what ends it. Five of those is what a full test run used to sign off with.
+    """
+    ready = tmp_path / 'ready'
+    ready.mkdir()
+    script = tmp_path / 'pbar_in_pool.py'
+    script.write_text(_PBAR_IN_POOL)
+    res = subprocess.run([sys.executable, str(script), str(ready)], timeout=300,
+                         capture_output=True, text=True)
+
+    assert res.returncode == 0, res.stderr
+    # Both workers really did get to the bar - otherwise this proves nothing
+    assert len(list(ready.iterdir())) == 2
+    assert 'leaked semaphore' not in res.stderr
+
+
+def test_init_pool_worker_runs_the_callers_initializer():
+    """Sites with an initializer of their own hand it over in `initargs`."""
+    seen = []
+    dispatch.init_pool_worker(seen.append, 'ftp')
+    assert seen == ['ftp']
+
+    dispatch.init_pool_worker()     # and it is optional
+    assert seen == ['ftp']
+
+
 def test_lambda_on_plain_pickle_backend_explains_itself():
     """A lambda over `processes` must name the fix, not raise PicklingError."""
     tasks = [(lambda x: x, (1,), {})]

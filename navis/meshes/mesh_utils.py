@@ -29,6 +29,7 @@ except ModuleNotFoundError:
     skimage = None
 
 from .. import core, config, intersection, graph, morpho
+from ..compute.dispatch import init_pool_worker
 
 
 logger = config.get_logger(__name__)
@@ -422,7 +423,7 @@ def pointlabels_to_meshes(
 
         # For each point get the point density function for each KDE
         combinations = [(kde[l], [voxels[["x", "y", "z"]].values.T], {}) for l in kde]
-        with mp.Pool(n_cores) as pool:
+        with mp.Pool(n_cores, initializer=init_pool_worker) as pool:
             results = list(
                 tqdm(
                     pool.imap(_worker_wrapper, combinations, chunksize=1),
