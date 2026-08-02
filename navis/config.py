@@ -17,7 +17,7 @@ import os
 
 import matplotlib as mpl
 
-logger = logging.getLogger('navis')
+logger = logging.getLogger("navis")
 
 
 def default_logging():
@@ -32,8 +32,7 @@ def default_logging():
         sh = logging.StreamHandler()
         sh.setLevel(logging.DEBUG)
         # Create formatter and add it to the handlers
-        formatter = logging.Formatter(
-            '%(levelname)-5s : %(message)s (%(name)s)')
+        formatter = logging.Formatter("%(levelname)-5s : %(message)s (%(name)s)")
         sh.setFormatter(formatter)
         logger.addHandler(sh)
 
@@ -49,7 +48,7 @@ def remove_log_handlers():
     logger.handlers.clear()
 
 
-skip_log_setup = os.environ.get('NAVIS_SKIP_LOG_SETUP', '').lower() == 'true'
+skip_log_setup = os.environ.get("NAVIS_SKIP_LOG_SETUP", "").lower() == "true"
 if not skip_log_setup:
     default_logging()
 
@@ -59,11 +58,13 @@ def get_logger(name: str):
         return logging.getLogger(name)
     return logger
 
+
 # Set up numpy number representation, see NEP51
 # Once numpy<=2 is dropped from requirements, the doctest comparissons
 # should become `np.float64(1.074)` instead of `1.074`
-if os.environ.get('NAVIS_TEST_ENV', '').lower() == 'true':
+if os.environ.get("NAVIS_TEST_ENV", "").lower() == "true":
     import numpy as np
+
     np.set_printoptions(legacy="1.25")
 
 # Default settings for progress bars
@@ -100,11 +101,11 @@ class quiet_logger:
 
     """
 
-    def __init__(self, level='ERROR', pbars=False):
+    def __init__(self, level="ERROR", pbars=False):
         if isinstance(level, str):
             level = logging.getLevelName(level.upper())
         if not isinstance(level, int):
-            raise ValueError(f'Not a logging level: {level!r}')
+            raise ValueError(f"Not a logging level: {level!r}")
         self.level = level
         self.pbars = pbars
 
@@ -221,10 +222,10 @@ elastix_invertible = False
 # is then OOM-killed (SIGKILL, no traceback) once the pages are touched - hence
 # we check up-front instead of relying on `MemoryError`.
 # Set to 0 or None to disable the check.
-max_grid_size = int(os.environ.get('NAVIS_MAX_GRID_SIZE', 4 * 1024 ** 3))  # 4 GiB
+max_grid_size = int(os.environ.get("NAVIS_MAX_GRID_SIZE", 4 * 1024**3))  # 4 GiB
 
 # Default color for neurons
-default_color = (.95, .65, .04)
+default_color = (0.95, 0.65, 0.04)
 
 # Unit registry
 ureg = pint.UnitRegistry()
@@ -233,46 +234,54 @@ ureg = pint.UnitRegistry()
 add_units = False
 
 # Set to true to prevent Viewer from ever showing
-headless = os.environ.get('NAVIS_HEADLESS', 'False').lower() == 'true'
+headless = os.environ.get("NAVIS_HEADLESS", "False").lower() == "true"
 if headless:
-    logger.info('Running in headless mode.')
-    mpl.use('template')
+    logger.info("Running in headless mode.")
+    mpl.use("template")
     pbar_hide = True
 
 # Default connector color palette
 default_connector_colors = {
-    0: {'name': 'Presynapses',
-        'color': (1, 0, 0)},
-    1: {'name': 'Postsynapses',
-        'color': (0, .75, .75)},
-    2: {'name': 'Gap junctions',
-        'color': (0, 1, 0)},
-    'display': 'lines',  # can also be 'circles'
-    'size': 2  # for "circles" only
-                        }
+    0: {"name": "Presynapses", "color": (1, 0, 0)},
+    1: {"name": "Postsynapses", "color": (0, 0.75, 0.75)},
+    2: {"name": "Gap junctions", "color": (0, 1, 0)},
+    "display": "lines",  # can also be 'circles'
+    "size": 2,  # for "circles" only
+}
+
 # Set some synonyms
-default_connector_colors['pre'] = default_connector_colors['Pre'] = default_connector_colors[0]
-default_connector_colors['post'] = default_connector_colors['Post'] = default_connector_colors[1]
-default_connector_colors['gap'] = default_connector_colors['Gap'] = default_connector_colors[0]
-default_connector_colors['gap_junction'] = default_connector_colors['Gap_junction'] = default_connector_colors[0]
-default_connector_colors['gap_junctions'] = default_connector_colors['Gap_junctions'] = default_connector_colors[0]
+default_connector_colors["pre"] = default_connector_colors["Pre"] = (
+    default_connector_colors[0]
+)
+default_connector_colors["post"] = default_connector_colors["Post"] = (
+    default_connector_colors[1]
+)
+default_connector_colors["gap"] = default_connector_colors["Gap"] = (
+    default_connector_colors[2]
+)
+default_connector_colors["gap_junction"] = default_connector_colors["Gap_junction"] = (
+    default_connector_colors[2]
+)
+default_connector_colors["gap_junctions"] = default_connector_colors[
+    "Gap_junctions"
+] = default_connector_colors[2]
 
 
 def _type_of_script():
-    """Returns context in which navis is run. """
+    """Returns context in which navis is run."""
     try:
-        ipy_str = str(type(get_ipython()))  #noqa
-        if 'zmqshell' in ipy_str:
-            return 'jupyter'
-        if 'terminal' in ipy_str:
-            return 'ipython'
+        ipy_str = str(type(get_ipython()))  # noqa
+        if "zmqshell" in ipy_str:
+            return "jupyter"
+        if "terminal" in ipy_str:
+            return "ipython"
     except BaseException:
-        return 'terminal'
+        return "terminal"
 
 
 def is_jupyter():
     """Test if navis is run in a Jupyter notebook."""
-    return _type_of_script() == 'jupyter'
+    return _type_of_script() == "jupyter"
 
 
 # Here, we import tqdm and determine whether we use classic notebook tbars
