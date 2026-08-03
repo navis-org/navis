@@ -20,5 +20,5 @@ def define_env(env):
                     continue
                 f = getattr(f, name)
             return f.__doc__.split('\n')[0]
-        except BaseException as e:
+        except Exception as e:
             return f'Error finding docstring for {func}: {e}'
