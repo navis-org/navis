@@ -17,7 +17,7 @@ dev_only = ["test-notebook", "dev", "docs"]
 # in a sizeable dependency tree that a local install has no use for.
 # N.B. these are *extra* names as declared by `#extra:` in requirements.txt,
 # not distribution names - the cloud-volume package sits under `cloudvolume`.
-specialized = ["r", "flybrains", "cloudvolume", "cluster"]
+specialized = ["flybrains", "cloudvolume", "cluster"]
 all_dev_deps = []
 all_deps = []
 for k, v in extras_require.items():

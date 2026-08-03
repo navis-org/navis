@@ -16,6 +16,9 @@ def pytest_ignore_collect(collection_path: Path, config):
         "/binder",
         "/site",
         "/scripts",
+        # Test data, plus the scripts that generate it. `--doctest-modules`
+        # would otherwise import those scripts and run them.
+        "/fixtures",
         "h5reg_numba",  # this module requires numba but doesn't contain any tests
     ):
         if pattern in path:
