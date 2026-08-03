@@ -45,6 +45,55 @@ with warnings.catch_warnings():
     pint.Quantity([])
 
 
+#: Sentinel for "no attribute", so that an attribute set to `None` is not
+#: mistaken for a missing one.
+_MISSING = object()
+
+
+def _try_getattr(obj, key: str):
+    """Fetch `key` off `obj`, treating "not implemented here" as absent.
+
+    `hasattr` only swallows `AttributeError`, so a placeholder like
+    `Voxels.soma` - inherited from `BaseNeuron` and raising
+    `NotImplementedError` - makes `.has_soma`/`.n_soma` explode instead of
+    answering the question they were asked.
+    """
+    try:
+        return getattr(obj, key)
+    except (AttributeError, NotImplementedError):
+        return _MISSING
+
+
+def _class_attr(cls, key: str):
+    """Look `key` up on `cls` and its bases without invoking any descriptor.
+
+    Sits on the attribute-miss path, which `hasattr` probing makes hot, so the
+    cheap C-level `getattr` rejects the common miss first. The class dicts then
+    confirm the hit: unlike `getattr` (or `inspect.getattr_static`, which is
+    ~5x slower again) they don't see metaclass attributes such as `type.mro`,
+    which an instance could never reach anyway.
+    """
+    if getattr(cls, key, _MISSING) is _MISSING:
+        return _MISSING
+    for klass in cls.__mro__:
+        attr = vars(klass).get(key, _MISSING)
+        if attr is not _MISSING:
+            return attr
+    return _MISSING
+
+
+def _implements(cls, key: str) -> bool:
+    """Test whether `cls` itself provides `key`.
+
+    `hasattr(cls, key)` is too generous: `BaseNeuron` declares placeholders
+    (`soma`, `bbox`) that only raise `NotImplementedError` and every subclass
+    inherits them. Converting to a neuron type that merely inherits the
+    placeholder gains you nothing, so only count what the class brings itself.
+    """
+    attr = _class_attr(cls, key)
+    return attr is not _MISSING and attr is not _class_attr(BaseNeuron, key)
+
+
 def _extension_bytes(column: pd.Series) -> int:
     """Size of a column whose dtype has no dependable width.
 
@@ -230,8 +279,8 @@ class BaseNeuron(UnitObject):
         """Get attribute."""
         if key.startswith("has_"):
             key = key[key.index("_") + 1 :]
-            if hasattr(self, key):
-                data = getattr(self, key)
+            data = _try_getattr(self, key)
+            if data is not _MISSING:
                 if isinstance(data, pd.DataFrame):
                     if not data.empty:
                         return True
@@ -249,8 +298,8 @@ class BaseNeuron(UnitObject):
             return False
         elif key.startswith("n_"):
             key = key[key.index("_") + 1 :]
-            if hasattr(self, key):
-                data = getattr(self, key, None)
+            data = _try_getattr(self, key)
+            if data is not _MISSING:
                 if isinstance(data, pd.DataFrame):
                     return data.shape[0]
                 elif utils.is_iterable(data):
@@ -263,6 +312,16 @@ class BaseNeuron(UnitObject):
         # `hasattr` probe a lot of them - so don't pay for the nicer message.
         if key.startswith("_"):
             raise AttributeError(f'Attribute "{key}" not found')
+
+        # A property that raises AttributeError itself (e.g. `Mesh.soma`, which
+        # points you at `.soma_pos`) also ends up here - Python cannot tell that
+        # apart from a genuine miss. Re-run the descriptor so its own, more
+        # specific error survives instead of being replaced by the message below.
+        # Anything the class declares must be a descriptor that raised: a plain
+        # class attribute would have been returned before `__getattr__` ran.
+        descr = _class_attr(type(self), key)
+        if descr is not _MISSING:
+            return descr.__get__(self, type(self))
 
         raise AttributeError(self._missing_attr_msg(key))
 
@@ -283,7 +342,7 @@ class BaseNeuron(UnitObject):
         others = [
             cls
             for cls in converters
-            if not isinstance(self, cls) and hasattr(cls, key)
+            if not isinstance(self, cls) and _implements(cls, key)
         ]
 
         msg = f'{type(self).__name__} has no attribute "{key}".'
@@ -483,12 +542,15 @@ class BaseNeuron(UnitObject):
     @property
     def extents(self) -> np.ndarray:
         """Extents of neuron in x/y/z direction (includes connectors)."""
-        if not hasattr(self, "bbox"):
+        # Not `hasattr`: that only swallows AttributeError, so a neuron type
+        # left with `BaseNeuron`'s placeholder would raise NotImplementedError
+        # here instead of the explanation below.
+        bbox = _try_getattr(self, "bbox")
+        if bbox is _MISSING:
             raise ValueError(
                 "Neuron must implement `.bbox` (bounding box) "
                 "property to calculate extents."
             )
-        bbox = self.bbox
         return bbox[:, 1] - bbox[:, 0]
 
     @property

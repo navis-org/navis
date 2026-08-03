@@ -167,15 +167,6 @@ class Mesh(BaseNeuron):
 
         self.units = units
 
-    def __getattr__(self, key):
-        """We will use this magic method to calculate some attributes on-demand."""
-        # Note that we're mixing @property and __getattr__ which causes problems:
-        # if a @property raises an Exception, Python falls back to __getattr__
-        # and traceback is lost!
-
-        # Last ditch effort - maybe the base class knows the key?
-        return super().__getattr__(key)
-
     def __getstate__(self):
         """Get state (used e.g. for pickling)."""
         state = {k: v for k, v in self.__dict__.items() if not callable(v)}

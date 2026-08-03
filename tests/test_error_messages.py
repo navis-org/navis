@@ -147,6 +147,57 @@ def test_hasattr_still_works(dotprops, skeleton):
     assert skeleton.n_nodes == len(skeleton.nodes)
 
 
+def test_mesh_soma_keeps_its_own_message(mesh):
+    """`Mesh.soma` raises AttributeError, so Python falls back to __getattr__.
+
+    That used to swallow the property's own "use `.soma_pos`" hint and replace
+    it with a generic "convert first" suggestion.
+    """
+    with pytest.raises(AttributeError) as exc:
+        mesh.soma
+
+    assert ".soma_pos" in str(exc.value), "should point at the mesh equivalent"
+
+
+def test_missing_attr_msg_skips_not_implemented_stubs(mesh):
+    """Only advertise types that actually implement the attribute.
+
+    `hasattr(Voxels, "soma")` is True - but only because `Voxels` inherits
+    `BaseNeuron`'s placeholder, which raises NotImplementedError. Converting to
+    one would not get you a soma.
+    """
+    with pytest.raises(NotImplementedError):
+        navis.voxelize(mesh, pitch="1 micron").soma
+
+    msg = mesh._missing_attr_msg("soma")
+    assert "Voxels" not in msg
+    # The types that do implement it are still named.
+    assert "Skeleton" in msg and "Dotprops" in msg
+
+
+def test_metaclass_attributes_are_not_advertised(skeleton):
+    """`hasattr(Mesh, "mro")` is True - but via the metaclass, not the neuron.
+
+    Looking the key up on the class dicts (rather than with `getattr`) keeps
+    `type`'s own attributes out of both the suggestion and the lookup.
+    """
+    with pytest.raises(AttributeError) as exc:
+        skeleton.mro
+
+    msg = str(exc.value)
+    assert "convert" not in msg
+    assert "Mesh" not in msg
+
+
+@pytest.mark.parametrize("kind", ["mesh", "voxels"])
+def test_has_soma_answers_instead_of_raising(request, kind):
+    """`hasattr` only swallows AttributeError, so `Voxels.has_soma` exploded."""
+    neuron = request.getfixturevalue(kind)
+
+    assert neuron.has_soma is False
+    assert neuron.n_soma is None
+
+
 def test_neurons_still_copy_and_pickle(dotprops):
     """Guards against the error path interfering with dunder probing."""
     import pickle
