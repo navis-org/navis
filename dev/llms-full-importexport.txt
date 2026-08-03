@@ -1,0 +1,1375 @@
+# navis 2.0.0-rc.1 - Import/Export
+
+Full docstrings for the 'Import/Export' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+### navis.read_swc(f, connector_labels={}, soma_label=1, include_subdirs=False, delimiter=' ', parallel='auto', precision=32, fmt='{name}.swc', read_meta=True, limit=None, errors='raise', **kwargs)
+
+*function*
+
+Create Neuron/List from SWC file.
+
+This import is following format specified
+[here](http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html).
+
+Parameters
+----------
+f :                 str | pandas.DataFrame | list thereof
+                    Filename, folder, SWC string, URL or DataFrame:
+                     - if folder, will import all `.swc` files
+                     - if a `.zip`, `.tar` or `.tar.gz` archive will read all
+                       SWC files from the file
+                     - if a URL (http:// or https://), will download the
+                       file and import it
+                     - FTP address (ftp://) can point to a folder or a single
+                       file
+                     - Google Storage URLs (gs://) can point to a folder (in which
+                       case all SWC files are read) or a single SWC file
+                     - DataFrames are interpreted as a SWC tables
+                    See also `limit` parameter to read only a subset of files.
+connector_labels :  dict, optional
+                    If provided will extract connectors from SWC.
+                    Dictionary must map types to labels:
+                    `{'presynapse': 7, 'postsynapse': 8}`
+include_subdirs :   bool, optional
+                    If True and `f` is a folder, will also search
+                    subdirectories for `.swc` files.
+delimiter :         str
+                    Delimiter to use. Passed to `pandas.read_csv`.
+parallel :          "auto" | bool | int
+                    Whether to use parallel processes for reading:
+                     - "auto" (default): will use parallel processing if
+                        more than 200 SWCs are imported.
+                      - Integers will be interpreted as the number of
+                        processes to use. Defaults to `os.cpu_count() // 2`.
+                      - False will use a single process.
+                    Ignored for tar archives. Please note that spawning
+                    processes incurs an overhead and might not be faster
+                    for small numbers of files.
+precision :         int [8, 16, 32, 64] | None
+                    Precision for data. Defaults to 32 bit integers/floats.
+                    If `None` will let pandas infer data types - this
+                    typically leads to higher than necessary precision.
+fmt :               str
+                    Formatter to specify how filenames are parsed into
+                    neuron attributes. Some illustrative examples:
+
+                      - `{name}.swc` (default) uses the filename
+                        (minus the suffix) as the neuron's name property
+                      - `{id}.swc` uses the filename as the neuron's ID
+                        property
+                      - `{name,id}.swc` uses the filename as the neuron's
+                        name and ID properties
+                      - `{name}.{id}.swc` splits the filename at a "."
+                        and uses the first part as name and the second as ID
+                      - `{name,id:int}.swc` same as above but converts
+                        into integer for the ID
+                      - `{name}_{myproperty}.swc` splits the filename at
+                        "_" and uses the first part as name and as a
+                        generic "myproperty" property
+                      - `{name}_{}_{id}.swc` splits the filename at
+                        "_" and uses the first part as name and the last as
+                        ID. The middle part is ignored.
+
+                    Throws a ValueError if pattern can't be found in
+                    filename. Ignored for DataFrames.
+read_meta :         bool
+                    If True and SWC header contains a line with JSON-encoded
+                    meta data e.g. (`# Meta: {'id': 123}`), these data
+                    will be read as neuron properties. `fmt` still takes
+                    precedence. Will try to assign meta data directly as
+                    neuron attribute (e.g. `neuron.id`). Failing that
+                    (can happen for properties intrinsic to `Skeletons`),
+                    will add a `.meta` dictionary to the neuron.
+limit :             int | str | slice | list, optional
+                    When reading from a folder or archive you can use this parameter to
+                    restrict the which files read:
+                     - if an integer, will read only the first `limit` SWC files
+                      (useful to get a sample from a large library of skeletons)
+                     - if a string, will interpret it as filename (regex) pattern
+                       and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                       will only read files that contain `_R` in their filename
+                     - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                       that range
+                     - a list is expected to be a list of filenames to read from
+                       the folder/archive
+errors :            "raise" | "log" | "ignore"
+                    If "log" or "ignore", errors will not be raised and the
+                    mesh will be skipped. Can result in empty output.
+**kwargs
+                    Keyword arguments passed to the construction of
+                    `navis.Skeleton`. You can use this to e.g. set
+                    meta data.
+
+Returns
+-------
+navis.Skeleton
+                    Contains SWC file header as `.swc_header` attribute.
+navis.NeuronList
+                    If import of multiple SWCs will return NeuronList of
+                    Skeletons.
+
+See Also
+--------
+navis.write_swc
+                    Export neurons as SWC files.
+
+Examples
+--------
+
+Read a single file:
+
+>>> s = navis.read_swc('skeleton.swc')                      # doctest: +SKIP
+
+Read all .swc files in a directory:
+
+>>> s = navis.read_swc('/some/directory/')                  # doctest: +SKIP
+
+Read all .swc files in a zip archive:
+
+>>> s = navis.read_swc('skeletons.zip')                     # doctest: +SKIP
+
+Sample the first 100 SWC files in a zip archive:
+
+>>> s = navis.read_swc('skeletons.zip', limit=100)          # doctest: +SKIP
+
+Read first all SWC files an ftp folder:
+
+>>> s = navis.read_swc('ftp://server:port/path/to/swc/')    # doctest: +SKIP
+
+### navis.read_nrrd(f, output='voxels', threshold=None, thin=False, include_subdirs=False, parallel='auto', fmt='{name}.nrrd', limit=None, errors='raise', **dotprops_kwargs)
+
+*function*
+
+Create Neuron/List from NRRD file.
+
+See [here](http://teem.sourceforge.net/nrrd/format.html) for specs of
+NRRD file format including description of the headers.
+
+Parameters
+----------
+f :                 str | list thereof
+                    Filename, folder or URL:
+                     - if folder, will import all `.nrrd` files
+                     - if a `.zip`, `.tar` or `.tar.gz` archive will read all
+                       NRRD files from the file
+                     - if a URL (http:// or https://), will download the
+                       file and import it
+                     - FTP address (ftp://) can point to a folder or a single
+                       file
+                    See also `limit` parameter to read only a subset of files.
+output :            "voxels" | "dotprops" | "raw"
+                    Determines function's output. See Returns for details.
+threshold :         int | float | None
+                    For `output='dotprops'` only: a threshold to filter
+                    low intensity voxels.
+                      - if `None`, all values > 0 are converted to points
+                      - if >=1, all values >= threshold are converted to points
+                      - if <1, all values >= threshold * max(data) are converted
+thin :              bool
+                    For `output='dotprops'` only: if True, will thin the
+                    point cloud using `skimage.morphology.skeletonize`
+                    after thresholding. Requires `scikit-image`.
+include_subdirs :   bool, optional
+                    If True and `f` is a folder, will also search
+                    subdirectories for `.nrrd` files.
+parallel :          "auto" | bool | int,
+                    Defaults to `auto` which means only use parallel
+                    processing if more than 10 NRRD files are imported.
+                    Spawning and joining processes causes overhead and is
+                    considerably slower for imports of small numbers of
+                    neurons. Integer will be interpreted as the number of
+                    cores (otherwise defaults to `os.cpu_count() - 2`).
+fmt :               str
+                    Formatter to specify how filenames are parsed into neuron
+                    attributes. Some illustrative examples:
+                      - `{name}` (default) uses the filename
+                        (minus the suffix) as the neuron's name property
+                      - `{id}` (default) uses the filename as the neuron's ID
+                        property
+                      - `{name,id}` uses the filename as the neuron's
+                        name and ID properties
+                      - `{name}.{id}` splits the filename at a "."
+                        and uses the first part as name and the second as ID
+                      - `{name,id:int}` same as above but converts
+                        into integer for the ID
+                      - `{name}_{myproperty}` splits the filename at
+                        "_" and uses the first part as name and as a
+                        generic "myproperty" property
+                      - `{name}_{}_{id}` splits the filename at
+                        "_" and uses the first part as name and the last as
+                        ID. The middle part is ignored.
+
+                    Throws a ValueError if pattern can't be found in
+                    filename.
+limit :             int | str | slice | list, optional
+                    When reading from a folder or archive you can use this parameter to
+                    restrict the which files read:
+                     - if an integer, will read only the first `limit` NMX files
+                       (useful to get a sample from a large library of skeletons)
+                     - if a string, will interpret it as filename (regex) pattern
+                       and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                       will only read files that contain `_R` in their filename
+                     - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                       that range
+                     - a list is expected to be a list of filenames to read from
+                       the folder/archive
+errors :            "raise" | "log" | "ignore"
+                    If "log" or "ignore", errors will not be raised and the
+                    mesh will be skipped. Can result in empty output.
+**dotprops_kwargs
+                    Keyword arguments passed to navis.make_dotprops
+                    if `output='dotprops'`. Use this to adjust e.g. the
+                    number of nearest neighbors used for calculating the
+                    tangent vector by passing e.g. `k=5`.
+
+Returns
+-------
+navis.Voxels
+                    If `output="voxels"` (default): requires NRRD data to
+                    be 3-dimensional voxels. Voxels will have NRRD file
+                    header as `.nrrd_header` attribute.
+navis.Dotprops
+                    If `output="dotprops"`: requires NRRD data to be
+                    either:
+                      - `(N, M, K)` (i.e. 3D) in which case we will turn
+                        voxels into a point cloud (see also `threshold`
+                        parameter)
+                      - `(N, 3)` = x/y/z points
+                      - `(N, 6)` = x/y/z points + x/y/z vectors
+                      - `(N, 7)` = x/y/z points + x/y/z vectors + alpha
+
+                    Dotprops will contain NRRD header as `.nrrd_header`
+                    attribute.
+navis.NeuronList
+                    If import of multiple NRRD will return NeuronList of
+                    Dotprops/Voxels.
+(image, header)     (np.ndarray, OrderedDict)
+                    If `output='raw'` return raw data contained in NRRD
+                    file.
+
+### navis.read_mesh(f, include_subdirs=False, parallel='auto', output='neuron', errors='raise', limit=None, fmt='{name}.', **kwargs)
+
+*function*
+
+Load mesh file into Neuron/List.
+
+This is a thin wrapper around `trimesh.load_mesh` which supports most
+commonly used formats (obj, ply, stl, etc.).
+
+Parameters
+----------
+f :                 str | iterable
+                    Filename(s) or folder. If folder should include file
+                    extension (e.g. `my/dir/*.ply`) otherwise all
+                    mesh files in the folder will be read.
+include_subdirs :   bool, optional
+                    If True and `f` is a folder, will also search
+                    subdirectories for meshes.
+parallel :          "auto" | bool | int,
+                    Defaults to `auto` which means only use parallel
+                    processing if more than 100 mesh files are imported.
+                    Spawning and joining processes causes overhead and is
+                    considerably slower for imports of small numbers of
+                    neurons. Integer will be interpreted as the number of
+                    cores (otherwise defaults to `os.cpu_count() - 2`).
+output :            "neuron" | "volume" | "trimesh"
+                    Determines function's output - see `Returns`.
+errors :            "raise" | "log" | "ignore"
+                    If "log" or "ignore", errors will not be raised and the
+                    mesh will be skipped. Can result in empty output.
+limit :             int | str | slice | list, optional
+                    When reading from a folder or archive you can use this parameter to
+                    restrict the which files read:
+                     - if an integer, will read only the first `limit` mesh files
+                       (useful to get a sample from a large library of meshes)
+                     - if a string, will interpret it as filename (regex) pattern
+                       and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                       will only read files that contain `_R` in their filename
+                     - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                       that range
+                     - a list is expected to be a list of filenames to read from
+                       the folder/archive
+**kwargs
+                    Keyword arguments passed to navis.Mesh
+                    or navis.Volume. You can use this to e.g.
+                    set the units on the neurons.
+
+Returns
+-------
+Mesh
+                    If `output="neuron"` (default).
+Volume
+                    If `output="volume"`.
+Trimesh
+                    If `output="trimesh"`.
+NeuronList
+                    If `output="neuron"` and import has multiple meshes
+                    will return NeuronList of Meshes.
+list
+                    If `output!="neuron"` and import has multiple meshes
+                    will return list of Volumes or Trimesh.
+
+See Also
+--------
+navis.read_precomputed
+                    Read meshes and skeletons from Neuroglancer's precomputed format.
+
+Examples
+--------
+
+Read a single file into navis.Mesh:
+
+>>> m = navis.read_mesh('mesh.obj')                         # doctest: +SKIP
+
+Read all e.g. .obj files in a directory:
+
+>>> nl = navis.read_mesh('/some/directory/*.obj')           # doctest: +SKIP
+
+Sample first 50 files in folder:
+
+>>> nl = navis.read_mesh('/some/directory/*.obj', limit=50) # doctest: +SKIP
+
+Read single file into navis.Volume:
+
+>>> nl = navis.read_mesh('mesh.obj', output='volume')       # doctest: +SKIP
+
+### navis.read_tiff(f, output='voxels', channel=0, threshold=None, thin=False, include_subdirs=False, parallel='auto', fmt='{name}.tif', limit=None, errors='raise', **dotprops_kwargs)
+
+*function*
+
+Create Neuron/List from TIFF file.
+
+Requires `tifffile` library which is not automatically installed!
+
+Parameters
+----------
+f :                 str | iterable
+                    Filename(s) or folder. If folder, will import all
+                    `.tif` files.
+output :            "voxels" | "dotprops" | "raw"
+                    Determines function's output. See Returns for details.
+channel :           int
+                    Which channel to import. Ignored if file has only one
+                    channel or when `output="raw". Can use e.g. -1 to
+                    get the last channel.
+threshold :         int | float | None
+                    For `output='dotprops'` only: a threshold to filter
+                    low intensity voxels. If `None`, no threshold is
+                    applied and all values > 0 are converted to points.
+thin :              bool
+                    For `output='dotprops'` only: if True, will thin the
+                    point cloud using `skimage.morphology.skeletonize`
+                    after thresholding. Requires `scikit-image`.
+include_subdirs :   bool, optional
+                    If True and `f` is a folder, will also search
+                    subdirectories for `.tif` files.
+parallel :          "auto" | bool | int,
+                    Defaults to `auto` which means only use parallel
+                    processing if more than 10 TIFF files are imported.
+                    Spawning and joining processes causes overhead and is
+                    considerably slower for imports of small numbers of
+                    neurons. Integer will be interpreted as the number of
+                    cores (otherwise defaults to `os.cpu_count() - 2`).
+fmt :               str
+                    Formatter to specify how filenames are parsed into neuron
+                    attributes. Some illustrative examples:
+                      - `{name}` (default) uses the filename
+                        (minus the suffix) as the neuron's name property
+                      - `{id}` (default) uses the filename as the neuron's ID
+                        property
+                      - `{name,id}` uses the filename as the neuron's
+                        name and ID properties
+                      - `{name}.{id}` splits the filename at a "."
+                        and uses the first part as name and the second as ID
+                      - `{name,id:int}` same as above but converts
+                        into integer for the ID
+                      - `{name}_{myproperty}` splits the filename at
+                        "_" and uses the first part as name and as a
+                        generic "myproperty" property
+                      - `{name}_{}_{id}` splits the filename at
+                        "_" and uses the first part as name and the last as
+                        ID. The middle part is ignored.
+
+                    Throws a ValueError if pattern can't be found in
+                    filename.
+limit :             int | str | slice | list, optional
+                    When reading from a folder or archive you can use this parameter to
+                    restrict the which files read:
+                     - if an integer, will read only the first `limit` NMX files
+                       (useful to get a sample from a large library of skeletons)
+                     - if a string, will interpret it as filename (regex) pattern
+                       and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                       will only read files that contain `_R` in their filename
+                     - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                       that range
+                     - a list is expected to be a list of filenames to read from
+                       the folder/archive
+errors :            "raise" | "log" | "ignore"
+                    If "log" or "ignore", errors will not be raised and the
+                    mesh will be skipped. Can result in empty output.
+
+**dotprops_kwargs
+                    Keyword arguments passed to navis.make_dotprops
+                    if `output='dotprops'`. Use this to adjust e.g. the
+                    number of nearest neighbors used for calculating the
+                    tangent vector by passing e.g. `k=5`.
+
+Returns
+-------
+navis.Voxels
+                    If `output="voxels"` (default): requires TIFF data to
+                    be 3-dimensional voxels. Voxels will have TIFF file
+                    info as `.tiff_header` attribute.
+navis.Dotprops
+                    If `output="dotprops"`. Dotprops will contain TIFF
+                    header as `.tiff_header` attribute.
+navis.NeuronList
+                    If import of multiple TIFF will return NeuronList of
+                    Dotprops/Voxels.
+(image, header)     (np.ndarray, OrderedDict)
+                    If `output='raw'` return raw data contained in TIFF
+                    file.
+
+### navis.read_nmx(f, include_subdirs=False, parallel='auto', precision=32, limit=None, errors='raise', **kwargs)
+
+*function*
+
+Read NMX files into Neuron/Lists.
+
+NMX is an xml-based format used by pyKNOSSOS.
+See e.g. [here](https://doi.org/10.5281/zenodo.58985) for a data dump
+of neurons from Wanner et al. (2016).
+
+Parameters
+----------
+f :                 str
+                    Filename or folder. If folder, will import all `.nmx`
+                    files.
+include_subdirs :   bool, optional
+                    If True and `f` is a folder, will also search
+                    subdirectories for `.nmx` files.
+parallel :          "auto" | bool | int
+                    Defaults to `auto` which means only use parallel
+                    processing if more than 200 files are imported. Spawning
+                    and joining processes causes overhead and is
+                    considerably slower for imports of small numbers of
+                    neurons. Integer will be interpreted as the
+                    number of cores (otherwise defaults to
+                    `os.cpu_count() // 2`).
+precision :         int [8, 16, 32, 64] | None
+                    Precision for data. Defaults to 32 bit integers/floats.
+                    If `None` will let pandas infer data types - this
+                    typically leads to higher than necessary precision.
+limit :             int | str | slice | list, optional
+                    When reading from a folder or archive you can use this parameter to
+                    restrict the which files read:
+                     - if an integer, will read only the first `limit` NMX files
+                       (useful to get a sample from a large library of skeletons)
+                     - if a string, will interpret it as filename (regex) pattern
+                       and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                       will only read files that contain `_R` in their filename
+                     - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                       that range
+                     - a list is expected to be a list of filenames to read from
+                       the folder/archive
+errors :            "raise" | "log" | "ignore"
+                    If "log" or "ignore", errors will not be raised and the
+                    mesh will be skipped. Can result in empty output.
+**kwargs
+                    Keyword arguments passed to the construction of
+                    `navis.Skeleton`. You can use this to e.g. set
+                    meta data.
+
+Returns
+-------
+navis.NeuronList
+
+See Also
+--------
+navis.read_nml
+                    Read NML file(s).
+
+### navis.read_nml(f, include_subdirs=False, parallel='auto', precision=32, limit=None, **kwargs)
+
+*function*
+
+Read xml-based NML files into Neuron/Lists.
+
+Parameters
+----------
+f :                 str
+                    Filename or folder. If folder, will import all `.nml`
+                    files.
+include_subdirs :   bool, optional
+                    If True and `f` is a folder, will also search
+                    subdirectories for `.nml` files.
+parallel :          "auto" | bool | int
+                    Defaults to `auto` which means only use parallel
+                    processing if more than 200 files are imported. Spawning
+                    and joining processes causes overhead and is
+                    considerably slower for imports of small numbers of
+                    neurons. Integer will be interpreted as the
+                    number of cores (otherwise defaults to
+                    `os.cpu_count() // 2`).
+precision :         int [8, 16, 32, 64] | None
+                    Precision for data. Defaults to 32 bit integers/floats.
+                    If `None` will let pandas infer data types - this
+                    typically leads to higher than necessary precision.
+limit :             int | str | slice | list, optional
+                    When reading from a folder or archive you can use this
+                    parameter to restrict the which files read:
+                     - if an integer, will read only the first `limit` NML files
+                       (useful to get a sample from a large library of skeletons)
+                     - if a string, will interpret it as filename (regex) pattern
+                       and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                       will only read files that contain `_R` in their filename
+                     - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                       that range
+                     - a list is expected to be a list of filenames to read from
+                       the folder/archive
+**kwargs
+                    Keyword arguments passed to the construction of
+                    `navis.Skeleton`. You can use this to e.g. set
+                    meta data.
+
+Returns
+-------
+navis.NeuronList
+
+See Also
+--------
+navis.read_nmx
+                    Read NMX files (collections of NML files).
+
+### navis.read_rda(f, combine=True, neurons_only=True)
+
+*function*
+
+Read objects from nat R data (.rda) file.
+
+Currently supports parsing neurons, dotprops and mesh3d. Note that this
+does not require a working R installation or `rpy2`.
+
+Parameters
+----------
+f :                 str
+                    Filepath.
+combine :           bool
+                    What to do if there are multiple neuronlists contained
+                    in the RDA files. By default, we will combine them into
+                    a single NeuronList but you can also choose to keep them
+                    as separate neuronlists.
+neurons_only :      bool
+                    Whether to only parse and return neurons and dotprops
+                    found in the RDA file.
+
+Returns
+-------
+navis.NeuronList
+                    If `combine=True` and `neurons_only=True` returns
+                    a single NeuronList with the parsed neurons.
+dict
+                    If `combine=False` or `neurons_only=False` returns
+                    a dictionary with the original R object name as key and
+                    the parsed object as value.
+
+See Also
+--------
+navis.read_rds
+                    Read `.rds` files (a single, unnamed object).
+navis.write_rda
+                    Write navis objects to `.rda` files.
+
+### navis.read_rds(f, combine=True, neurons_only=True)
+
+*function*
+
+Read objects from nat R data (.rds) file.
+
+In contrast to `.rda` files, `.rds` files contain a single (unnamed)
+object - typically a neuron, a neuronlist or a mesh.
+
+Parameters
+----------
+f :                 str
+                    Filepath.
+combine :           bool
+                    Only relevant if the file contains a plain (i.e.
+                    non-neuronlist) list of neurons: if True, these are
+                    combined into a single NeuronList.
+neurons_only :      bool
+                    Whether to only return neurons and dotprops found in
+                    the file.
+
+Returns
+-------
+object
+                    The parsed object - typically a `NeuronList`.
+
+See Also
+--------
+navis.read_rda
+                    Read `.rda` files (multiple named objects).
+navis.write_rds
+                    Write navis objects to `.rds` files.
+
+### navis.read_json(s, **kwargs)
+
+*function*
+
+Load neuron from JSON (file or string).
+
+Parameters
+----------
+s :         str
+            Either filepath or JSON-formatted string.
+**kwargs
+            Parameters passed to `json.loads()` and
+            `pandas.DataFrame.read_json()`.
+
+Returns
+-------
+navis.NeuronList
+
+See Also
+--------
+navis.neuron2json
+            Turn neuron into json.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> js = navis.write_json(n, filepath=None)
+>>> n2 = navis.read_json(js)
+
+### navis.read_precomputed(f, datatype='auto', include_subdirs=False, fmt='{id}', info=True, limit=None, parallel='auto', errors='raise', **kwargs)
+
+*function*
+
+Read skeletons and meshes from neuroglancer's precomputed format.
+
+Follows the formats specified
+[here](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed).
+
+Parameters
+----------
+f :                 filepath | folder | zip file | bytes
+                    Filename, folder or bytes. If folder, will import all
+                    files. If a `.zip`, `.tar` or `.tar.gz` file will
+                    read all files in the archive. See also `limit` parameter.
+datatype :          "auto" | "skeleton" | "mesh"
+                    Which data type we expect to read from the files. If
+                    "auto", we require a "info" file in the same directory
+                    as `f`.
+include_subdirs :   bool, optional
+                    If True and `f` is a folder, will also search
+                    subdirectories for binary files.
+fmt :               str
+                    Formatter to specify how filenames are parsed into neuron
+                    attributes. Some illustrative examples:
+                      - `{name}` (default) uses the filename
+                        (minus the suffix) as the neuron's name property
+                      - `{id}` (default) uses the filename as the neuron's ID
+                        property
+                      - `{name,id}` uses the filename as the neuron's
+                        name and ID properties
+                      - `{name}.{id}` splits the filename at a "."
+                        and uses the first part as name and the second as ID
+                      - `{name,id:int}` same as above but converts
+                        into integer for the ID
+                      - `{name}_{myproperty}` splits the filename at
+                        "_" and uses the first part as name and as a
+                        generic "myproperty" property
+                      - `{name}_{}_{id}` splits the filename at
+                        "_" and uses the first part as name and the last as
+                        ID. The middle part is ignored.
+
+                    Throws a ValueError if pattern can't be found in
+                    filename.
+info :              bool | str | dict
+                    An info file describing the data:
+                      - `True` = will look for `info` file in base folder
+                      - `False` = do not use/look for `info` file
+                      - `str` = filepath to `info` file
+                      - `dict` = already parsed info file
+limit :             int | str | slice | list, optional
+                    When reading from a folder or archive you can use this parameter to
+                    restrict the which files read:
+                     - if an integer, will read only the first `limit` files
+                       (useful to get a sample from a large library of neurons)
+                     - if a string, will interpret it as filename (regex) pattern
+                       and only read files that match the pattern; e.g. `limit='.*_R.*'`
+                       will only read files that contain `_R` in their filename
+                     - if a slice (e.g. `slice(10, 20)`) will read only the files in
+                       that range
+                     - a list is expected to be a list of filenames to read from
+                       the folder/archive
+parallel :          "auto" | bool | int
+                    Defaults to `auto` which means only use parallel
+                    processing if more than 200 files are imported. Spawning
+                    and joining processes causes overhead and is
+                    considerably slower for imports of small numbers of
+                    neurons. Integer will be interpreted as the
+                    number of cores (otherwise defaults to
+                    `os.cpu_count() // 2`).
+errors :            "raise" | "log" | "ignore"
+                    If "log" or "ignore", errors will not be raised and the
+                    mesh will be skipped. Can result in empty output.
+**kwargs
+                    Keyword arguments passed to the construction of the
+                    neurons. You can use this to e.g. set meta data such
+                    as `units`.
+
+Returns
+-------
+navis.Mesh
+navis.NeuronList
+
+See Also
+--------
+navis.write_precomputed
+                    Export neurons/volumes to precomputed format.
+navis.read_mesh
+                    Read common mesh formats (obj, stl, etc).
+
+### navis.read_parquet(f, read_meta=True, limit=None, subset=None, read_connectors=True, progress=True)
+
+*function*
+
+Read parquet file into Neuron/List.
+
+Reads both navis' own format (see
+[here](https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md)
+for specifications) and files following the
+[neurarrow](https://neurarrow.readthedocs.io) spec - the format is detected
+from the file's metadata.
+
+Parameters
+----------
+f :                 str
+                    File to be read.
+read_meta :         bool
+                    Whether to read neuron meta data stored in the parquet
+                    file (e.g. name or units). Defaults to True but can be
+                    switched off in case there are any issues.
+limit :             int, optional
+                    If reading from a file containing multiple neurons you
+                    can use this parameter to read only the first `limit`
+                    neurons. Useful if wanting to get a sample from a large
+                    library of neurons.
+subset :            str | int | list thereof
+                    If the parquet file contains multiple neurons you can
+                    use this to select the IDs of the neurons to load. Only
+                    works if the parquet file actually contains multiple
+                    neurons.
+read_connectors :   bool
+                    Whether to also read the connector table from the
+                    sidecar file (e.g. `neurons.connectors.parquet` next to
+                    `neurons.parquet`) if it exists.
+
+Returns
+-------
+navis.Skeleton/Dotprops
+                    If parquet file contains a single neuron.
+navis.NeuronList
+                    If parquet file contains multiple neurons or if
+                    `limit`/`subset` were used.
+
+See Also
+--------
+navis.write_parquet
+                    Export neurons as parquet files.
+navis.scan_parquet
+                    Scan parquet file for its contents.
+
+Examples
+--------
+See navis.write_parquet for examples.
+
+### navis.scan_parquet(file)
+
+*function*
+
+Scan parquet file.
+
+Parameters
+----------
+file :              str
+                    File to be scan.
+
+Returns
+-------
+pd.DataFrame
+                    Summary of file's content.
+
+See Also
+--------
+navis.write_parquet
+                    Export neurons as parquet files.
+navis.read_parquet
+                    Read parquet file into neurons.
+
+Examples
+--------
+See navis.write_parquet for examples.
+
+### navis.write_swc(x, filepath, header=None, write_meta=True, labels=True, export_connectors=False, return_node_map=False)
+
+*function*
+
+Write Skeleton(s) to SWC.
+
+Follows the format specified
+[here](http://www.neuronland.org/NLMorphologyConverter/MorphologyFormats/SWC/Spec.html).
+
+Parameters
+----------
+x :                 Skeleton | NeuronList
+                    If multiple neurons, will generate a single SWC file
+                    for each neuron (see also `filepath`).
+filepath :          str | pathlib.Path | list thereof
+                    Destination for the SWC files. See examples for options.
+                    If `x` is multiple neurons, `filepath` must either
+                    be a folder, a "formattable" filename, a filename ending
+                    in `.zip` or a list of filenames (one for each neuron
+                    in `x`). Existing files will be overwritten!
+header :            str | None, optional
+                    Header for SWC file. If not provided, will use generic
+                    header.
+write_meta :        bool | list | dict
+                    If not False, will add meta data as JSON-formatted
+                    string to the header::
+
+                       True: adds neuron `id`, `name` and `units`
+                       list: use to set which properties, e.g. ['id', 'units']
+                       dict: use to set meta data, e.g. {'template': 'JRC2018F'}
+
+                    This parameter is ignored if custom header is provided.
+labels :            str | dict | bool, optional
+                    Node labels. Can be::
+
+                        str : column name in node table
+                        dict: must be of format {node_id: 'label', ...}.
+                        bool: if True, will generate automatic labels, if False all nodes have label "0".
+
+export_connectors : bool, optional
+                    If True, will label nodes with pre- ("7") and
+                    postsynapse ("8"). Because only one label can be given
+                    this might drop synapses (i.e. in case of multiple
+                    pre- and/or postsynapses on a single node)! `labels`
+                    must be `True` for this to have any effect.
+return_node_map :   bool
+                    If True, will return a dictionary mapping the old node
+                    ID to the new reindexed node IDs in the file.
+
+Returns
+-------
+node_map :          dict
+                    Only if `return_node_map=True`.
+
+See Also
+--------
+navis.read_swc
+                    Import skeleton from SWC files.
+
+Examples
+--------
+Save a single neuron to a specific file:
+
+>>> import navis
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> navis.write_swc(n, tmp_dir / 'my_neuron.swc')
+
+Save two neurons to specific files:
+
+>>> import navis
+>>> nl = navis.example_neurons(2, kind='skeleton')
+>>> navis.write_swc(nl, [tmp_dir / 'my_neuron1.swc', tmp_dir / 'my_neuron2.swc'])
+
+Save multiple neurons to a folder (must exist). Filenames will be
+autogenerated as "{neuron.id}.swc":
+
+>>> import navis
+>>> nl = navis.example_neurons(5, kind='skeleton')
+>>> navis.write_swc(nl, tmp_dir)
+
+Save multiple neurons to a folder but modify the pattern for the
+autogenerated filenames:
+
+>>> import navis
+>>> nl = navis.example_neurons(5, kind='skeleton')
+>>> navis.write_swc(nl, tmp_dir / 'skel-{neuron.name}.swc')
+
+Save multiple neurons to a zip file:
+
+>>> import navis
+>>> nl = navis.example_neurons(5, kind='skeleton')
+>>> navis.write_swc(nl, tmp_dir / 'neuronlist.zip')
+
+Save multiple neurons to a zip file but modify the filenames:
+
+>>> import navis
+>>> nl = navis.example_neurons(5, kind='skeleton')
+>>> navis.write_swc(nl, tmp_dir / 'skel-{neuron.name}.swc@neuronlist.zip')
+
+### navis.write_nrrd(x, filepath, compression_level=3, attrs=None)
+
+*function*
+
+Write Voxels or Dotprops to NRRD file(s).
+
+Parameters
+----------
+x :                 Voxels | Dotprops | NeuronList
+                    If multiple neurons, will generate a NRRD file
+                    for each neuron (see also `filepath`).
+filepath :          str | pathlib.Path | list thereof
+                    Destination for the NRRD files. See examples for options.
+                    If `x` is multiple neurons, `filepath` must either
+                    be a folder, a "formattable" filename (see Examples) or
+                    a list of filenames (one for each neuron in `x`).
+                    Existing files will be overwritten!
+compression_level : int 1-9
+                    Lower = faster writing but larger files. Higher = slower
+                    writing but smaller files.
+attrs :             dict
+                    Any additional attributes will be written to NRRD header.
+
+Returns
+-------
+Nothing
+
+Examples
+--------
+Save a single neuron to a specific file:
+
+>>> import navis
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> vx = navis.voxelize(n, pitch='2 microns')
+>>> navis.write_nrrd(vx, tmp_dir / 'my_neuron.nrrd')
+
+Save multiple neurons to a folder (must exist). Filenames will be
+autogenerated as "{neuron.id}.nrrd":
+
+>>> import navis
+>>> nl = navis.example_neurons(5, kind='skeleton')
+>>> dp = navis.make_dotprops(nl, k=5)
+>>> navis.write_nrrd(dp, tmp_dir)
+
+Save multiple neurons to a folder but modify the pattern for the
+autogenerated filenames:
+
+>>> import navis
+>>> nl = navis.example_neurons(5, kind='skeleton')
+>>> vx = navis.voxelize(nl, pitch='2 microns')
+>>> navis.write_nrrd(vx, tmp_dir / 'voxels-{neuron.name}.nrrd')
+
+Save multiple neurons to a zip file:
+
+>>> import navis
+>>> nl = navis.example_neurons(5, kind='skeleton')
+>>> vx = navis.voxelize(nl, pitch='2 microns')
+>>> navis.write_nrrd(vx, tmp_dir / 'neuronlist.zip')
+
+Save multiple neurons to a zip file but modify the filenames:
+
+>>> import navis
+>>> nl = navis.example_neurons(5, kind='skeleton')
+>>> vx = navis.voxelize(nl, pitch='2 microns')
+>>> navis.write_nrrd(vx, tmp_dir / 'voxels-{neuron.name}.nrrd@neuronlist.zip')
+
+See Also
+--------
+navis.read_nrrd
+                    Import Voxels from NRRD files.
+
+### navis.write_mesh(x, filepath=None, filetype=None)
+
+*function*
+
+Export meshes (Meshes, Volumes, Trimeshes) to disk.
+
+Under the hood this is using trimesh to export meshes.
+
+Parameters
+----------
+x :                 Mesh | Volume | Trimesh | NeuronList
+                    If multiple objects, will generate a file for each
+                    neuron (see also `filepath`).
+filepath :          None | str | list, optional
+                    If `None`, will return byte string or list of
+                    thereof. If filepath will save to this file. If path
+                    will save neuron(s) in that path using `{x.id}`
+                    as filename(s). If list, input must be NeuronList and
+                    a filepath must be provided for each neuron.
+filetype :          stl | ply | obj, optional
+                    If `filepath` does not include the file extension,
+                    you need to provide it as `filetype`.
+
+Returns
+-------
+None
+                    If filepath is not `None`.
+bytes
+                    If filepath is `None`.
+
+See Also
+--------
+navis.read_mesh
+                    Import neurons.
+navis.write_precomputed
+                    Write meshes to Neuroglancer's precomputed format.
+
+Examples
+--------
+
+Write `Meshes` to folder:
+
+>>> import navis
+>>> nl = navis.example_neurons(3, kind='mesh')
+>>> navis.write_mesh(nl, tmp_dir, filetype='obj')
+
+Specify the filenames:
+
+>>> import navis
+>>> nl = navis.example_neurons(3, kind='mesh')
+>>> navis.write_mesh(nl, tmp_dir / '{neuron.name}.obj')
+
+Write directly to zip archive:
+
+>>> import navis
+>>> nl = navis.example_neurons(3, kind='mesh')
+>>> navis.write_mesh(nl, tmp_dir / 'meshes.zip', filetype='obj')
+
+### navis.write_json(x, filepath, **kwargs)
+
+*function*
+
+Save neuron(s) to json-formatted file.
+
+Nodes and connectors are serialised using pandas' `to_json()`. Most
+other items in the neuron's __dict__ are serialised using
+`json.dumps()`. Properties not serialised: `.graph`, `.igraph`.
+
+Parameters
+----------
+x :         Skeleton | NeuronList
+            Neuron(s) to save.
+filepath :  str, optional
+            File to save data to. If `None` will return a json-formatted
+            string.
+**kwargs
+            Parameters passed to `json.dumps()` and
+            `pandas.DataFrame.to_json()`.
+
+Returns
+-------
+str
+            Only if `filepath=None`.
+
+See Also
+--------
+navis.read_json
+            Read json back into navis neurons.
+
+### navis.write_precomputed(x, filepath=None, write_info=True, write_manifest=False, radius=False)
+
+*function*
+
+Export skeletons or meshes to neuroglancer's (legacy) precomputed format.
+
+Note that you should not mix meshes and skeletons in the same folder!
+
+Follows the formats specified
+[here](https://github.com/google/neuroglancer/tree/master/src/neuroglancer/datasource/precomputed).
+
+Parameters
+----------
+x :                 Skeleton | Mesh | Volume | Trimesh | NeuronList
+                    If multiple neurons, will generate a file for each
+                    neuron (see also `filepath`). For use in neuroglancer
+                    coordinates should generally be in nanometers.
+filepath :          None | str | list, optional
+                    If `None`, will return byte string or list of
+                    thereof. If filepath will save to this file. If path
+                    will save neuron(s) in that path using `{x.id}`
+                    as filename(s). If list, input must be NeuronList and
+                    a filepath must be provided for each neuron.
+write_info :        bool
+                    Whether to also write a JSON-formatted `info` file that
+                    can be parsed by e.g. neuroglancer. This only works if
+                    inputs are either only skeletons or only meshes!
+write_manifest :    bool
+                    For meshes only: whether to also write manifests. For
+                    each mesh we will create a JSON-encoded `{id}:0` file
+                    that contains a "fragments" entry that maps to the
+                    actual filename. Note that this will not work on Windows
+                    because colons aren't allowed in file names and on OSX
+                    the colon will show up as a `/` in the Finder.
+radius :            bool
+                    For Skeletons only: whether to write radius as
+                    additional vertex property.
+
+Returns
+-------
+None
+                    If filepath is not `None`.
+bytes
+                    If filepath is `None`.
+
+See Also
+--------
+navis.read_precomputed
+                    Import neurons from neuroglancer's precomputed format.
+navis.write_mesh
+                    Write meshes to generic mesh formats (obj, stl, etc).
+
+Examples
+--------
+
+Write skeletons:
+
+>>> import navis
+>>> n = navis.example_neurons(3, kind='skeleton')
+>>> navis.write_precomputed(n, tmp_dir)
+
+Write meshes:
+
+>>> import navis
+>>> n = navis.example_neurons(3, kind='mesh')
+>>> navis.write_precomputed(n, tmp_dir)
+
+Write directly to zip archive:
+
+>>> import navis
+>>> n = navis.example_neurons(3, kind='skeleton')
+>>> navis.write_precomputed(n, tmp_dir / 'precomputed.zip')
+
+### navis.write_parquet(x, filepath, write_meta=True, write_connectors=True, format='navis', context=None)
+
+*function*
+
+Write Skeleton(s) or Dotprops to parquet file.
+
+See [here](https://github.com/navis-org/navis/blob/master/navis/io/pq_io.md)
+for format specifications.
+
+Connectors are written to a sidecar file next to `filepath` - e.g.
+`neurons.parquet` is accompanied by `neurons.connectors.parquet`.
+navis.read_parquet picks that file up automatically.
+
+Note that MeshNeurons and VoxelNeurons are not supported.
+
+Parameters
+----------
+x :                 Skeleton | Dotprop | NeuronList thereof
+                    Neuron(s) to save. If NeuronList must contain either
+                    only Skeletons or only Dotprops.
+filepath :          str | pathlib.Path
+                    Destination for the file.
+write_meta :        bool | list of str
+                    Whether to also write neuron properties to file. By
+                    default this is `.name`, `.units` and `.soma`. You can
+                    change which properties are written by providing them as
+                    list of strings.
+write_connectors :  bool
+                    Whether to write the neurons' connector tables to the
+                    sidecar file. If False, an existing sidecar file for
+                    this `filepath` is removed so it can't go stale.
+format :            "navis" | "neurarrow"
+                    Which format specs to write:
+                      - `navis` (default) is navis' own format and the only
+                        one that round-trips without loss
+                      - `neurarrow` follows the
+                        [neurarrow](https://neurarrow.readthedocs.io) spec
+                        for interoperability with other tools. This requires
+                        all neurons to share the same units (and, for
+                        dotprops, the same `k`), and connectors are written
+                        using the `net.clbarnes.connector` extension which
+                        drops any extra columns (e.g. "roi").
+context :           str, optional
+                    Only for `format="neurarrow"`: identifier for the
+                    context in which all IDs in this file are unique. If not
+                    provided, a random UUID is generated. Pass the same
+                    context when writing files that belong to one dataset.
+
+See Also
+--------
+navis.read_parquet
+                    Import skeleton from parquet file.
+navis.scan_parquet
+                    Scan parquet file for its contents.
+
+Examples
+--------
+Save a bunch of skeletons:
+
+>>> import navis
+>>> nl = navis.example_neurons(3, kind='skeleton')
+>>> navis.write_parquet(nl, tmp_dir / 'skeletons.parquet')
+
+Inspect that file's content
+
+>>> import navis
+>>> contents = navis.scan_parquet(tmp_dir / 'skeletons.parquet')
+>>> contents                                                # doctest: +SKIP
+           id        units       name    soma
+0   722817260  8 nanometer  DA1_lPN_R     NaN
+1  1734350908  8 nanometer  DA1_lPN_R     [6]
+2  1734350788  8 nanometer  DA1_lPN_R  [4177]
+
+Read the skeletons back in
+
+>>> import navis
+>>> nl = navis.read_parquet(tmp_dir / 'skeletons.parquet')
+>>> len(nl)
+3
+
+Connectors travel in a sidecar file and come back automatically
+
+>>> import navis
+>>> nl[0].n_connectors == navis.read_parquet(tmp_dir / 'skeletons.parquet')[0].n_connectors
+True
+
+Write to the neurarrow spec instead
+
+>>> import navis
+>>> navis.write_parquet(nl, tmp_dir / 'skeletons.na.parquet', format='neurarrow')
+>>> len(navis.read_parquet(tmp_dir / 'skeletons.na.parquet'))
+3
+
+### navis.write_rda(x, filepath, name=None, compression='gzip', compresslevel=6, add_metadata=True)
+
+*function*
+
+Write navis object(s) to R data (.rda) file.
+
+In contrast to `.rds` files, `.rda` files contain *named* objects - i.e.
+they behave like an R workspace. The resulting file contains the
+corresponding natverse objects and can be loaded in R using `load()`.
+Note that this does not require a working R installation or `rpy2`. It does
+require `rdata` >= 1.0 though, and hence Python >= 3.11 - reading is not
+similarly restricted.
+
+Parameters
+----------
+x :             dict | Neuron | NeuronList | Volume
+                If dict, keys are used as names for the R objects.
+                Anything else is stored under `name`. See
+                navis.write_rds for the type conversions.
+filepath :      str | pathlib.Path
+                Destination file.
+name :          str, optional
+                Name under which to store `x` if `x` is not a dict.
+                Defaults to "neurons".
+compression :   "gzip" | "bzip2" | "xz" | None
+                Compression to use.
+compresslevel : int
+                Compression level, 1 (fastest) to 9 (smallest). The
+                default of 6 matches R's own `save`.
+add_metadata :  bool
+                Whether to attach a data.frame with neuron meta data
+                (IDs, names, etc.) to neuronlists.
+
+Returns
+-------
+None
+
+See Also
+--------
+navis.write_rds
+                Write a single (unnamed) object to an `.rds` file.
+navis.read_rda
+                Read R data files into navis.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons(3)
+>>> lh = navis.example_volume('LH')
+>>> navis.write_rda({'neurons': nl, 'LH': lh},
+...                 '/tmp/data.rda')                        # doctest: +SKIP
+
+In R:
+
+``` r
+library(nat)
+load('/tmp/data.rda')
+plot3d(neurons)
+```
+
+### navis.write_rds(x, filepath, compression='gzip', compresslevel=6, add_metadata=True)
+
+*function*
+
+Write navis object(s) to R data (.rds) file.
+
+The resulting file contains the corresponding natverse objects (`nat`
+neurons/dotprops/neuronlists and `rgl` mesh3d) and can be loaded in R
+using `readRDS()`. Note that this does not require a working R
+installation or `rpy2`. It does require `rdata` >= 1.0 though, and hence
+Python >= 3.11 - reading is not similarly restricted.
+
+Two things to be aware of: R has no concept of units, so make sure to
+navis.BaseNeuron.convert_units beforehand if the
+R side expects e.g. microns. And nat's `W` column is a *diameter* while
+navis stores radii - we double on the way out and halve on the way back
+in, so this is only relevant if you compare the two directly.
+
+Parameters
+----------
+x :             Neuron | NeuronList | Volume | dict | list
+                Object(s) to write. Neurons are converted to their nat
+                equivalents:
+
+                 - `Skeleton` -> `nat::neuron`
+                 - `Dotprops` -> `nat::dotprops`
+                 - `Mesh`/`Volume` -> `rgl::mesh3d`
+                 - `Voxels` -> `nat::im3d`
+                 - `NeuronList` -> `nat::neuronlist`
+
+                Dicts, lists, DataFrames and numpy arrays are written as
+                the corresponding R types.
+filepath :      str | pathlib.Path
+                Destination file.
+compression :   "gzip" | "bzip2" | "xz" | None
+                Compression to use.
+compresslevel : int
+                Compression level, 1 (fastest) to 9 (smallest). The
+                default of 6 matches R's own `saveRDS`.
+add_metadata :  bool
+                Whether to attach a data.frame with neuron meta data
+                (IDs, names, etc.) to neuronlists.
+
+Returns
+-------
+None
+
+Notes
+-----
+`rdata` has no streaming API, so the whole dataset is built in memory
+before anything is written - budget roughly 2x the uncompressed file size
+on top of the neurons themselves.
+
+See Also
+--------
+navis.write_rda
+                Write multiple named objects to an `.rda` file.
+navis.read_rda
+                Read R data files into navis.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons(3)
+>>> navis.write_rds(nl, '/tmp/neurons.rds')                 # doctest: +SKIP
+
+In R:
+
+``` r
+library(nat)
+nl <- readRDS('/tmp/neurons.rds')
+plot3d(nl)
+```

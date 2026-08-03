@@ -1,0 +1,756 @@
+# navis
+
+> Python library for the analysis of neuroanatomical data: skeletons, meshes,
+> voxel images and dotprops, with morphometrics, NBLAST, template-brain
+> transforms, connectivity analysis and 2D/3D plotting.
+
+Version: 2.0.0-rc.1
+Docs: https://navis-org.github.io/navis/  |  Repo: https://github.com/navis-org/navis
+
+This is the condensed API index: every documented object with its parameter
+names and one-line summary. Signatures are shown without type annotations.
+For complete docstrings fetch the per-section file named under each heading
+(e.g. `https://navis-org.github.io/navis/llms-full-neuron-morphology.txt`). `llms-full.txt` holds
+all of them concatenated and is large - prefer the per-section files.
+
+## Read this first
+
+What follows is what you cannot infer from signatures and docstrings. The rest
+of this file is the API index; the linked per-section files carry the full
+docstrings.
+
+### Installation
+
+```bash
+pip install navis[all]
+```
+
+### Core model
+
+A neuron is one of four types:
+
+| Type | Holds | Made from |
+|---|---|---|
+| `Skeleton` | skeleton: node table with `node_id`/`parent_id`/`x`/`y`/`z`/`radius` | SWC, `navis.skeletonize()` |
+| `Mesh` | vertices + faces | OBJ/STL, `navis.mesh()` |
+| `Voxels` | 3D image | NRRD/TIFF, `navis.voxelize()` |
+| `Dotprops` | points + local vectors | `navis.make_dotprops()` — **required for NBLAST** |
+
+Explicit conversions go through `navis.skeletonize()`, `navis.mesh()`, `navis.voxelize()`
+and `navis.make_dotprops()`. Not every pairing is supported — see the
+"Neuron types and functions" compatibility matrix in the API index.
+
+Some functions will implicitly convert a neuron to the required type and then map the result back to the original type. For example, `navis.strahler_index` works on a `Mesh` by converting it to a `Skeleton`, computing the Strahler index, and mapping it back to the `Mesh`.
+
+`NeuronList` is the container. Most functions accept either a single neuron or
+a `NeuronList` and return the same shape.
+
+### A few potential pitfalls
+
+#### 1. Optional dependencies
+
+navis has a few optional dependencies that are not installed by default but can greatly
+improve performance or enable additional functionality. See installation instructions
+in the documentation for details.
+
+#### 2. Brain spaces & units
+
+**This is the most important item on this page.** Neurons from different datasets are likely
+in different (template) spaces, and navis itself does not track that. Even within the same
+template space you may encounter data in different units - e.g. nanometers, microns or voxels. Fortunately, navis neurons carry an optional `.units` attribute which is often set
+by the loader. For example, the demo neurons returned by `navis.example_neurons()` are in **8 nanometer** voxel space, not microns.
+
+The reason this is important is that navis *will not warn you* if you compare, overlay or
+NBLAST neurons from different spaces — you may get a plausible, wrong answer.
+
+To align neurons from different template spaces, use `navis.xform_brain()` with a registered transform. For example the `flybrains` package registers the transforms between hemibrain, FlyWire and JRC2018F:
+
+```python
+import navis, flybrains          # flybrains registers the transforms
+
+hb = navis.xform_brain(hemibrain_neurons, source='JRCFIB2018Fraw', target='JRC2018F')
+fw = navis.xform_brain(flywire_neurons,  source='FLYWIRE',        target='JRC2018F')
+# only now are hb and fw comparable
+```
+
+For neurons in the same template space but different units, you can either use the `.convert_units()` method (requires the `.units` property to be set) or use simple scaling:
+
+```python
+n = navis.example_neurons(2)  # hemibrain skeletons in 8nm voxel space
+n_um = n * 8 / 1000           # convert to microns
+```
+
+#### 3. NBLAST has three preconditions; only two are checked
+
+`navis.nblast()` requires its inputs to be (a) `Dotprops`, (b) in microns, and
+(c) in the same template space.
+
+- **(a) is a hard error** with the fix in the message:
+  `TypeError: 'query' must be Dotprop(s), got "(<class '...Skeleton'>,)". Use 'navis.make_dotprops' to convert neurons.`
+- **(b) is only a warning:**
+  `NBLAST is optimized for data in microns and it looks like your queries may not be in microns.`
+  Scores are still returned, and they are not comparable to published ones.
+- **(c) is not checked at all.** See item 2.
+
+The full, correct pipeline:
+
+```python
+nl = nl.convert_units('um')                    # (b) — do this BEFORE make_dotprops
+dp = navis.make_dotprops(nl, k=5, resample=1)  # (a) — k=5 for dense data, k=20 default, resample only needed if neurons are much denses or much sparser than 1 micron
+scores = navis.nblast(dp, dp)                  # navis.nblast_allbyall(dp) also works
+```
+
+`navis.nblast()` is **asymmetric**: `scores.loc[a, b] != scores.loc[b, a]`. The
+default `scores='forward'` returns the raw query→target matrix. Use
+`scores='mean'` (or `'min'`/`'max'`) when you want a symmetric matrix — which is
+almost always what you want for clustering or a distance matrix.
+
+#### 4. Functions return, they don't mutate (by default)
+
+Every navis function that takes `inplace` defaults to `inplace=False` (28 of
+them, no exceptions). So this silently does nothing:
+
+```python
+navis.prune_twigs(nl, size=5)      # WRONG — result discarded
+nl = navis.prune_twigs(nl, size=5) # right
+navis.prune_twigs(nl, size=5, inplace=True) # also right and saves a copy
+```
+
+`NeuronList` also auto-dispatches methods and functions over its members, so
+`nl.prune_twigs(size=5)` and `nl.convert_units('um')` work and return a new
+`NeuronList`.
+
+Chaining several functions with `parallel=True` sends the neurons out to the
+workers and back *once per function*. Use `navis.Pipeline` to pay that cost once
+for the whole chain — it also lets the later steps skip their defensive copies:
+
+```python
+pipe = navis.Pipeline().heal_skeleton().prune_twigs(5000).resample_skeleton(1000)
+res = pipe(nl, parallel=True, n_cores=8)
+```
+
+#### 5. Names that look alike and aren't
+
+- `navis.mesh()` converts *to* a mesh; `navis.Mesh` is the class;
+  `navis.read_mesh()` loads one from disk.
+- `navis.smooth_skeleton()` / `smooth_mesh()` / `smooth_voxels()` are three
+  different functions — there is no generic `smooth()`.
+- `navis.mirror_brain()` takes neurons and is template-aware (needs registered
+  transforms); `navis.mirror()` takes a raw `(N, 3)` point array and flips it
+  about an axis. They are not interchangeable.
+- Inconsistent casing: `navis.neuron2nx()` but `navis.neuron2KDTree()`.
+- `navis.betweeness_centrality()` is spelled with one `n` — that is the real
+  name, not a typo to correct.
+
+### Verify before you run
+
+`navis.example_neurons()` works offline and needs no credentials. Use it to
+check that a snippet runs before pointing it at the user's data:
+
+```python
+import navis
+nl = navis.example_neurons(2)      # skeletons; kind='mesh' for Meshes
+nl.summary()                       # cheap overview: type, cable_length, units, ...
+```
+
+`.summary()` on a neuron or `NeuronList` is the right way to inspect results —
+prefer it over dumping `.nodes`, which is a full node table and will flood the
+context window. For large results, write them out with
+`navis.write_parquet()` and read back selectively with `navis.read_parquet()` (see the API reference).
+
+## API index
+
+### Neurons & NeuronLists
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists.txt
+
+- `navis.Skeleton(x, units=None, **metadata)` - Neuron represented as hierarchical tree (i.e. a skeleton).
+- `navis.Mesh(x, units=None, process=True, validate=False, **metadata)` - Neuron represented as mesh with vertices and faces.
+- `navis.Voxels(x, offset=None, cache=True, units=None, sparsify='auto', **metadata)` - Neuron represented as voxels.
+- `navis.Dotprops(points, k, vect=None, alpha=None, units=None, **metadata)` - Neuron represented as points + local vectors.
+- `navis.NeuronList(x, make_copy=False, make_using=None, parallel=False, n_cores=None, **kwargs)` - Collection of neurons.
+
+#### General Neuron methods
+
+- `navis.BaseNeuron.copy(deepcopy=False)` - Return a copy of the neuron.
+- `navis.BaseNeuron.plot3d(**kwargs)` - Plot neuron using navis.plot3d.
+- `navis.BaseNeuron.plot2d(**kwargs)` - Plot neuron using navis.plot2d.
+- `navis.BaseNeuron.summary(add_props=None)` - Get a summary of this neuron.
+- `navis.BaseNeuron.convert_units(to, inplace=False)` - Convert coordinates to different unit.
+- `navis.BaseNeuron.map_units(units, on_error='raise')` - Convert units to match neuron space.
+- `navis.BaseNeuron.memory_usage(deep=False, estimate=False)` - Return estimated memory usage of this neuron.
+- `navis.BaseNeuron.mask(mask, inplace=False, warn_cut=True)` - Restrict this neuron to part of itself.
+- `navis.BaseNeuron.unmask(reset=True, warn_cut=True)` - Undo the innermost mask, in place.
+- `navis.BaseNeuron.apply_mask(inplace=False)` - Make the innermost mask permanent.
+
+#### General Neuron properties
+
+- `navis.BaseNeuron.connectors` - Connector table. If none, will return `None`.
+- `navis.BaseNeuron.postsynapses` - Table with postsynapses (filtered from connectors table).
+- `navis.BaseNeuron.presynapses` - Table with presynapses (filtered from connectors table).
+- `navis.BaseNeuron.datatables` - Names of all DataFrames attached to this neuron.
+- `navis.BaseNeuron.id` - ID of the neuron.
+- `navis.BaseNeuron.name` - Neuron name.
+- `navis.BaseNeuron.units` - Units for coordinate space.
+- `navis.BaseNeuron.type` - Neuron type.
+- `navis.BaseNeuron.soma` - The soma of the neuron (if any).
+- `navis.BaseNeuron.bbox` - Bounding box of neuron.
+
+#### Skeletons
+
+- `navis.Skeleton.convert_units(to, inplace=False)` - Convert coordinates to different unit.
+- `navis.Skeleton.cell_body_fiber(reroot_soma=True, inplace=False)` - Prune neuron to its cell body fiber.
+- `navis.Skeleton.downsample(factor=5, inplace=False, **kwargs)` - Downsample the neuron by given factor.
+- `navis.Skeleton.get_graph_nx()` - Calculate and return networkX representation of neuron.
+- `navis.Skeleton.get_igraph()` - Calculate and return iGraph representation of neuron.
+- `navis.Skeleton.prune_by_longest_neurite(n=1, reroot_soma=False, inplace=False)` - Prune neuron down to the longest neurite.
+- `navis.Skeleton.prune_by_strahler(to_prune, inplace=False)` - Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
+- `navis.Skeleton.prune_by_volume(v, mode='IN', prevent_fragments=False, inplace=False)` - Prune neuron by intersection with given volume(s).
+- `navis.Skeleton.prune_distal_to(node, inplace=False)` - Cut off nodes distal to given nodes.
+- `navis.Skeleton.prune_proximal_to(node, inplace=False)` - Remove nodes proximal to given node. Reroots neuron to cut node.
+- `navis.Skeleton.prune_twigs(size, inplace=False, recursive=False)` - Prune terminal twigs under a given size.
+- `navis.Skeleton.reload(inplace=False)` - Reload neuron. Must have filepath as `.origin` as attribute.
+- `navis.Skeleton.reroot(new_root, inplace=False)` - Reroot neuron to given node ID or node tag.
+- `navis.Skeleton.resample(resample_to, inplace=False)` - Resample neuron to given resolution.
+- `navis.Skeleton.snap(locs, to='nodes')` - Snap xyz location(s) to closest node or synapse.
+- `navis.Skeleton.adjacency_matrix` - Adjacency matrix of the skeleton.
+- `navis.Skeleton.cable_length` - Cable length.
+- `navis.Skeleton.cycles` - Cycles in neuron (if any).
+- `navis.Skeleton.edges` - Edges between nodes.
+- `navis.Skeleton.edge_coords` - Coordinates of edges between nodes.
+- `navis.Skeleton.igraph` - iGraph representation of this neuron.
+- `navis.Skeleton.is_tree` - Whether neuron is a tree.
+- `navis.Skeleton.n_branches` - Number of branch points.
+- `navis.Skeleton.n_leafs` - Number of leaf nodes.
+- `navis.Skeleton.n_skeletons` - Number of seperate skeletons in this neuron.
+- `navis.Skeleton.n_trees` - Count number of connected trees in this neuron.
+- `navis.Skeleton.nodes` - Node table.
+- `navis.Skeleton.root` - Root node(s).
+- `navis.Skeleton.sampling_resolution` - Average cable length between child -> parent nodes.
+- `navis.Skeleton.segments` - Neuron broken down into linear segments (see also `.small_segments`).
+- `navis.Skeleton.simple` - Simplified representation consisting only of root, branch points and leafs.
+- `navis.Skeleton.soma_pos` - Search for soma and return its position.
+- `navis.Skeleton.subtrees` - List of subtrees. Sorted by size as sets of node IDs.
+- `navis.Skeleton.vertices` - Vertices of the skeleton.
+- `navis.Skeleton.volume` - Radius-based volume.
+- `navis.rewire_skeleton(x, g, root=None, inplace=False)` - Rewire neuron from graph.
+- `navis.insert_nodes(x, where, coords=None, validate=True, inplace=False)` - Insert new nodes between existing nodes.
+- `navis.remove_nodes(x, which, inplace=False)` - Drop nodes from neuron without disconnecting it.
+- `navis.collapse_nodes(x, which, new_co=None, inplace=False)` - Collapse group of nodes into a single node.
+- `navis.graph.simplify_graph(G, inplace=False)` - Simplify skeleton graph (networkX or igraph).
+- `navis.graph.skeleton_adjacency_matrix(x, sort=True)` - Generate adjacency matrix for a skeleton.
+
+#### Mesh neurons
+
+- `navis.Mesh.faces` - Faces making up the neuron.
+- `navis.Mesh.vertices` - Vertices making up the neuron.
+- `navis.Mesh.extra_edges` - Edges that are not part of any face.
+- `navis.Mesh.trimesh` - Trimesh representation of the neuron.
+- `navis.Mesh.volume` - Volume of the neuron.
+- `navis.Mesh.sampling_resolution` - Average distance between vertices.
+- `navis.Mesh.skeletonize(method='wavefront', heal=True, inv_dist=None, **kwargs)` - Skeletonize mesh.
+- `navis.Mesh.snap(locs, to='vertices')` - Snap xyz location(s) to closest vertex or synapse.
+- `navis.Mesh.validate(inplace=False)` - Use trimesh to try and fix some common mesh issues.
+
+#### Voxel neurons
+
+- `navis.Voxels.centroid` - Centre of mass of the neuron, in units (i.e. including the offset).
+- `navis.Voxels.closing(iterations=1, connectivity=6, fill=None, inplace=False)` - Dilate, then erode: bridges narrow gaps and fills small pits.
+- `navis.Voxels.connected_components(connectivity=26)` - Label the neuron's connected components.
+- `navis.Voxels.densify(inplace=False)` - Convert to a dense grid representation.
+- `navis.Voxels.density` - Fraction of filled voxels.
+- `navis.Voxels.dice(other)` - Dice coefficient (F1 score) with `other`.
+- `navis.Voxels.difference(other, inplace=False)` - Voxels in this neuron but not in `other` (set subtraction).
+- `navis.Voxels.dilate(iterations=1, connectivity=6, fill=None, inplace=False)` - Grow the neuron by its voxel neighbourhood.
+- `navis.Voxels.distance_transform(spacing=None, workers=-1)` - Distance from each voxel to the nearest background voxel.
+- `navis.Voxels.erode(iterations=1, connectivity=6, inplace=False)` - Shrink the neuron by peeling voxels that touch the background.
+- `navis.Voxels.fill_cavities(fill=None, inplace=False, **kwargs)` - Fill enclosed background voids.
+- `navis.Voxels.grid` - Voxel grid representation.
+- `navis.Voxels.intersection(*others, inplace=False)` - Voxels present in this neuron *and* in every one of the others.
+- `navis.Voxels.iou(other)` - Intersection over union (Jaccard index) with `other`.
+- `navis.Voxels.max()` - Maximum value (excludes zeros).
+- `navis.Voxels.mesh(**kwargs)` - Convert this neuron into a mesh.
+- `navis.Voxels.min()` - Minimum value (excludes zeros).
+- `navis.Voxels.nnz` - Number of non-zero voxels.
+- `navis.Voxels.offset` - Offset in units (not voxels), i.e. the position of voxel (0, 0, 0).
+- `navis.Voxels.opening(iterations=1, connectivity=6, fill=None, inplace=False)` - Erode, then dilate: strips specks and thin spurs, keeps bulk shape.
+- `navis.Voxels.shape` - Shape of voxel grid.
+- `navis.Voxels.skeletonize(**kwargs)` - Convert this neuron into a skeleton.
+- `navis.Voxels.sparsify(inplace=False)` - Convert to a sparse voxel representation.
+- `navis.Voxels.strip(inplace=False)` - Strip empty voxels (leading/trailing planes of zeros).
+- `navis.Voxels.surface_area` - Area of the neuron's exposed (blocky, staircase) surface.
+- `navis.Voxels.symmetric_difference(other, fill=None, inplace=False)` - Voxels in exactly one of this neuron and `other` (set XOR).
+- `navis.Voxels.thin(inplace=False, **kwargs)` - Thin the neuron to a one-voxel-wide medial curve (centerline).
+- `navis.Voxels.threshold(threshold, inplace=False)` - Drop below-threshold voxels.
+- `navis.Voxels.union(*others, fill=None, inplace=False)` - Voxels present in this neuron *or* any of the others.
+- `navis.Voxels.voxels` - Voxels making up the neuron.
+
+#### Dotprops
+
+- `navis.Dotprops.points` - Center of tangent vectors.
+- `navis.Dotprops.vect` - Tangent vectors.
+- `navis.Dotprops.alpha` - Alpha values for tangent vectors.
+- `navis.Dotprops.to_skeleton(scale_vec='auto')` - Turn Dotprop into a Skeleton.
+- `navis.Dotprops.snap(locs, to='points')` - Snap xyz location(s) to closest point or synapse.
+
+#### Converting between types
+
+- `navis.make_dotprops(x, k=20, resample=False, threshold=None, on_issue='warn', make_using=None)` - Produce dotprops from neurons or point clouds.
+- `navis.skeletonize(x, **kwargs)` - Turn neuron into skeleton.
+- `navis.mesh(x, **kwargs)` - Generate mesh from object(s).
+- `navis.voxelize(x, pitch, bounds=None, counts=False, vectors=False, alphas=False, smooth=0)` - Turn neuron into voxels.
+- `navis.conversion.voxels2mesh(vox, spacing='auto', step_size=1, smooth=True, chunk_size=None, pad_chunks=None, merge_fragments=None, progress=None)` - Generate mesh from voxels.
+- `navis.conversion.voxels2skeleton(vox, method='wavefront', spacing='auto', heal=False, **kwargs)` - Turn voxels into a skeleton.
+- `navis.conversion.tree2meshneuron(x, tube_points=8, radius_scale_factor=1, use_normals=True, warn_missing_radii=True)` - Convert Skeleton to Mesh.
+
+#### NeuronList methods
+
+- `navis.NeuronList.apply(func, *, parallel=False, n_cores=None, chunksize=None, backend=None, progress=True, omit_failures=False, **kwargs)` - Apply function across all neurons in this NeuronList.
+- `navis.NeuronList.head(N=5)` - Return summary for top N neurons.
+- `navis.NeuronList.itertuples()` - Helper to mimic `pandas.DataFrame.itertuples()`.
+- `navis.NeuronList.mean()` - Return mean numeric and boolean values over all neurons.
+- `navis.NeuronList.remove_duplicates(key='name', keep='first', inplace=False)` - Remove duplicate neurons from list.
+- `navis.NeuronList.sum()` - Return sum numeric and boolean values over all neurons.
+- `navis.NeuronList.summary(N=None, add_props=[], progress=False)` - Get summary over all neurons in this NeuronList.
+- `navis.NeuronList.tail(N=5)` - Return summary for bottom N neurons.
+- `navis.NeuronList.unmix()` - Split into NeuronLists of the same neuron type.
+- `navis.NeuronList.bbox` - Bounding box across all neurons in the list.
+- `navis.NeuronList.empty` - Return True if NeuronList is empty.
+- `navis.NeuronList.is_degenerated` - Return True if contains neurons with non-unique IDs.
+- `navis.NeuronList.is_mixed` - Return True if contains more than one type of neuron.
+- `navis.NeuronList.pipeline` - Start a navis.Pipeline bound to this NeuronList.
+- `navis.NeuronList.shape` - Shape of NeuronList (N, ).
+- `navis.NeuronList.types` - Return neuron types present in this list.
+
+#### Pipelines
+
+- `navis.Pipeline(*steps, elide_copies=True, desc=None)` - A reusable, composable sequence of operations.
+- `navis.Pipeline.add(func, *args, **kwargs)` - Add a step and return the new pipeline.
+- `navis.Pipeline.add_each(func, *args, **kwargs)` - Add a step that is mapped over the elements of the value.
+- `navis.Pipeline.add_once(func, *args, **kwargs)` - Add a step that is called once, with the whole value.
+
+### Visualization
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-visualization.txt
+
+- `navis.plot3d(x, **kwargs)` - Generate interactive 3D plot.
+- `navis.plot2d(x, **kwargs)` - Generate 2D plots of neurons and neuropils.
+- `navis.plot1d(x, ax=None, color=None, color_by=None, palette=None, **kwargs)` - Plot neuron topology in 1D according to Cuntz et al. (2010).
+- `navis.plot_flat(x, layout='subway', connectors=False, highlight_connectors=None, shade_by_length=False, normalize_distance=False, reroot_soma=False, ax=None, **kwargs)` - Plot neuron as flat diagrams.
+- `navis.clear3d()` - Clear viewer 3D canvas.
+- `navis.close3d()` - Close and forget existing 3D viewer.
+- `navis.pop3d()` - Remove the last item added to the 3D canvas.
+- `navis.get_viewer()` - Grab active 3D viewer.
+
+#### Plotting Volumes/Meshes
+
+- `navis.Volume(vertices, faces=None, name=None, color=(0.85, 0.85, 0.85, 0.2), id=None, units=None, **kwargs)` - Mesh consisting of vertices and faces.
+- `navis.Volume.combine(x, name='comb_vol', color=(0.85, 0.85, 0.85, 0.2))` - Merge multiple volumes into a single object.
+- `navis.Volume.plot3d(**kwargs)` - Plot volume using navis.plot3d.
+- `navis.Volume.validate()` - Use trimesh to try and fix issues (holes/normals).
+- `navis.Volume.resize(x, method='center', inplace=False)` - Resize volume.
+
+### Neuron Morphology
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.txt
+
+#### Analyse
+
+- `navis.find_main_branchpoint(x, method='betweenness', threshold=0.95, reroot_soma=False)` - Find main branch point of unipolar (e.g. insect) neurons.
+- `navis.find_soma(x, *, dist_factor=3.0)` - Try finding a neuron's soma.
+- `navis.find_soma_mesh(x, *, min_soma_radius='1 micron', dist_factor=3.0, min_vertices=20, max_points=200000, n_rays=10, inplace=False)` - Detect the soma of a Mesh from its geometry.
+- `navis.form_factor(x, start=-3, stop=3, num=601, parallel=False, n_cores=2, progress=True)` - Calculate form factor for given neuron.
+- `navis.persistence_points(x, descriptor='root_dist', remove_cbf=False)` - Calculate points for a persistence diagram.
+- `navis.persistence_vectors(x, threshold=None, samples=100, bw=0.2, center=False, **kwargs)` - Produce vectors from persistence points.
+- `navis.strahler_index(x, method='standard', to_ignore=[], min_twig_size=None)` - Calculate Strahler Index (SI).
+- `navis.segment_analysis(x)` - Calculate morphometric properties a neuron's segments.
+- `navis.ivscc_features(x, features=None, missing_compartments='ignore', verbose=False, progress=True)` - Calculate IVSCC features for neuron(s).
+- `navis.sholl_analysis(x, radii=10, center='centermass', geodesic=False)` - Run Sholl analysis for given neuron(s).
+- `navis.tortuosity(x, seg_length=None)` - Calculate tortuosity of a neuron.
+- `navis.betweenness_centrality(x, from_=None, directed=True)` - Calculate vertex/node betweenness.
+- `navis.branch_angles(x, degrees=True)` - Compute branch (bifurcation) angles.
+- `navis.path_angles(x, degrees=True)` - Compute path angles.
+- `navis.root_angles(x, degrees=True)` - Compute root angles.
+- `navis.soma_exit_angles(x, degrees=True)` - Compute soma-exit angles.
+- `navis.propagate_labels(x, labels, clamping=True, weights=None, directed=False, max_iter=10000, tol=1, return_probs=False, verbose=False)` - Propagate labels from a subset of nodes/vertices to the rest of the neuron.
+
+#### Manipulate
+
+- `navis.average_skeletons(x, limit=10, base_neuron=None)` - Compute an average from a list of skeletons.
+- `navis.break_fragments(x, labels_only=False, min_size=None)` - Break neuron into its connected components.
+- `navis.despike_skeleton(x, sigma=5, max_spike_length=1, inplace=False, reverse=False)` - Remove spikes in skeleton (e.g. from jumps in image data).
+- `navis.drop_fluff(x, keep_size=None, n_largest=None, epsilon=None, connectivity=26, inplace=False)` - Remove small disconnected pieces of "fluff".
+- `navis.cell_body_fiber(x, method='betweenness', reroot_soma=True, heal=True, threshold=0.95, inverse=False, inplace=False)` - Prune neuron to its cell body fiber.
+- `navis.combine_neurons(*x)` - Combine multiple neurons into one.
+- `navis.cut_skeleton(x, where, ret='both')` - Split skeleton at given point and returns two new neurons.
+- `navis.guess_radius(x, method='linear', limit=None, smooth=True, inplace=False)` - Guess radii for skeleton nodes.
+- `navis.heal_skeleton(x, method='ALL', max_dist=None, min_size=None, use_radius=False, drop_disc=False, mask=None, inplace=False)` - Heal fragmented skeleton(s).
+- `navis.heal_mesh(x, max_dist=None, min_size=None, drop_disc=False, mask=None, inplace=False)` - Heal fragmented mesh(es).
+- `navis.longest_neurite(x, n=1, reroot_soma=False, from_root=True, inverse=False, inplace=False)` - Return a neuron consisting of only the longest neurite(s).
+- `navis.prune_by_strahler(x, to_prune, inplace=False, reroot_soma=True, force_strahler_update=False, relocate_connectors=False)` - Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
+- `navis.prune_twigs(x, size, exact=False, mask=None, inplace=False, recursive=False)` - Prune terminal twigs under a given size.
+- `navis.prune_at_depth(x, depth, *, source=None, inplace=False)` - Prune all neurites past a given distance from a source.
+- `navis.reroot_skeleton(x, new_root, inplace=False)` - Reroot neuron to new root.
+- `navis.split_axon_dendrite(x, metric='synapse_flow_centrality', flow_thresh=0.9, split='prepost', cellbodyfiber=False, reroot_soma=True, label_only=False)` - Split a neuron into axon and dendrite using flow metrics.
+- `navis.split_axon_dendrite_prop(x, use_weights='balance', alpha=1, max_iter=10000, tol=1, label_only=False, verbose=False)` - Split a neuron into axon and dendrite using label propagation.
+- `navis.split_into_fragments(x, n=2, min_size=None, reroot_soma=False)` - Split neuron into fragments.
+- `navis.stitch_skeletons(*x, method='ALL', master='SOMA', max_dist=None, min_size=None, use_radius=False)` - Stitch multiple skeletons together.
+- `navis.subset_neuron(x, subset, inplace=False, keep_disc_cn=False, prevent_fragments=False, track=False)` - Subset a neuron to a given set of nodes/vertices.
+- `navis.merge_subset(x, subset, inplace=False)` - Fold a tracked subset back into the neuron it was taken from.
+- `navis.masked(x, mask, reset=True, warn_cut=True)` - Work on part of a neuron, then put it back.
+- `navis.smooth_skeleton(x, window=5, to_smooth=['x', 'y', 'z'], inplace=False)` - Smooth skeleton(s) using rolling windows.
+- `navis.smooth_mesh(x, iterations=5, L=0.5, backend='auto', inplace=False)` - Smooth meshes (TriMesh, Mesh, Volume).
+- `navis.smooth_voxels(x, sigma=1, backend='sparsecubes', epsilon=0, truncate=4.0, inplace=False)` - Smooth voxel(s) using a Gaussian filter.
+- `navis.thin_voxels(x, backend='auto', inplace=False, **kwargs)` - Skeletonize image data to single voxel width.
+
+#### Resampling
+
+- `navis.resample_skeleton(x, resample_to, inplace=False, method='linear', map_columns=None, skip_errors=True, preserve_volume=False)` - Resample skeleton(s) to given resolution.
+- `navis.sample_skeleton(x, *, n_points=None, density=None, spacing=None)` - Sample points at equal spacing along a skeleton.
+- `navis.resample_along_axis(x, interval, axis=2, old_nodes='remove', inplace=False)` - Resample neuron such that nodes lie exactly on given 1d grid.
+- `navis.downsample_neuron(x, downsampling_factor, inplace=False, preserve_nodes=None, method='simple')` - Downsample neuron(s) by a given factor.
+- `navis.simplify_mesh(x, F, backend='auto', inplace=False, **kwargs)` - Simplify meshes (TriMesh, Mesh, Volume).
+
+#### Comparing morphology
+
+- `navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})` - NBLAST query against target neurons.
+- `navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', limit_dist='auto', approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})` - Smart(er) NBLAST query against target neurons.
+- `navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})` - All-by-all NBLAST of inputs neurons.
+- `navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', limit_dist=None, precision=64, n_cores=2, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})` - Find the `k` nearest neighbours of each neuron, without the full matrix.
+- `navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})` - Run NBLAST on pairwise-aligned neurons.
+- `navis.synblast(query, target, by_type=False, cn_types=None, scores='forward', normalized=True, smat='auto', n_cores=2, progress=True, backend=None)` - Synapsed-based variant of NBLAST.
+- `navis.persistence_distances(q, t=None, augment=True, normalize=True, bw=0.2, **persistence_kwargs)` - Calculate morphological similarity using persistence diagrams.
+- `navis.nbl.smat.Lookup2d(axis0, axis1, cells)` - Convenience class inheriting from LookupNd for the common 2D float case.
+- `navis.nbl.smat.Digitizer(boundaries, clip=(True, True), right=False)` - Class converting continuous values into discrete indices.
+- `navis.nbl.smat.LookupDistDotBuilder(dotprops, matching_lists, nonmatching_list=None, use_alpha=False, draw_strat='batched', seed=1991)` - Class for building a 2-dimensional score lookup for NBLAST.
+- `navis.nbl.make_clusters(x, t, criterion='n_clusters', method='ward', **kwargs)` - Form flat clusters.
+- `navis.nbl.update_scores(queries, targets, scores_ex, nblast_func, **kwargs)` - Update score matrix by running only new query->target pairs.
+- `navis.nbl.compress_scores(scores, threshold=None, digits=None)` - Compress scores.
+- `navis.nbl.extract_matches(scores, N=None, threshold=None, percentage=None, axis=0, distances='auto', max_matches=None)` - Extract top matches from score matrix.
+- `navis.nbl.nblast_prime(scores, n_dim=0.2, metric='euclidean')` - Generate a smoothed version of the NBLAST scores.
+
+#### Polarity metrics
+
+- `navis.bending_flow(x)` - Calculate synapse "bending" flow.
+- `navis.flow_centrality(x)` - Calculate flow between leaf nodes.
+- `navis.synapse_flow_centrality(x, mode='sum')` - Calculate synapse flow centrality (SFC).
+- `navis.arbor_segregation_index(x)` - Per arbor seggregation index (SI).
+- `navis.segregation_index(x)` - Calculate segregation index (SI).
+
+#### Distances
+
+- `navis.cable_overlap(a, b, dist=2, method='min')` - Calculate the amount of cable of neuron A within distance of neuron B.
+- `navis.distal_to(x, a=None, b=None)` - Check if nodes A are distal to nodes B.
+- `navis.dist_between(x, a, b)` - Get the geodesic distance between nodes in nanometers.
+- `navis.dist_to_root(x, weight=None, igraph_indices=False)` - Calculate distance to root for each node.
+- `navis.geodesic_matrix(x, from_=None, to_=None, directed=False, weight='weight', limit=inf)` - Generate geodesic ("along-the-arbor") distance matrix between nodes/vertices.
+- `navis.graph.geodesic_clusters(x, max_dist, weight='weight', seeds=None, connected=True)` - Partition a neuron into clusters of bounded geodesic radius.
+- `navis.segment_length(x, segment)` - Get length of a linear segment.
+
+### Machine Learning
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-machine-learning.txt
+
+- `navis.ml.normalize_neuron(x, center='centroid', scale='rms', rotate='pca', return_matrix=False)` - Normalize a neuron's pose: center, orient and scale it canonically.
+- `navis.ml.augment_neuron(x, drop=None, warp=None, rotate=None, scale=None, translate=None, jitter=None, random_state=None)` - Apply a pipeline of augmentations in one call.
+- `navis.ml.jitter_neuron(x, sigma, random_state=None)` - Perturb coordinates with Gaussian noise.
+- `navis.ml.rotate_neuron(x, axis=None, max_angle=None, random_state=None)` - Rotate a neuron by a random rotation about its centroid.
+- `navis.ml.translate_neuron(x, magnitude, random_state=None)` - Shift a neuron by a random translation.
+- `navis.ml.scale_neuron(x, scale_range=(0.8, 1.25), anisotropic=False, random_state=None)` - Scale a neuron by a random factor about its centroid.
+- `navis.ml.warp_neuron(x, sigma=0.5, magnitude=0.05, grid=3, random_state=None)` - Apply a smooth elastic deformation.
+- `navis.ml.drop_nodes(x, fraction=0.1, random_state=None)` - Randomly drop a fraction of a neuron's nodes/points.
+- `navis.ml.chunk_neuron(x, size, mode='partition', connected=True, k=None, sampling_factor=1, weight='weight', undersized='pad', pad_value=-1, random_state=None)` - Break a neuron into evenly sized fragments.
+- `navis.ml.sample_patches(x, *, n_points, density=None, spacing=None, mode='spaced', connected=True, foveate=None, reach=32, fovea=0, k=None, sampling_factor=1, undersized='keep', pad_value=-1, interpolate=None, weights=None, surface_mode='even', attributes=None, random_state=None)` - Resample a neuron at a target density, then tile it into fixed-size patches.
+- `navis.ml.sample_cable(x, *, n_points=None, density=None, spacing=None, interpolate=None, weights=None, random_state=None)` - Sample points at uniform arclength along a skeleton, carrying attributes.
+- `navis.ml.sample_surface(x, *, n_points=None, density=None, spacing=None, mode='even', attributes=None, random_state=None)` - Sample points on a mesh surface, keeping each point's source vertex.
+- `navis.ml.sample_points_uniform(points, size, output='points', method='auto')` - Draw a uniform sample from a point cloud.
+- `navis.ml.estimate_spacing(points, aggregate='median')` - Estimate the characteristic point spacing of a cloud.
+
+### Intersection
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-intersection.txt
+
+- `navis.in_volume(x, volume, mode='IN', backend=('ncollpyde', 'pyoctree'), n_rays=None, prevent_fragments=False, validate=False, inplace=False)` - Test if points/neurons are within a given volume.
+- `navis.intersection_matrix(x, volumes, attr=None, **kwargs)` - Compute intersection matrix between a set of neurons and volumes.
+
+### Transforming and Mirroring
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-transforming-and-mirroring.txt
+
+- `navis.xform(x, transform, affine_fallback=True, caching=True)` - Apply transform(s) to data.
+- `navis.xform_brain(x, source, target, via=None, avoid=None, affine_fallback=True, caching=True, verbose=True)` - Transform 3D data between template brains.
+- `navis.symmetrize_brain(x, template, via='auto', progress=True, verbose=False)` - Symmetrize 3D object (neuron, coordinates).
+- `navis.mirror_brain(x, template, mirror_axis='auto', warp='auto', via=None, verbose=False, progress=True)` - Mirror 3D object (neuron, coordinates) about given axis.
+- `navis.mirror(points, mirror_axis_size, mirror_axis='x', warp=None)` - Mirror 3D coordinates about given axis.
+- `navis.transforms.align.align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, progress=True)` - Align neurons using a rigid registration.
+- `navis.align.align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, progress=True)` - Align neurons using a rigid registration.
+- `navis.transforms.align.align_deform(x, target=None, sample=None, progress=True, **kwargs)` - Align neurons using a deformable registration.
+- `navis.align.align_deform(x, target=None, sample=None, progress=True, **kwargs)` - Align neurons using a deformable registration.
+- `navis.transforms.align.align_pca(x, individually=True)` - Align neurons along their first principal components.
+- `navis.align.align_pca(x, individually=True)` - Align neurons along their first principal components.
+- `navis.transforms.align.align_pairwise(x, y=None, method='rigid', sample=None, progress=True, **kwargs)` - Run a pairwise alignment between given neurons.
+- `navis.align.align_pairwise(x, y=None, method='rigid', sample=None, progress=True, **kwargs)` - Run a pairwise alignment between given neurons.
+- `navis.transforms.AffineTransform(matrix, direction='forward')` - Affine transformation of 3D spatial data.
+- `navis.transforms.ElastixTransform(file, copy_files=None, backend=None)` - Elastix transforms of 3D spatial data.
+- `navis.transforms.CMTKtransform(regs, directions='forward', threads=None, backend=None)` - CMTK transforms of 3D spatial data.
+- `navis.transforms.H5transform(f, direction='forward', level=-1, cache=False, full_ingest=False)` - Hdf5 transform of 3D spatial data.
+- `navis.transforms.GridTransform(field, type='offsets', spacing=None, offset=None)` - Deformation or coordinate field transform of 3D spatial data.
+- `navis.transforms.TPStransform(landmarks_source, landmarks_target, batch_size=100000, backend=None)` - Thin Plate Spline transforms of 3D spatial data.
+- `navis.transforms.AliasTransform()` - Helper transform that simply passes points through.
+- `navis.transforms.MovingLeastSquaresTransform(landmarks_source, landmarks_target, direction='forward', batch_size=100000, backend=None)` - Gives a transform a `.backend` property.
+- `navis.transforms.SimilarityTransform(landmarks_source, landmarks_target, weights=None, scale=True)` - Calculate and apply a similarity transform.
+- `navis.transforms.templates.TemplateRegistry(scan_paths=True)` - Tracks template brains, available transforms and produces bridging sequences.
+- `navis.transforms.templates.TemplateRegistry.register_transform(transform, source, target, transform_type, skip_existing=True, weight=1, weight_inv=None)` - Register a transform.
+- `navis.transforms.templates.TemplateRegistry.register_transformfile(path, **kwargs)` - Parse and register a transform file.
+- `navis.transforms.templates.TemplateRegistry.register_templatebrain(template, skip_existing=True)` - Register a template brain.
+- `navis.transforms.templates.TemplateRegistry.register_path(paths, trigger_scan=True)` - Register path(s) to scan for transforms.
+- `navis.transforms.templates.TemplateRegistry.scan_paths(extra_paths=None)` - Scan registered paths for transforms and add to registry.
+- `navis.transforms.templates.TemplateRegistry.plot_bridging_graph(**kwargs)` - Draw bridging graph using networkX.
+- `navis.transforms.templates.TemplateRegistry.find_mirror_reg(template, non_found='raise')` - Search for a mirror transformation for given template.
+- `navis.transforms.templates.TemplateRegistry.find_bridging_path(source, target, via=None, avoid=None, inverse_weight=1, prefer_forward=True, reciprocal=None)` - Find bridging path from source to target.
+- `navis.transforms.templates.TemplateRegistry.shortest_bridging_seq(source, target, via=None, inverse_weight=1, prefer_forward=True)` - Find shortest bridging sequence to get from source to target.
+- `navis.transforms.templates.TemplateRegistry.clear_caches()` - Clear caches of all cached functions.
+- `navis.transforms.templates.TemplateRegistry.summary()` - Generate summary of available transforms.
+- `navis.transforms.templates.TemplateRegistry.transforms` - Registered transforms (bridging + mirror).
+- `navis.transforms.templates.TemplateRegistry.mirrors` - Registered mirror transforms.
+- `navis.transforms.templates.TemplateRegistry.bridges` - Registered bridging transforms.
+
+### Connectivity
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-connectivity.txt
+
+- `navis.NeuronConnector(nrns=None)` - Class which creates a connectivity graph from a set of neurons.
+
+#### Connectivity metrics
+
+- `navis.connectivity_similarity(adjacency, metric='vertex_normalized', threshold=None, n_cores=2, **kwargs)` - Calculate connectivity similarity.
+- `navis.connectivity_sparseness(x, which='LTS')` - Calculate sparseness.
+- `navis.cable_overlap(a, b, dist=2, method='min')` - Calculate the amount of cable of neuron A within distance of neuron B.
+- `navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=2)` - Cluster neurons based on their synapse placement.
+
+### Import/Export
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-importexport.txt
+
+- `navis.read_swc(f, connector_labels={}, soma_label=1, include_subdirs=False, delimiter=' ', parallel='auto', precision=32, fmt='{name}.swc', read_meta=True, limit=None, errors='raise', **kwargs)` - Create Neuron/List from SWC file.
+- `navis.read_nrrd(f, output='voxels', threshold=None, thin=False, include_subdirs=False, parallel='auto', fmt='{name}.nrrd', limit=None, errors='raise', **dotprops_kwargs)` - Create Neuron/List from NRRD file.
+- `navis.read_mesh(f, include_subdirs=False, parallel='auto', output='neuron', errors='raise', limit=None, fmt='{name}.', **kwargs)` - Load mesh file into Neuron/List.
+- `navis.read_tiff(f, output='voxels', channel=0, threshold=None, thin=False, include_subdirs=False, parallel='auto', fmt='{name}.tif', limit=None, errors='raise', **dotprops_kwargs)` - Create Neuron/List from TIFF file.
+- `navis.read_nmx(f, include_subdirs=False, parallel='auto', precision=32, limit=None, errors='raise', **kwargs)` - Read NMX files into Neuron/Lists.
+- `navis.read_nml(f, include_subdirs=False, parallel='auto', precision=32, limit=None, **kwargs)` - Read xml-based NML files into Neuron/Lists.
+- `navis.read_rda(f, combine=True, neurons_only=True)` - Read objects from nat R data (.rda) file.
+- `navis.read_rds(f, combine=True, neurons_only=True)` - Read objects from nat R data (.rds) file.
+- `navis.read_json(s, **kwargs)` - Load neuron from JSON (file or string).
+- `navis.read_precomputed(f, datatype='auto', include_subdirs=False, fmt='{id}', info=True, limit=None, parallel='auto', errors='raise', **kwargs)` - Read skeletons and meshes from neuroglancer's precomputed format.
+- `navis.read_parquet(f, read_meta=True, limit=None, subset=None, read_connectors=True, progress=True)` - Read parquet file into Neuron/List.
+- `navis.scan_parquet(file)` - Scan parquet file.
+- `navis.write_swc(x, filepath, header=None, write_meta=True, labels=True, export_connectors=False, return_node_map=False)` - Write Skeleton(s) to SWC.
+- `navis.write_nrrd(x, filepath, compression_level=3, attrs=None)` - Write Voxels or Dotprops to NRRD file(s).
+- `navis.write_mesh(x, filepath=None, filetype=None)` - Export meshes (Meshes, Volumes, Trimeshes) to disk.
+- `navis.write_json(x, filepath, **kwargs)` - Save neuron(s) to json-formatted file.
+- `navis.write_precomputed(x, filepath=None, write_info=True, write_manifest=False, radius=False)` - Export skeletons or meshes to neuroglancer's (legacy) precomputed format.
+- `navis.write_parquet(x, filepath, write_meta=True, write_connectors=True, format='navis', context=None)` - Write Skeleton(s) or Dotprops to parquet file.
+- `navis.write_rda(x, filepath, name=None, compression='gzip', compresslevel=6, add_metadata=True)` - Write navis object(s) to R data (.rda) file.
+- `navis.write_rds(x, filepath, compression='gzip', compresslevel=6, add_metadata=True)` - Write navis object(s) to R data (.rds) file.
+
+### Utility
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-utility.txt
+
+- `navis.health_check(x, verbose=True)` - Run a health check on Skeletons and flag potential issues.
+- `navis.set_pbars(hide=None, leave=None, jupyter=None)` - Set global progress bar behaviors.
+- `navis.set_loggers(level='INFO')` - Set levels for all associated module loggers.
+- `navis.set_parallel_backend(backend=None, *, n_workers=None, isolated=None, pickles_by_value=None, chunks_per_worker=None, marshals_exceptions=None)` - Set where `parallel=True` runs its work.
+- `navis.list_parallel_backends()` - List the parallel backends that can be used on this machine.
+- `navis.set_default_connector_colors(x)` - Set/update default connector colors.
+- `navis.config.remove_log_handlers()` - Remove all handlers from the `navis` logger.
+- `navis.patch_cloudvolume()` - Monkey patch cloud-volume to return navis neurons.
+- `navis.example_neurons(n=None, kind='skeleton', synapses=True, source='swc')` - Load example neuron(s).
+- `navis.example_volume(name)` - Load an example volume.
+
+#### Conversion
+
+- `navis.neuron2nx(x, simplify=False, epsilon=None, connectivity=6)` - Turn Skeleton, Mesh or Voxels into an NetworkX graph.
+- `navis.neuron2igraph(x, simplify=False, connectivity=18, epsilon=None)` - Turn Skeleton, Mesh or Voxels into an iGraph graph.
+- `navis.neuron2KDTree(x, tree_type='c', data='auto', **kwargs)` - Turn neuron into scipy KDTree.
+- `navis.neuron2tangents(x)` - Turn skeleton(s) into points + tangent vectors.
+- `navis.network2nx(x, threshold=None, group_by=None)` - Generate NetworkX graph from edge list or adjacency.
+- `navis.network2igraph(x, threshold=None)` - Generate iGraph graph from edge list or adjacency.
+- `navis.nx2neuron(G, root=None, break_cycles=False, **kwargs)` - Create Skeleton from NetworkX Graph.
+- `navis.edges2neuron(edges, vertices=None, validate=True, **kwargs)` - Create Skeleton from edges and (optional) vertex coordinates.
+- `navis.cast_neuron(x, dtype, inplace=False)` - Convert neuron(s) to given data type.
+
+### Network Models
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-network-models.txt
+
+- `navis.models.TraversalModel(edges, seeds, source='source', target='target', weights='weight', max_steps=15, traversal_func=None)` - Model for traversing a network starting with given seed nodes.
+- `navis.models.BayesianTraversalModel(*args, traversal_func=None, **kwargs)` - Model for traversing a network starting with given seed nodes.
+
+### Interfaces
+
+Full docstrings: https://navis-org.github.io/navis/llms-full-interfaces.txt
+
+#### NEURON simulator
+
+- `navis.interfaces.neuron.comp.CompartmentModel(x, res=10)` - Compartment model representing a single neuron in NEURON.
+- `navis.interfaces.neuron.comp.DrosophilaPN(x, res=10)` - Compartment model of an olfactory projection neuron in Drosophila.
+- `navis.interfaces.neuron.comp.CompartmentModel.add_current_record(where, label=None)` - Add current recording to model.
+- `navis.interfaces.neuron.comp.CompartmentModel.add_spike_detector(where, threshold=20, label=None)` - Add a spike detector at given node(s).
+- `navis.interfaces.neuron.comp.CompartmentModel.add_synaptic_current(where, start=5, tau=0.1, rev_pot=0, max_syn_cond=0.1)` - Add synaptic current(s) (AlphaSynapse) to model.
+- `navis.interfaces.neuron.comp.CompartmentModel.add_synaptic_input(where, start=5, spike_no=1, spike_int=10, spike_noise=0, syn_tau1=0.1, syn_tau2=10, syn_rev_pot=0, cn_thresh=10, cn_delay=1, cn_weight=0.05)` - Add synaptic input to model.
+- `navis.interfaces.neuron.comp.CompartmentModel.add_voltage_record(where, label=None)` - Add voltage recording to model.
+- `navis.interfaces.neuron.comp.CompartmentModel.clear_records()` - Clear records.
+- `navis.interfaces.neuron.comp.CompartmentModel.clear_stimuli()` - Clear stimuli.
+- `navis.interfaces.neuron.comp.CompartmentModel.connect(pre, where, syn_tau1=0.1, syn_tau2=10, syn_rev_pot=0, cn_thresh=10, cn_delay=1, cn_weight=0)` - Connect object to model.
+- `navis.interfaces.neuron.comp.CompartmentModel.get_node_section(node_ids)` - Return section(s) for given node(s).
+- `navis.interfaces.neuron.comp.CompartmentModel.get_node_segment(node_ids)` - Return segment(s) for given node(s).
+- `navis.interfaces.neuron.comp.CompartmentModel.inject_current_pulse(where, start=5, duration=1, current=0.1)` - Add current injection (IClamp) stimulation to model.
+- `navis.interfaces.neuron.comp.CompartmentModel.plot_results(axes=None)` - Plot results.
+- `navis.interfaces.neuron.comp.CompartmentModel.insert(mechanism, subset=None, **kwargs)` - Insert biophysical mechanism for model.
+- `navis.interfaces.neuron.comp.CompartmentModel.uninsert(mechanism, subset=None)` - Remove biophysical mechanism from model.
+- `navis.interfaces.neuron.comp.CompartmentModel.Ra` - Axial resistance [Ohm * cm] of all sections.
+- `navis.interfaces.neuron.comp.CompartmentModel.cm` - Membran capacity [micro Farads / cm^2] of all sections.
+- `navis.interfaces.neuron.comp.CompartmentModel.label` - Name/label of the neuron.
+- `navis.interfaces.neuron.comp.CompartmentModel.n_records` - Number of records (across all types) active on this model.
+- `navis.interfaces.neuron.comp.CompartmentModel.n_sections` - Number of sections in this model.
+- `navis.interfaces.neuron.comp.CompartmentModel.n_stimuli` - Number of stimuli active on this model.
+- `navis.interfaces.neuron.comp.CompartmentModel.nodes` - Node table of the skeleton.
+- `navis.interfaces.neuron.comp.CompartmentModel.records` - Return mapping of node ID(s) to recordings.
+- `navis.interfaces.neuron.comp.CompartmentModel.sections` - List of sections making up this model.
+- `navis.interfaces.neuron.comp.CompartmentModel.stimuli` - Return mapping of node ID(s) to stimuli.
+- `navis.interfaces.neuron.comp.CompartmentModel.synapses` - Return mapping of node ID(s) to synapses.
+- `navis.interfaces.neuron.comp.CompartmentModel.t` - The global time. Should be the same for all neurons.
+- `navis.interfaces.neuron.network.PointNetwork()` - A Network of Leaky-Integrate-and-Fire (LIF) point processes.
+- `navis.interfaces.neuron.network.PointNetwork.add_background_noise(ids, frequency, randomness=0.5, independent=True)` - Add background noise to given neurons.
+- `navis.interfaces.neuron.network.PointNetwork.add_neurons(ids, model='IntFire1', labels=None, skip_existing=False, **props)` - Add neurons to network.
+- `navis.interfaces.neuron.network.PointNetwork.add_stimulus(ids, start, frequency, stop=None, duration=None, randomness=0.5, independent=True, label=None, weight=1)` - Add stimulus to given neurons.
+- `navis.interfaces.neuron.network.PointNetwork.connect(source, target, weight, delay=5)` - Connect two neurons.
+- `navis.interfaces.neuron.network.PointNetwork.from_edge_list(edges, model='IntFire1', source_col='source', target_col='target', weight_col='weight', **props)` - Generate network from edge list.
+- `navis.interfaces.neuron.network.PointNetwork.get_spike_counts(bin_size=50, subset=None, rolling_window=None, group=False)` - Get matrix of spike counts.
+- `navis.interfaces.neuron.network.PointNetwork.plot_raster(subset=None, group=False, stimuli=True, ax=None, label=False, backend='auto', **kwargs)` - Raster plot of spike timings.
+- `navis.interfaces.neuron.network.PointNetwork.plot_traces(bin_size=100, subset=None, rolling_window=None, group=False, stimuli=True, ax=None, backend='auto', **kwargs)` - Plot mean firing rate.
+- `navis.interfaces.neuron.network.PointNetwork.run_simulation(duration=25, v_init=-65)` - Run the simulation.
+- `navis.interfaces.neuron.network.PointNetwork.set_labels(labels)` - Set labels for neurons.
+- `navis.interfaces.neuron.network.PointNetwork.edges` - Edges between nodes of the network.
+- `navis.interfaces.neuron.network.PointNetwork.ids` - IDs of neurons in the network.
+- `navis.interfaces.neuron.network.PointNetwork.labels` - Labels of neurons in the network.
+- `navis.interfaces.neuron.network.PointNetwork.neurons` - Neurons in the network.
+
+#### NeuroMorpho API
+
+- `navis.interfaces.neuromorpho.get_neuron_info(x)` - Fetch neuron info by ID or by name.
+- `navis.interfaces.neuromorpho.get_neuron(x, parallel=True, max_threads=4, **kwargs)` - Fetch neuron by ID or by name.
+- `navis.interfaces.neuromorpho.get_neuron_fields()` - List all available neuron fields.
+- `navis.interfaces.neuromorpho.get_available_field_values(field)` - List all possible values for given neuron field.
+
+#### neuPrint API
+
+- `navis.interfaces.neuprint.fetch_roi(roi, *, client=None)` - Fetch given ROI.
+- `navis.interfaces.neuprint.fetch_skeletons(x, *, with_synapses=False, dedup=True, heal=False, missing_swc='raise', parallel=True, max_threads=5, client=None)` - Fetch neuron skeletons as navis.Skeletons.
+- `navis.interfaces.neuprint.fetch_mesh_neuron(x, *, lod=1, with_synapses=False, dedup=True, missing_mesh='raise', parallel=True, max_threads=5, seg_source=None, client=None, **kwargs)` - Fetch neuron meshes as navis.Mesh.
+- `navis.interfaces.neuprint.fetch_synapses(neuron_criteria, synapse_criteria=None, batch_size=10, *, dedup=True, nt=None, client=None)` - Fetch synapses for a neuron or selection of neurons.
+
+#### InsectBrain DB API
+
+- `navis.interfaces.insectbrain_db.authenticate(username=None, password=None, token=None)` - Authenticate against Insect Brain DB.
+- `navis.interfaces.insectbrain_db.get_brain_meshes(species, combine=False, max_threads=4)` - Fetch brain meshes for given species.
+- `navis.interfaces.insectbrain_db.get_species_info(species)` - Get all info for given species.
+- `navis.interfaces.insectbrain_db.get_available_species()` - Get all info for given species.
+- `navis.interfaces.insectbrain_db.get_skeletons(x, max_threads=4)` - Fetch skeletons for given neuron(s).
+- `navis.interfaces.insectbrain_db.get_skeletons_species(species, max_threads=4)` - Fetch all skeletons for given species.
+- `navis.interfaces.insectbrain_db.search_neurons(name=None, short_name=None, species=None, sex=None, arborization=None, partial_match=True)` - Search for neurons matching given parameters.
+
+#### Brain Image Library API
+
+- `navis.interfaces.brain_image_library.search(*, limit=None, metadata=True, parallel=True, max_threads=4, **filters)` - Search BIL for datasets matching the given criteria.
+- `navis.interfaces.brain_image_library.query(division, element, value)` - Run a single raw query against the BIL metadata API.
+- `navis.interfaces.brain_image_library.get_metadata(x, *, raw=False, parallel=True, max_threads=4, chunk_size=100)` - Fetch metadata for one or more BIL datasets.
+- `navis.interfaces.brain_image_library.get_dataset_url(x)` - Return the download URL(s) for the given dataset(s).
+- `navis.interfaces.brain_image_library.list_files(x, pattern=None, *, recursive=True, max_depth=3, max_files=10000, max_requests=500, force=False, parallel=True, max_threads=4)` - List the files in a BIL dataset.
+- `navis.interfaces.brain_image_library.download_files(x, filepath, pattern=None, *, max_size='10G', skip_existing=True, parallel=True, max_threads=4, **kwargs)` - Download files from a BIL dataset.
+- `navis.interfaces.brain_image_library.get_neurons(x, pattern='*.swc', *, max_neurons=None, parallel=True, max_threads=4, **kwargs)` - Fetch neuron reconstructions from a BIL dataset.
+- `navis.interfaces.brain_image_library.clear_metadata_cache()` - Clear the in-process metadata cache.
+
+#### Blender API
+
+- `navis.interfaces.blender.Handler(scaling=0.0001, axes_order=[0, 1, 2], ax_translate=[1, 1, 1])` - Class that interfaces with scene in Blender.
+- `navis.interfaces.blender.Handler.add(x, neurites=True, soma=True, connectors=True, redraw=False, use_radii=False, skip_existing=False, downsample=False, collection=None, **kwargs)` - Add neuron(s) to scene.
+- `navis.interfaces.blender.Handler.clear()` - Clear all neurons
+- `navis.interfaces.blender.Handler.select(x, *args)` - Select given neurons.
+- `navis.interfaces.blender.Handler.hide()` - Hide all neuron-related objects.
+- `navis.interfaces.blender.Handler.unhide()` - Unide all neuron-related objects.
+- `navis.interfaces.blender.Handler.color(r, g, b)` - Assign color to all neurons.
+- `navis.interfaces.blender.Handler.colorize()` - Randomly colorize ALL neurons.
+- `navis.interfaces.blender.Handler.emit(v)` - Change emit value.
+- `navis.interfaces.blender.Handler.use_transparency(v)` - Change transparency (True/False).
+- `navis.interfaces.blender.Handler.alpha(v)` - Change alpha (0-1).
+- `navis.interfaces.blender.Handler.bevel(r)` - Change bevel of ALL neurons.
+- `navis.interfaces.blender.ObjectList.select(unselect_others=True)` - Select objects in 3D viewer
+- `navis.interfaces.blender.ObjectList.color(r, g, b, a=1)` - Assign color to all objects in the list.
+- `navis.interfaces.blender.ObjectList.colorize(groups=None, palette='hls')` - Assign colors across the color spectrum.
+- `navis.interfaces.blender.ObjectList.emit(e)` - Change emit value.
+- `navis.interfaces.blender.ObjectList.use_transparency(t)` - Change transparency (True/False).
+- `navis.interfaces.blender.ObjectList.alpha(a)` - Change alpha (0-1).
+- `navis.interfaces.blender.ObjectList.bevel(r)` - Change bevel radius of objects.
+- `navis.interfaces.blender.ObjectList.hide(viewport=True, render=False)` - Hide objects.
+- `navis.interfaces.blender.ObjectList.unhide(viewport=True, render=False)` - Unhide objects.
+- `navis.interfaces.blender.ObjectList.hide_others()` - Hide everything BUT these objects.
+- `navis.interfaces.blender.ObjectList.delete()` - Delete neurons in the selection.
+
+#### Cytoscape API
+
+- `navis.interfaces.cytoscape.generate_network` - requires the optional `navis.interfaces.cytoscape` dependencies
+- `navis.interfaces.cytoscape.get_client` - requires the optional `navis.interfaces.cytoscape` dependencies
+
+#### Allen MICrONS datasets
+
+- `navis.interfaces.microns.get_cave_client(datastack='cortex65')` - Get caveclient for given datastack.
+- `navis.interfaces.microns.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='cortex65', materialization='auto', parallel=True, max_threads=4, **kwargs)` - Fetch neuron meshes.
+
+#### H01 dataset
+
+- `navis.interfaces.h01.get_cave_client(datastack='h01_c3_flat')` - Get caveclient for H01 dataset.
+- `navis.interfaces.h01.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='h01_c3_flat', materialization='auto', parallel=True, max_threads=4, **kwargs)` - Fetch neuron meshes.
+
+### Neuron types and functions
+
+As you can imagine not all functions will work on all neuron types. For example
+it is currently not possible to find the longest neurite via
+navis.longest_neurite for a navis.Voxels.
+Conversely, some functionality like "smoothing" makes sense for multiple neuron types but the
+application is so vastly different between e.g. meshes and skeletons that
+there are specicialized functions for every neuron type.
+
+Below table has an overview for which functions work with which neuron types:
+
+|                            | Skeleton | Mesh | Voxels | Dotprops |
+|----------------------------|------------|------------|-------------|----------|
+| navis.plot2d             | yes        | yes        | limited     | yes      |
+| navis.plot3d             | yes        | yes        | see backend | yes      |
+| navis.plot1d             | yes        | no         | no          | no       |
+| navis.plot_flat          | yes        | no         | no          | no       |
+| navis.subset_neuron      | yes        | yes        | yes         | yes      |
+| navis.in_volume          | yes        | yes        | yes         | yes      |
+| smoothing                  | navis.smooth_skeleton | navis.smooth_mesh | navis.smooth_voxels | no |
+| navis.downsample_neuron  | yes        | yes        | yes         | yes      |
+| navis.cast_neuron             | yes        | yes        | yes         | yes      |
+| resampling (e.g. navis.resample_skeleton) | yes | no |       no | no        |
+| navis.make_dotprops      | yes        | yes        | yes         | yes      |
+| NBLAST (navis.nblast, etc.) | no[^1]       | no[^1]         | no[^1]          | yes      |
+| navis.xform_brain        | yes        | yes        | yes (slow!) | yes      |
+| navis.mirror_brain       | yes        | yes        | no          | yes      |
+| navis.skeletonize        | no         | yes        | yes         | yes      |
+| navis.mesh               | yes        | no         | yes         | no       |
+| navis.voxelize           | yes        | yes        | no          | yes      |
+| navis.drop_fluff         | yes        | yes        | yes         | yes      |
+| navis.break_fragments    | yes        | yes        | no          | no       |
+
+[^1]: Use navis.make_dotprops to turn these neurons into navis.Dotprops.
+
+### Not covered above
+
+Public objects that are not yet in the curated index. They exist and work;
+call `help(navis.<name>)` for details.
+
+`navis.BaseNeuron`, `navis.Neuron`, `navis.PipelineStepError`, `navis.SomaEllipsoid`, `navis.fix_mesh`, `navis.geodesic_clusters`, `navis.inspect_h5`, `navis.read_h5`, `navis.render_template`, `navis.vary_colors`, `navis.write_h5`

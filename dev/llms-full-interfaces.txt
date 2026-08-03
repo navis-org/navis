@@ -1,0 +1,1787 @@
+# navis 2.0.0-rc.1 - Interfaces
+
+Full docstrings for the 'Interfaces' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+## NEURON simulator
+
+### navis.interfaces.neuron.comp.CompartmentModel(x, res=10)
+
+*class*
+
+Compartment model representing a single neuron in NEURON.
+
+Parameters
+----------
+x :         navis.Skeleton
+            Neuron to generate model for. Has to be in microns!
+res :       int
+            Approximate length [um] of segments. This guarantees that
+            no section has any segment that is longer than `res` but for
+            small branches (i.e. "sections") the segments might be smaller.
+            Lower `res` = more detailed simulation.
+
+### navis.interfaces.neuron.comp.DrosophilaPN(x, res=10)
+
+*class*
+
+Compartment model of an olfactory projection neuron in Drosophila.
+
+This is a `CompartmentModel` that uses passive membrane properties
+from Tobin et al. (2017) as presets:
+
+- specific axial resistivity (`Ra`) of 266.1 Ohm / cm
+- specific membrane capacitance (`cm`) of 0.8 mF / cm**2
+- specific leakage conductance (`g`) of 1/Rm
+- Rm = specific membran resistance of 20800 Ohm cm**2
+- leakage reverse potential of -60 mV
+
+Parameters
+----------
+x :         navis.Skeleton
+            Neuron to generate model for. Has to be in microns!
+res :       int
+            Approximate length [um] of segments. This guarantees that
+            no section has any segment that is longer than `res` but for
+            small branches (i.e. "sections") the segments might be smaller.
+            Lower `res` = more detailed simulation.
+
+### navis.interfaces.neuron.comp.CompartmentModel.add_current_record(where, label=None)
+
+*function*
+
+Add current recording to model.
+
+This only works if nodes map to sections that have point processes.
+
+Parameters
+----------
+where :     int | list of int
+            Node ID(s) at which to record.
+label :     str, optional
+            If label is given, this recording will be added as
+            `self.recordslabel` else  `self.recordsnode_id`.
+
+### navis.interfaces.neuron.comp.CompartmentModel.add_spike_detector(where, threshold=20, label=None)
+
+*function*
+
+Add a spike detector at given node(s).
+
+Parameters
+----------
+where :     int | list of int
+            Node ID(s) at which to record.
+threshold : float
+            Threshold in mV for a spike to be counted.
+label :     str, optional
+            If label is given, this recording will be added as
+            `self.records[label]` else  `self.records[node_id]`.
+
+### navis.interfaces.neuron.comp.CompartmentModel.add_synaptic_current(where, start=5, tau=0.1, rev_pot=0, max_syn_cond=0.1)
+
+*function*
+
+Add synaptic current(s) (AlphaSynapse) to model.
+
+Parameters
+----------
+where :         int | list of int
+                Node ID(s) at which to stimulate.
+start :         int
+                Onset [ms] from beginning of simulation.
+tau :           int
+                Decay time constant [ms].
+rev_pot :       int
+                Reverse potential (e) [mV].
+max_syn_cond :  float
+                Max synaptic conductance (gmax) [uS].
+
+### navis.interfaces.neuron.comp.CompartmentModel.add_synaptic_input(where, start=5, spike_no=1, spike_int=10, spike_noise=0, syn_tau1=0.1, syn_tau2=10, syn_rev_pot=0, cn_thresh=10, cn_delay=1, cn_weight=0.05)
+
+*function*
+
+Add synaptic input to model.
+
+This uses the Exp2Syn synapse. All targets in `where` are triggered
+by the same NetStim - i.e. they will all receive their spike(s) at the
+same time.
+
+The parameters below are grouped by prefix: `spike_*` (plus `start`)
+control the presynaptic spikes, `syn_*` the synapse itself and `cn_*`
+the connection between the two.
+
+Parameters
+----------
+where :         int | list of int
+                Node IDs at which to simulate synaptic input.
+start :         int
+                Onset [ms] of first spike from beginning of simulation.
+spike_no :      int
+                Number of presynaptic spikes to produce.
+spike_int :     int
+                Interval [ms] between consecutive spikes.
+spike_noise :   float [0-1]
+                Fractional randomness in spike timing.
+syn_tau1 :      int
+                Rise time constant [ms].
+syn_tau2 :      int
+                Decay time constant [ms].
+syn_rev_pot :   int
+                Reversal potential (e) [mV].
+cn_thresh :     int
+                Presynaptic membrane potential [mV] at which synaptic
+                event is triggered.
+cn_delay :      int
+                Delay [ms] between presynaptic trigger and postsynaptic
+                event.
+cn_weight :     float
+                Weight variable. This bundles a couple of synaptic
+                properties such as e.g. how much transmitter is released
+                or binding affinity at postsynaptic receptors.
+
+### navis.interfaces.neuron.comp.CompartmentModel.add_voltage_record(where, label=None)
+
+*function*
+
+Add voltage recording to model.
+
+Parameters
+----------
+where :     int | list of int
+            Node ID(s) at which to record.
+label :     str, optional
+            If label is given, this recording will be added as
+            `self.recordslabel` else  `self.recordsnode_id`.
+
+### navis.interfaces.neuron.comp.CompartmentModel.clear_records()
+
+*function*
+
+Clear records.
+
+### navis.interfaces.neuron.comp.CompartmentModel.clear_stimuli()
+
+*function*
+
+Clear stimuli.
+
+### navis.interfaces.neuron.comp.CompartmentModel.connect(pre, where, syn_tau1=0.1, syn_tau2=10, syn_rev_pot=0, cn_thresh=10, cn_delay=1, cn_weight=0)
+
+*function*
+
+Connect object to model.
+
+This uses the Exp2Syn synapse and treats `pre` as the presynaptic
+object.
+
+The parameters below are grouped by prefix: `syn_*` control the synapse
+itself, `cn_*` the connection between pre- and postsynaptic side.
+
+Parameters
+----------
+pre :           NetStim | section
+                The presynaptic object to connect to this neuron.
+where :         int | list of int
+                Node IDs at which to simulate synaptic input.
+syn_tau1 :      int
+                Rise time constant [ms].
+syn_tau2 :      int
+                Decay time constant [ms].
+syn_rev_pot :   int
+                Reversal potential (e) [mV].
+cn_thresh :     int
+                Presynaptic membrane potential [mV] at which synaptic
+                event is triggered.
+cn_delay :      int
+                Delay [ms] between presynaptic trigger and postsynaptic
+                event.
+cn_weight :     int
+                Weight variable. This bundles a couple of synaptic
+                properties such as e.g. how much transmitter is released
+                or binding affinity at postsynaptic receptors.
+
+### navis.interfaces.neuron.comp.CompartmentModel.get_node_section(node_ids)
+
+*function*
+
+Return section(s) for given node(s).
+
+Parameters
+----------
+node_ids :  int | list of int
+            Node IDs.
+
+Returns
+-------
+section(s) :    segment or list of segments
+                Depends on input.
+
+### navis.interfaces.neuron.comp.CompartmentModel.get_node_segment(node_ids)
+
+*function*
+
+Return segment(s) for given node(s).
+
+Parameters
+----------
+node_ids :  int | list of int
+            Node IDs.
+
+Returns
+-------
+segment(s) :    segment or list of segments
+                Depends on input.
+
+### navis.interfaces.neuron.comp.CompartmentModel.inject_current_pulse(where, start=5, duration=1, current=0.1)
+
+*function*
+
+Add current injection (IClamp) stimulation to model.
+
+Parameters
+----------
+where :     int | list of int
+            Node ID(s) at which to stimulate.
+start :     int
+            Onset (delay) [ms] from beginning of simulation.
+duration :  int
+            Duration (dur) [ms] of injection.
+current :   float
+            Amount (i) [nA] of injected current.
+
+### navis.interfaces.neuron.comp.CompartmentModel.plot_results(axes=None)
+
+*function*
+
+Plot results.
+
+Parameters
+----------
+axes :      matplotlib axes
+            Axes to plot onto. Must have one ax for each recording
+            type (mV, spike count, etc) in `self.records`.
+
+Returns
+-------
+axes
+
+### navis.interfaces.neuron.comp.CompartmentModel.insert(mechanism, subset=None, **kwargs)
+
+*function*
+
+Insert biophysical mechanism for model.
+
+Parameters
+----------
+mechanism : str
+            Mechanism to insert - e.g. "hh" for Hodgkin-Huxley kinetics.
+subset :    list of sections | list of int
+            Sections (or indices thereof) to set mechanism for.
+            If `None` will add mechanism to all sections.
+**kwargs
+            Use to set properties for mechanism.
+
+### navis.interfaces.neuron.comp.CompartmentModel.uninsert(mechanism, subset=None)
+
+*function*
+
+Remove biophysical mechanism from model.
+
+Parameters
+----------
+mechanism : str
+            Mechanism to remove - e.g. "hh" for Hodgkin-Huxley kinetics.
+subset :    list of sections | list of int
+            Sections (or indices thereof) to set mechanism for.
+            If `None` will add mechanism to all sections.
+
+### navis.interfaces.neuron.comp.CompartmentModel.Ra
+
+*property*
+
+Axial resistance [Ohm * cm] of all sections.
+
+### navis.interfaces.neuron.comp.CompartmentModel.cm
+
+*property*
+
+Membran capacity [micro Farads / cm^2] of all sections.
+
+### navis.interfaces.neuron.comp.CompartmentModel.label
+
+*property*
+
+Name/label of the neuron.
+
+### navis.interfaces.neuron.comp.CompartmentModel.n_records
+
+*property*
+
+Number of records (across all types) active on this model.
+
+### navis.interfaces.neuron.comp.CompartmentModel.n_sections
+
+*property*
+
+Number of sections in this model.
+
+### navis.interfaces.neuron.comp.CompartmentModel.n_stimuli
+
+*property*
+
+Number of stimuli active on this model.
+
+### navis.interfaces.neuron.comp.CompartmentModel.nodes
+
+*property*
+
+Node table of the skeleton.
+
+### navis.interfaces.neuron.comp.CompartmentModel.records
+
+*property*
+
+Return mapping of node ID(s) to recordings.
+
+### navis.interfaces.neuron.comp.CompartmentModel.sections
+
+*property*
+
+List of sections making up this model.
+
+### navis.interfaces.neuron.comp.CompartmentModel.stimuli
+
+*property*
+
+Return mapping of node ID(s) to stimuli.
+
+### navis.interfaces.neuron.comp.CompartmentModel.synapses
+
+*property*
+
+Return mapping of node ID(s) to synapses.
+
+### navis.interfaces.neuron.comp.CompartmentModel.t
+
+*property*
+
+The global time. Should be the same for all neurons.
+
+### navis.interfaces.neuron.network.PointNetwork()
+
+*class*
+
+A Network of Leaky-Integrate-and-Fire (LIF) point processes.
+
+Examples
+--------
+>>> import navis.interfaces.neuron as nrn
+>>> N = nrn.PointNetwork()
+>>>
+
+### navis.interfaces.neuron.network.PointNetwork.add_background_noise(ids, frequency, randomness=0.5, independent=True)
+
+*function*
+
+Add background noise to given neurons.
+
+Parameters
+----------
+ids :           hashable  | iterable
+                IDs of neurons to add noise to.
+frequency :     int | float | iterable
+                Frequency [Hz] of background noise. If iterable must
+                match length of `ids`.
+randomness :    float [0-1]
+                Randomness of spike timings.
+independent :   bool
+                If True (default), each neuron will get its own
+                independent noise stimulus.
+
+### navis.interfaces.neuron.network.PointNetwork.add_neurons(ids, model='IntFire1', labels=None, skip_existing=False, **props)
+
+*function*
+
+Add neurons to network.
+
+Parameters
+----------
+ids :           list-like
+                Iterable of IDs for which to create neurons.
+model :         "IntFire1" | "IntFire2" | "IntFire4"
+                The model to use for the integrate-and-fire point processes.
+labels :        str | list | dict, optional
+                Labels for neurons. If str will apply the same label to
+                all neurons. If list, must be same length as `ids`.
+                Dictionary must be ID -> label map.
+skip_existing : bool
+                If True, will skip existing IDs.
+**props
+                Additional parameters used when initializing the point
+                processes. Depends on which model type you are using:
+                e.g. `refrac` and `tau` for "IntFire1".
+
+### navis.interfaces.neuron.network.PointNetwork.add_stimulus(ids, start, frequency, stop=None, duration=None, randomness=0.5, independent=True, label=None, weight=1)
+
+*function*
+
+Add stimulus to given neurons.
+
+Important
+---------
+Stimuli are implemented via a NetStim object which provides the
+specified stimulation (i.e. start, stop, frequency). This NetStim is
+then connected to the neuron(s) via a NetCon. The response of the
+neuron to the stimulus depends heavily on the `weight` of that
+connection: too low and you won't elicit any spikes, too high and you
+will produce higher frequencies than expected. The "correct" weight
+depends on the model & parameters you use for your point processes, and
+I highly recommend you check if you get the expected stimulation.
+
+Parameters
+----------
+ids :           int | iterable
+                IDs of neurons to add stimulus to.
+start :         int
+                Start time [ms] for the stimulus. Note that
+                the exact start and stop time will vary depending on
+                `randomness`.
+stop/duration : int
+                Either stop time or duration of stimulus [ms]. Must
+                provide one or the other but not both.
+frequency :     int | iterable
+                Frequency [Hz] of background noise . If iterable must
+                match length of `ids`. Values <= 0 are silently skipped.
+randomness :    float [0-1]
+                Randomness of spike timings.
+independent :   bool
+                If True (default), each neuron will get its own
+                independent stimulus.
+label :         str, optional
+                A label to identify the stimulus.
+weight :        float
+                Weight for the connection between the stimulator and
+                the neuron. This really should be 1 to make sure each
+                spike in the stimulus elicits a spike in the target.
+
+### navis.interfaces.neuron.network.PointNetwork.connect(source, target, weight, delay=5)
+
+*function*
+
+Connect two neurons.
+
+Parameters
+----------
+source :    int | str
+            ID of the source.
+target :    int | str
+            ID of the target
+weight :    float
+            Weight of the edge. The important thing to note here is that
+            the weight is expected to be in the 0-1 range with 1
+            effectively guaranteeing that a presynaptic spike triggers
+            a postsynaptic spike.
+delay :     int
+            Delay in ms between a pre- and a postsynaptic spike.
+
+### navis.interfaces.neuron.network.PointNetwork.from_edge_list(edges, model='IntFire1', source_col='source', target_col='target', weight_col='weight', **props)
+
+*function*
+
+Generate network from edge list.
+
+Parameters
+----------
+edges :         pd.DataFrame
+                Edge list. Must contain 'source', 'target' and 'weight'
+                columns.
+model :         "IntFire1" | "IntFire2" | "IntFire4"
+                The model to use for the integrate-and-fire point processes.
+source_col :    str
+                Name of the column with the source IDs.
+target_col :    str
+                Name of the column with the target IDs.
+weight_col :    str
+                Name of the column with the weights. The important thing
+                to note here is that weight is expected to be in the 0-1
+                range with 1 effectively guaranteeing that a presynaptic
+                spike triggers a postsynaptic spike.
+**props
+                Keyword arguments are passed through to `add_neurons`.
+                Use to set e.g. labels, threshold or additional
+                model parameters.
+
+### navis.interfaces.neuron.network.PointNetwork.get_spike_counts(bin_size=50, subset=None, rolling_window=None, group=False)
+
+*function*
+
+Get matrix of spike counts.
+
+Parameters
+----------
+bin_size :          int | None
+                    Size [ms] of the bins over which to count spikes.
+                    If None, will simply return total counts.
+rolling_window :    int, optional
+                    Average spike counts in a rolling window.
+group :             bool
+                    If True, will return the spike counts per unique
+                    label.
+
+Returns
+-------
+pd.DataFrame
+
+### navis.interfaces.neuron.network.PointNetwork.plot_raster(subset=None, group=False, stimuli=True, ax=None, label=False, backend='auto', **kwargs)
+
+*function*
+
+Raster plot of spike timings.
+
+Parameters
+----------
+subset :        list-like
+                Subset of IDs to plot. You can also use this to
+                determine the order of appearance.
+ax :            matplotlib axis |  plotly figure, optional
+                Axis/figure to plot onto.
+label :         bool
+                Whether to label individual neurons.
+backend :       "auto" | "plotly" | "matplotlib"
+                Which backend to use. If "auto" will use plotly in
+                Jupyter environments and matplotlib elsewhere.
+
+### navis.interfaces.neuron.network.PointNetwork.plot_traces(bin_size=100, subset=None, rolling_window=None, group=False, stimuli=True, ax=None, backend='auto', **kwargs)
+
+*function*
+
+Plot mean firing rate.
+
+Parameters
+----------
+bin_size :          int
+                    Size [ms] of the bins over which to average spike
+                    frequency.
+subset :            list-like
+                    Subset of IDs to plot. You can also use this to
+                    determine the order of appearance.
+rolling_window :    int
+                    Average firing rates over a given rolling window.
+group :             bool | array
+                    Set to True to group traces by label, showing mean
+                    firing rate and standard error as envelope. Pass
+                    an array of labels for each neuron to group by
+                    arbitrary labels.
+ax :                matplotlib axis | plotly figure, optional
+                    Axis/figure to plot onto.
+stimuli :           bool
+                    Whether to plot stimuli.
+backend :           "auto" | "plotly" | "matplotlib"
+                    Which backend to use. If "auto" will use plotly in
+                    Jupyter environments and matplotlib elsewhere.
+
+### navis.interfaces.neuron.network.PointNetwork.run_simulation(duration=25, v_init=-65)
+
+*function*
+
+Run the simulation.
+
+### navis.interfaces.neuron.network.PointNetwork.set_labels(labels)
+
+*function*
+
+Set labels for neurons.
+
+Parameters
+----------
+labels :    dict | list-like
+            If list, must provide a label for every neuron.
+
+### navis.interfaces.neuron.network.PointNetwork.edges
+
+*property*
+
+Edges between nodes of the network.
+
+Returns
+-------
+list of tuples
+
+        `[(source_ix, target_ix, weight, NetCon object), ...]`
+
+### navis.interfaces.neuron.network.PointNetwork.ids
+
+*property*
+
+IDs of neurons in the network.
+
+### navis.interfaces.neuron.network.PointNetwork.labels
+
+*property*
+
+Labels of neurons in the network.
+
+### navis.interfaces.neuron.network.PointNetwork.neurons
+
+*property*
+
+Neurons in the network.
+
+Returns
+-------
+list
+        List of `PointNeurons`.
+
+## NeuroMorpho API
+
+### navis.interfaces.neuromorpho.get_neuron_info(x)
+
+*function*
+
+Fetch neuron info by ID or by name.
+
+Parameters
+----------
+x :         int | str
+            Integer is intepreted as ID, string as neuron name. Will try
+            to convert strings to integers first.
+
+Examples
+--------
+>>> import navis.interfaces.neuromorpho as nm
+>>> # Get info by ID
+>>> info = nm.get_neuron_info(1)
+>>> # Get info by Name
+>>> info = nm.get_neuron_info('cnic_001')
+
+### navis.interfaces.neuromorpho.get_neuron(x, parallel=True, max_threads=4, **kwargs)
+
+*function*
+
+Fetch neuron by ID or by name.
+
+Parameters
+----------
+x :             int | str | dict | pandas.DataFrame
+                Integer is intepreted as ID, string as neuron name. Dictionary
+                and DataFrame must contain 'archive' (e.g. "Wearne_Hof") and
+                'neuron_name' (e.g. "cnic_001").
+parallel :      bool
+                If True, will use threads to fetch data.
+max_threads :   int
+                Max number of parallel threads to use.
+**kwargs
+                Keyword arguments passed on to navis.read_swc.
+
+Returns
+-------
+Skeleton
+
+Examples
+--------
+>>> import navis.interfaces.neuromorpho as nm
+>>> # Get a neuron by its ID
+>>> n = nm.get_neuron(1)
+>>> n
+type            Skeleton
+name                   SWC
+n_nodes               1274
+n_connectors             0
+n_branches              46
+n_leafs                 54
+cable_length       4792.21
+soma                  None
+
+### navis.interfaces.neuromorpho.get_neuron_fields()
+
+*function*
+
+List all available neuron fields.
+
+Examples
+--------
+>>> import navis.interfaces.neuromorpho as nm
+>>> fields = nm.get_neuron_fields()
+>>> fields
+['neuron_id',
+ 'neuron_name',
+ 'archive',
+ 'age_scale',
+ ...
+
+### navis.interfaces.neuromorpho.get_available_field_values(field)
+
+*function*
+
+List all possible values for given neuron field.
+
+Parameters
+----------
+field :     str
+            Field to search for.
+
+Examples
+--------
+>>> import navis.interfaces.neuromorpho as nm
+>>> # Get availalbe values for "species" field
+>>> species = nm.get_available_field_values('species')
+>>> species
+['rat',
+ 'mouse',
+ 'drosophila melanogaster',
+ 'human',
+ 'monkey',
+ ...
+
+## neuPrint API
+
+### navis.interfaces.neuprint.fetch_roi(roi, *, client=None)
+
+*function*
+
+Fetch given ROI.
+
+Parameters
+----------
+roi :           str
+                Name of an ROI.
+client :        neuprint.Client, optional
+                If `None` will try using global client.
+
+Returns
+-------
+navis.Volume
+
+### navis.interfaces.neuprint.fetch_skeletons(x, *, with_synapses=False, dedup=True, heal=False, missing_swc='raise', parallel=True, max_threads=5, client=None)
+
+*function*
+
+Fetch neuron skeletons as navis.Skeletons.
+
+Notes
+-----
+Synapses will be attached to the closest node in the skeleton.
+
+Parameters
+----------
+x :             str | int | list-like | pandas.DataFrame | SegmentCriteria
+                Body ID(s). Multiple Ids can be provided as list-like or
+                DataFrame with "bodyId"  or "bodyid" column.
+with_synapses : bool, optional
+                If True will also attach synapses as `.connectors`.
+dedup :         bool, optional
+                Only relevant if `with_synapses=True`. In insect connectomes
+                synapses are polyadic (a presynapse connects to multiple
+                postsynapses). If True (default), presynapses are
+                de-duplicated. If False, each presynapse is reported once
+                per postsynaptic site it connects to.
+heal :          bool | int | float, optional
+                If True, will automatically heal fragmented skeletons using
+                neuprint-python's `heal_skeleton` function. Pass a float
+                or an int to limit the max distance at which nodes are
+                allowed to be re-connected (requires neuprint-python >= 0.4.11).
+missing_swc :   'raise' | 'warn' | 'skip'
+                What to do if no skeleton is found for a given body ID:
+
+                  - "raise" (default) will raise an exception
+                  - "warn" will throw a warning but continue
+                  - "skip" will skip without any message
+
+parallel :      bool
+                If True, will use parallel threads to fetch data.
+max_threads :   int
+                Max number of parallel threads to use.
+client :        neuprint.Client, optional
+                If `None` will try using global client.
+
+Returns
+-------
+navis.Neuronlist
+
+### navis.interfaces.neuprint.fetch_mesh_neuron(x, *, lod=1, with_synapses=False, dedup=True, missing_mesh='raise', parallel=True, max_threads=5, seg_source=None, client=None, **kwargs)
+
+*function*
+
+Fetch neuron meshes as navis.Mesh.
+
+Requires additional packages depending on the mesh source.
+
+For DVID you need [`dvid-tools`](https://github.com/flyconnectome/dvid_tools):
+
+    ``` shell
+    pip3 install dvidtools
+    ```
+
+For everything else you need [cloudvolume](https://github.com/seung-lab/cloud-volume):
+
+    ``` shell
+    pip3 install cloud-volume
+    ```
+
+
+Parameters
+----------
+x :             str | int | list-like | pandas.DataFrame | SegmentCriteria
+                Body ID(s). Multiple IDs can be provided as list-like or
+                DataFrame with "bodyId" or "bodyid" column.
+lod :           int
+                Level of detail. Higher `lod` = coarser. Ignored if mesh
+                source does not support LODs (e.g. for DVID).
+with_synapses : bool, optional
+                If True will download and attach synapses as `.connectors`.
+dedup :         bool, optional
+                Only relevant if `with_synapses=True`. In insect connectomes
+                synapses are polyadic (a presynapse connects to multiple
+                postsynapses). If True (default), presynapses are
+                de-duplicated. If False, each presynapse is reported once
+                per postsynaptic site it connects to.
+missing_mesh :  'raise' | 'warn' | 'skip'
+                What to do if no mesh is found for a given body ID:
+
+                    "raise" (default) will raise an exception
+                    "warn" will throw a warning but continue
+                    "skip" will skip without any message
+
+parallel :      bool
+                If True, will use parallel threads to fetch data.
+max_threads :   int
+                Max number of parallel threads to use.
+seg_source :    str | cloudvolume.CloudVolume, optional
+                Use this to override the segmentation source specified by
+                neuPrint.
+client :        neuprint.Client, optional
+                If `None` will try using global client.
+**kwargs
+                Will be passed to `cloudvolume.CloudVolume`.
+
+Returns
+-------
+navis.Neuronlist
+                Containing navis.Mesh. Note that meshes are
+                resized to raw voxel size to match other spatial data from
+                neuprint (synapses, skeletons, etc).
+
+### navis.interfaces.neuprint.fetch_synapses(neuron_criteria, synapse_criteria=None, batch_size=10, *, dedup=True, nt=None, client=None)
+
+*function*
+
+Fetch synapses for a neuron or selection of neurons.
+
+This is a thin wrapper around `neuprint.fetch_synapses` that adds the
+option to *not* de-duplicate presynapses (see `dedup`).
+
+In insect connectomes synapses are typically polyadic, i.e. a single
+presynapse connects to multiple postsynapses. By default - and as done by
+`neuprint.fetch_synapses` - each presynapse is reported only once. With
+`dedup=False` a presynapse is instead reported once for each postsynaptic
+site it connects to. This is useful if you want presynapse counts to
+reflect the number of downstream connections.
+
+Parameters
+----------
+neuron_criteria : bodyId(s) | type/instance | NeuronCriteria
+                Determines which bodies to fetch synapses for.
+synapse_criteria : SynapseCriteria, optional
+                Filter synapses by roi, type or confidence. See
+                `neuprint.SynapseCriteria` for details.
+batch_size :    int
+                To avoid timeouts, synapses are fetched in batches of this
+                many bodies.
+dedup :         bool
+                If True (default), presynapses that appear in more than one
+                SynapseSet are de-duplicated - this matches the behaviour of
+                `neuprint.fetch_synapses`. If False, each presynapse is
+                reported once per postsynaptic site it connects to.
+nt :            None | 'max' | 'all', optional
+                Whether/how to fetch neurotransmitter predictions for each
+                "pre" synapse. See `neuprint.fetch_synapses` for details.
+                Only supported with `dedup=True`.
+client :        neuprint.Client, optional
+                If `None` will try using global client.
+
+Returns
+-------
+pandas.DataFrame
+                Each row represents a single synapse.
+
+## InsectBrain DB API
+
+### navis.interfaces.insectbrain_db.authenticate(username=None, password=None, token=None)
+
+*function*
+
+Authenticate against Insect Brain DB.
+
+You can either provide username + password, or a token. Each token is only
+valid for 24h though. The better alternative is to provide your
+username + password as environment variables: `INSECT_BRAIN_DB_USER` and
+`INSECT_BRAIN_DB_PASSWORD`, respectively. If you are using these environment
+you don't need to bother with `authenticate()` at all.
+
+Parameters
+----------
+username :      str, optional
+                Your username on Insect Brain DB.
+password :      str, optional
+                Your password on Insect Brain DB.
+token :         str, optional
+                A token. If provided you don't need to provide username +
+                password.
+
+### navis.interfaces.insectbrain_db.get_brain_meshes(species, combine=False, max_threads=4)
+
+*function*
+
+Fetch brain meshes for given species.
+
+Parameters
+----------
+species:        str | int
+                Species for which to fetch brain volumes. Strings are
+                interpreted as names (scientific or common), integers as IDs.
+combine :       bool, optional
+                If True, will combine subvolumes (i.e. neuropils) into
+                a single navis.Volume - else will return list with volumes.
+max_threads :   int
+                Number of parallel threads to use for fetching meshes.
+
+Returns
+-------
+list of navis.Volume
+
+Examples
+--------
+>>> import navis
+>>> import navis.interfaces.insectbrain_db as ibdb
+>>> v = ibdb.get_brain_meshes('Desert Locust', combine_vols=True)
+>>> navis.plot3d(v)
+
+### navis.interfaces.insectbrain_db.get_species_info(species)
+
+*function*
+
+Get all info for given species.
+
+Parameters
+----------
+species :       str | int
+                Species to get info for.
+
+Returns
+-------
+pandas.Series
+                Pandas Series with info on given species.
+
+Examples
+--------
+>>> import navis.interfaces.insectbrain_db as ibdb
+>>> info = ibdb.get_species_info()
+
+### navis.interfaces.insectbrain_db.get_available_species()
+
+*function*
+
+Get all info for given species.
+
+Returns
+-------
+pandas.DataFrame
+        DataFrame with available species.
+
+Examples
+--------
+>>> import navis.interfaces.insectbrain_db as ibdb
+>>> species = ibdb.get_available_species()
+
+### navis.interfaces.insectbrain_db.get_skeletons(x, max_threads=4)
+
+*function*
+
+Fetch skeletons for given neuron(s).
+
+Parameters
+----------
+x :             str | int | list thereof
+                Name(s) or ID(s) of neurons you want to fetch.
+max_threads :   int
+                Number of parallel threads to use for fetching skeletons.
+
+Returns
+-------
+navis.NeuronList
+
+Examples
+--------
+>>> import navis.interfaces.insectbrain_db as ibdb
+>>> neurons = ibdb.get_skeletons('TUps2-2')
+
+### navis.interfaces.insectbrain_db.get_skeletons_species(species, max_threads=4)
+
+*function*
+
+Fetch all skeletons for given species.
+
+Note that some neurons might have multiple reconstructions. They will
+show up with the same ID with different names.
+
+Parameters
+----------
+species :       str | int
+                Name or ID of a species to fetch skeletons for.
+max_threads :   int
+                Number of parallel threads to use for fetching skeletons.
+
+Returns
+-------
+navis.NeuronList
+
+Examples
+--------
+>>> import navis.interfaces.insectbrain_db as ibdb
+>>> neurons = ibdb.get_skeletons_species('Desert Locust')
+
+### navis.interfaces.insectbrain_db.search_neurons(name=None, short_name=None, species=None, sex=None, arborization=None, partial_match=True)
+
+*function*
+
+Search for neurons matching given parameters.
+
+Parameters
+----------
+name :          str, optional
+                Name of the neuron.
+short_name :    str, optional
+                Short name of the neuron.
+species :       str | int, optional
+                Name or ID of the species. Can be common or scientific name.
+sex :           "FEMALE" | "MALE" | "UNKNOWN", optional
+                Sex of the neuron.
+arborization :  str, optional
+                Restrict to neurons having arborizations in given neuropil.
+partial_match : bool
+                Whether to allow partial matches (does not apply for species).
+
+Returns
+-------
+pandas.DataFrame
+
+Examples
+--------
+>>> import navis.interfaces.insectbrain_db as ibdb
+>>> neurons = ibdb.search_neurons(species='Desert Locust')
+
+## Brain Image Library API
+
+### navis.interfaces.brain_image_library.search(*, limit=None, metadata=True, parallel=True, max_threads=4, **filters)
+
+*function*
+
+Search BIL for datasets matching the given criteria.
+
+Parameters
+----------
+limit :         int, optional
+                Cap the number of datasets returned.
+metadata :      bool
+                If True (default), fetch full metadata for the hits and
+                return it as a DataFrame. If False, return just the IDs -
+                much faster if you only need the IDs.
+parallel :      bool
+                Whether to run the individual queries in parallel.
+max_threads :   int
+                Max number of parallel threads to use.
+**filters
+                Search criteria as `field=value`. See
+                navis.interfaces.brain_image_library.FIELDS for the
+                available fields.
+
+                Note the semantics:
+
+                - across fields the filters are combined with **AND**
+                - within a field, multiple values are combined with **OR**
+                  (e.g. `species=['mouse', 'rat']`)
+
+                Values must match **exactly** - BIL does no substring or
+                fuzzy matching. Use `text=...` for a full-text search.
+
+Returns
+-------
+pandas.DataFrame
+                One row per dataset. Feed this straight into
+                navis.interfaces.brain_image_library.get_neurons or
+                navis.interfaces.brain_image_library.list_files.
+
+Examples
+--------
+>>> import navis.interfaces.brain_image_library as bil
+>>> # Find mouse single-neuron reconstructions
+>>> ds = bil.search(species='mouse', generalmodality='cell morphology')
+>>> # Full-text search
+>>> ds = bil.search(text='barrel cortex')
+
+Note that `class` is a Python keyword and hence can't be used as a keyword
+argument. Pass it as a dict instead:
+
+>>> ds = bil.search(**{'class': 'somevalue'})                # doctest: +SKIP
+
+### navis.interfaces.brain_image_library.query(division, element, value)
+
+*function*
+
+Run a single raw query against the BIL metadata API.
+
+This is a low-level escape hatch for division/element combinations not
+covered by navis.interfaces.brain_image_library.search. No validation
+is performed on `division`/`element`.
+
+Parameters
+----------
+division :  str
+            The metadata division, e.g. "dataset" or "specimen".
+element :   str
+            The metadata element to search, e.g. "generalmodality".
+value :     str
+            The value to search for. Note that BIL matches values
+            *exactly* - there is no substring or fuzzy matching.
+
+Returns
+-------
+list of str
+            The IDs ("bildids") of matching datasets. Empty if no match.
+
+Examples
+--------
+>>> import navis.interfaces.brain_image_library as bil
+>>> ids = bil.query('dataset', 'generalmodality', 'cell morphology')
+
+### navis.interfaces.brain_image_library.get_metadata(x, *, raw=False, parallel=True, max_threads=4, chunk_size=100)
+
+*function*
+
+Fetch metadata for one or more BIL datasets.
+
+Parameters
+----------
+x :             str | list of str | pandas.DataFrame
+                The dataset ID(s) ("bildid"). Can also be a DataFrame with
+                a `bildid` column, e.g. the output of
+                navis.interfaces.brain_image_library.search.
+raw :           bool
+                If True, return the raw (nested) JSON records instead of a
+                DataFrame. Use this to get at the `Assets`, `Contributors`
+                and `Publication` divisions which do not survive
+                flattening intact.
+parallel :      bool
+                Whether to fetch in parallel.
+max_threads :   int
+                Max number of parallel threads to use.
+chunk_size :    int
+                Number of datasets to request per call.
+
+Returns
+-------
+pandas.DataFrame
+                One row per dataset. `Specimen` entries are collapsed: a
+                field is a scalar if all specimens agree and a tuple
+                otherwise. `n_specimens` always tells you how many there
+                actually were.
+list of dict
+                If `raw=True`.
+
+Examples
+--------
+>>> import navis.interfaces.brain_image_library as bil
+>>> meta = bil.get_metadata('ace-boo-van')
+>>> meta.title.values[0]
+'Single neuron reconstruction from fMOST images'
+
+### navis.interfaces.brain_image_library.get_dataset_url(x)
+
+*function*
+
+Return the download URL(s) for the given dataset(s).
+
+Parameters
+----------
+x :         str | list of str | pandas.DataFrame
+            Dataset ID(s) ("bildid").
+
+Returns
+-------
+str
+            If a single dataset was requested.
+list of str
+            If multiple datasets were requested.
+
+Examples
+--------
+>>> import navis.interfaces.brain_image_library as bil
+>>> bil.get_dataset_url('ace-boo-van')
+'https://download.brainimagelibrary.org/22/5c/225c37cacfbd897c/'
+
+### navis.interfaces.brain_image_library.list_files(x, pattern=None, *, recursive=True, max_depth=3, max_files=10000, max_requests=500, force=False, parallel=True, max_threads=4)
+
+*function*
+
+List the files in a BIL dataset.
+
+This works by crawling the dataset's directory listing. Note that BIL
+hosts datasets with over a million files - see the guardrails below.
+
+Parameters
+----------
+x :             str | list of str | pandas.DataFrame
+                Dataset ID(s) ("bildid"), or a DataFrame with a `bildid`
+                column. Note that BIL often splits a collection into one
+                small dataset per cell, so listing several at once is a
+                perfectly normal thing to do.
+pattern :       str, optional
+                Only return files matching this glob, e.g. `"*.swc"`.
+                Note this filters the *results*: we still have to visit
+                every directory to see what is in it, so a pattern does
+                not make crawling a huge dataset any cheaper.
+recursive :     bool
+                Whether to descend into subdirectories.
+max_depth :     int
+                How deep to descend. BIL layouts are shallow.
+max_files :     int
+                Stop after this many files (per dataset).
+max_requests :  int
+                Stop after this many directory listings (per dataset).
+force :         bool
+                BIL hosts datasets of hundreds of terabytes and millions of
+                files. By default we refuse to crawl anything larger than
+                `SIZE_WARN_GB`/`FILE_WARN_COUNT`. Set True to override.
+parallel :      bool
+                Whether to crawl in parallel.
+max_threads :   int
+                Max number of parallel threads to use.
+
+Returns
+-------
+pandas.DataFrame
+                Columns: `name`, `url`, `size` (bytes), `last_modified`,
+                `directory`, `depth` and `bildid`. Datasets are returned in
+                the order they were requested. Feed this straight into
+                navis.interfaces.brain_image_library.get_neurons or
+                navis.interfaces.brain_image_library.download_files.
+
+Examples
+--------
+>>> import navis.interfaces.brain_image_library as bil
+>>> files = bil.list_files('ace-boo-van', pattern='*.swc')
+
+### navis.interfaces.brain_image_library.download_files(x, filepath, pattern=None, *, max_size='10G', skip_existing=True, parallel=True, max_threads=4, **kwargs)
+
+*function*
+
+Download files from a BIL dataset.
+
+Parameters
+----------
+x :             str | pandas.DataFrame
+                Dataset ID ("bildid"), or the output of
+                navis.interfaces.brain_image_library.list_files - in
+                which case exactly those files are downloaded.
+filepath :      str | pathlib.Path
+                Directory to download to. The dataset's directory structure
+                is preserved underneath it.
+pattern :       str, optional
+                Only download files matching this glob, e.g. `"*.swc"`.
+max_size :      str, optional
+                Refuse to download more than this in total (e.g. `"10G"`).
+                BIL hosts datasets of hundreds of terabytes - this is here
+                to stop you pulling one by accident. Set to `None` to
+                disable the check.
+skip_existing : bool
+                Skip files that already exist locally.
+parallel :      bool
+                Whether to download in parallel.
+max_threads :   int
+                Max number of parallel threads to use.
+**kwargs
+                Passed to navis.interfaces.brain_image_library.list_files.
+
+Returns
+-------
+pandas.DataFrame
+                The file table with an added `filepath` column.
+
+Examples
+--------
+>>> import navis.interfaces.brain_image_library as bil
+>>> files = bil.download_files('ace-boo-van', '~/bil', pattern='*.swc')   # doctest: +SKIP
+
+### navis.interfaces.brain_image_library.get_neurons(x, pattern='*.swc', *, max_neurons=None, parallel=True, max_threads=4, **kwargs)
+
+*function*
+
+Fetch neuron reconstructions from a BIL dataset.
+
+Skeletons are streamed straight into memory - nothing is written to disk.
+Use navis.interfaces.brain_image_library.download_files if you want
+the files themselves.
+
+Parameters
+----------
+x :             str | pandas.DataFrame
+                Dataset ID ("bildid"), or the output of
+                navis.interfaces.brain_image_library.list_files - in
+                which case exactly those files are loaded. The latter lets
+                you inspect what you are about to fetch first.
+pattern :       str
+                Which files to read. Defaults to `"*.swc"`.
+max_neurons :   int, optional
+                Cap the number of neurons fetched.
+parallel :      bool
+                Whether to fetch in parallel.
+max_threads :   int
+                Max number of parallel threads to use.
+**kwargs
+                Passed to navis.read_swc. Note that BIL does not
+                reliably record the units of its reconstructions - pass
+                e.g. `units='um'` if you know them. The `image.stepsizex`
+                field in the metadata (e.g. "0.35 micron/pixel") tells you
+                the voxel size if the coordinates are in voxels.
+
+Returns
+-------
+navis.NeuronList
+
+Examples
+--------
+>>> import navis.interfaces.brain_image_library as bil
+>>> # Look before you leap
+>>> files = bil.list_files('ace-boo-van', pattern='*.swc')
+>>> nl = bil.get_neurons(files, max_neurons=5)
+>>> len(nl)
+5
+
+### navis.interfaces.brain_image_library.clear_metadata_cache()
+
+*function*
+
+Clear the in-process metadata cache.
+
+## Blender API
+
+### navis.interfaces.blender.Handler(scaling=0.0001, axes_order=[0, 1, 2], ax_translate=[1, 1, 1])
+
+*class*
+
+Class that interfaces with scene in Blender.
+
+Parameters
+----------
+scaling :   float, optional
+               scaling factor between navis and Blender coordinates.
+
+Notes
+-----
+
+    (1) The handler adds neurons and keeps track of them in the scene.
+    (2) If you request a list of objects via its attributes (e.g. `Handler.neurons`)
+        or via navis.interfaces.blender.Handler.select, a navis.interfaces.blender.ObjectList
+        is returned. This class lets you change basic parameters of your selected
+        neurons.
+
+Attributes
+----------
+neurons :       returns list containing all neurons
+connectors :    returns list containing all connectors
+soma :          returns list containing all somata
+selected :      returns list containing selected objects
+presynapses :   returns list containing all presynapses
+postsynapses :  returns list containing all postsynapses
+gapjunctions :  returns list containing all gap junctions
+abutting :      returns list containing all abutting connectors
+all :           returns list containing all objects
+
+Examples
+--------
+>>> # This example assumes you have alread imported and set up navis
+>>> # b3d module has to be imported explicitly
+>>> from navis import b3d
+>>> # Get some neurons (you have already set up a remote instance?)
+>>> nl = navis.example_neurons()
+>>> # Initialize handler
+>>> h = b3d.Handler()
+>>> # Add neurons
+>>> h.add(nl)
+>>> # Assign colors to all neurons
+>>> h.colorize()
+>>> # Select all somas and change color to black
+>>> h.soma.color(0, 0, 0)
+>>> # Clear scene
+>>> h.clear()
+>>> # Add only soma
+>>> h.add(nl, neurites=False, connectors=False)
+
+### navis.interfaces.blender.Handler.add(x, neurites=True, soma=True, connectors=True, redraw=False, use_radii=False, skip_existing=False, downsample=False, collection=None, **kwargs)
+
+*function*
+
+Add neuron(s) to scene.
+
+Parameters
+----------
+x :             Skeleton | Mesh | NeuronList | core.Volume
+                Objects to import into Blender.
+neurites :      bool, optional
+                Plot neurites. Skeletons only.
+soma :          bool, optional
+                Plot somas. Skeletons only.
+connectors :    bool, optional
+                Plot connectors. Uses a defaults dictionary to set
+                color/type. See Examples on how to change.
+redraw :        bool, optional
+                If True, will redraw window after each neuron. This
+                will slow down loading!
+use_radii :     bool, optional
+                If True, will use node radii. For Skeletons only.
+skip_existing : bool, optional
+                If True, will skip neurons that are already loaded.
+downsample :    False | int, optional
+                If integer < 1, will downsample neurites upon import.
+                Preserves branch point/roots. Skeletons only.
+collection :    str, optional
+                Only for Blender >2.8: add object(s) to given collection.
+                If collection does not exist, will be created.
+
+Examples
+--------
+Add one of the example neurons:
+
+>>> h = navis.interfaces.blender.Handler()
+>>> n = navis.example_neurons(1)
+>>> h.add(n, connectors=True)
+
+Change connector settings:
+
+>>> h.cn_dict['display'] = 'sphere'
+>>> h.cn_dict'color' = (1, 1, 0)
+
+### navis.interfaces.blender.Handler.clear()
+
+*function*
+
+Clear all neurons
+
+### navis.interfaces.blender.Handler.select(x, *args)
+
+*function*
+
+Select given neurons.
+
+Parameters
+----------
+x :     list of neuron IDs | Neuron/List | pd Dataframe
+
+Returns
+-------
+navis.interfaces.blender.ObjectList :  containing requested neurons
+
+Examples
+--------
+>>> selection = Handler.select([123456, 7890])
+>>> # Get only connectors
+>>> cn = selection.connectors
+>>> # Hide everything else
+>>> cn.hide_others()
+>>> # Change color of presynapses
+>>> selection.presynapses.color(0, 1, 0)
+
+### navis.interfaces.blender.Handler.hide()
+
+*function*
+
+Hide all neuron-related objects.
+
+### navis.interfaces.blender.Handler.unhide()
+
+*function*
+
+Unide all neuron-related objects.
+
+### navis.interfaces.blender.Handler.color(r, g, b)
+
+*function*
+
+Assign color to all neurons.
+
+Parameters
+----------
+r :     float
+        Red value, range 0-1
+g :     float
+        Green value, range 0-1
+b :     float
+        Blue value, range 0-1
+
+Notes
+-----
+This will only change color of neurons, if you want to change
+color of e.g. connectors, use:
+
+>>> handler.connectors.color(r, g, b)
+
+### navis.interfaces.blender.Handler.colorize()
+
+*function*
+
+Randomly colorize ALL neurons.
+
+Notes
+-----
+This will only change color of neurons, if you want to change
+color of e.g. connectors, use:
+
+>>> handler.connectors.colorize()
+
+### navis.interfaces.blender.Handler.emit(v)
+
+*function*
+
+Change emit value.
+
+### navis.interfaces.blender.Handler.use_transparency(v)
+
+*function*
+
+Change transparency (True/False).
+
+### navis.interfaces.blender.Handler.alpha(v)
+
+*function*
+
+Change alpha (0-1).
+
+### navis.interfaces.blender.Handler.bevel(r)
+
+*function*
+
+Change bevel of ALL neurons.
+
+Parameters
+----------
+r :         float
+            New bevel radius
+
+Notes
+-----
+This will only change bevel of neurons, if you want to change
+bevel of e.g. connectors, use:
+
+>>> handler.connectors.bevel(.02)
+
+### navis.interfaces.blender.ObjectList.select(unselect_others=True)
+
+*function*
+
+Select objects in 3D viewer
+
+Parameters
+----------
+unselect_others :   bool, optional
+                    If False, will not unselect other objects.
+
+### navis.interfaces.blender.ObjectList.color(r, g, b, a=1)
+
+*function*
+
+Assign color to all objects in the list.
+
+Parameters
+----------
+r :     float
+        Red value, range 0-1
+g :     float
+        Green value, range 0-1
+b :     float
+        Blue value, range 0-1
+a :     float
+        Alpha value, range 0-1
+
+### navis.interfaces.blender.ObjectList.colorize(groups=None, palette='hls')
+
+*function*
+
+Assign colors across the color spectrum.
+
+Parameters
+----------
+groups :    dict, optional
+            A dictionary mapping either neuron ID (always str!) or
+            object name to a group (str). Neurons of the same group will
+            receive the same color.
+palette :   str
+            Name of a seaborn color palette.
+
+### navis.interfaces.blender.ObjectList.emit(e)
+
+*function*
+
+Change emit value.
+
+### navis.interfaces.blender.ObjectList.use_transparency(t)
+
+*function*
+
+Change transparency (True/False).
+
+### navis.interfaces.blender.ObjectList.alpha(a)
+
+*function*
+
+Change alpha (0-1).
+
+### navis.interfaces.blender.ObjectList.bevel(r)
+
+*function*
+
+Change bevel radius of objects.
+
+Parameters
+----------
+r :         float
+            New bevel radius.
+
+### navis.interfaces.blender.ObjectList.hide(viewport=True, render=False)
+
+*function*
+
+Hide objects.
+
+### navis.interfaces.blender.ObjectList.unhide(viewport=True, render=False)
+
+*function*
+
+Unhide objects.
+
+### navis.interfaces.blender.ObjectList.hide_others()
+
+*function*
+
+Hide everything BUT these objects.
+
+### navis.interfaces.blender.ObjectList.delete()
+
+*function*
+
+Delete neurons in the selection.
+
+## Cytoscape API
+
+### navis.interfaces.cytoscape.generate_network
+
+Requires the optional `navis.interfaces.cytoscape` dependencies, which were not installed when these docs were built.
+
+### navis.interfaces.cytoscape.get_client
+
+Requires the optional `navis.interfaces.cytoscape` dependencies, which were not installed when these docs were built.
+
+## Allen MICrONS datasets
+
+### navis.interfaces.microns.get_cave_client(datastack='cortex65')
+
+*function*
+
+Get caveclient for given datastack.
+
+Parameters
+----------
+datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+                Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                are internally mapped to the corresponding sources: for example,
+                "minnie65_public" for "cortex65"
+
+### navis.interfaces.microns.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='cortex65', materialization='auto', parallel=True, max_threads=4, **kwargs)
+
+*function*
+
+Fetch neuron meshes.
+
+Notes
+-----
+Synapses will be attached to the closest vertex on the mesh.
+
+Parameters
+----------
+x :             str | int | list-like
+                Segment ID(s). Multiple Ids can be provided as list-like.
+lod :           int
+                Level of detail. Higher ``lod`` = coarser. This parameter
+                is ignored if the data source does not support multi-level
+                meshes.
+with_synapses : bool, optional
+                If True will also attach synapses as ``.connectors``.
+datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
+                Which dataset to query. "cortex65", "cortex35" and "layer 2/3"
+                are internally mapped to the corresponding sources: for example,
+                "minnie65_public" for "cortex65"
+materialization : "auto" | int
+                Which materialization version to use to look up somas and synapses
+                (if applicable). If "auto" (default) will try to find the most
+                recent version that contains the given root IDs. If an
+                integer is provided will use that version.
+parallel :      bool
+                If True, will use parallel threads to fetch data.
+max_threads :   int
+                Max number of parallel threads to use.
+**kwargs
+                Keyword arguments are passed through to the initialization
+                of the ``navis.Meshes``.
+
+Returns
+-------
+navis.Neuronlist
+                Containing :class:`navis.Mesh`.
+
+## H01 dataset
+
+### navis.interfaces.h01.get_cave_client(datastack='h01_c3_flat')
+
+*function*
+
+Get caveclient for H01 dataset.
+
+### navis.interfaces.h01.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='h01_c3_flat', materialization='auto', parallel=True, max_threads=4, **kwargs)
+
+*function*
+
+Fetch neuron meshes.
+
+Notes
+-----
+Synapses will be attached to the closest vertex on the mesh.
+
+Parameters
+----------
+x :             str | int | list-like
+                Segment ID(s). Multiple IDs can be provided as list-like.
+lod :           int
+                Level of detail. Higher ``lod`` = coarser. This parameter
+                is ignored if the data source does not support multi-level
+                meshes.
+with_synapses : bool, optional
+                If True will also attach synapses as ``.connectors``.
+datastack :     str
+                Datastack to use. Default to "h01_c3_flat".
+materialization : "auto" | int
+                Which materialization version to use to look up somas and synapses
+                (if applicable). If "auto" (default) will try to find the most
+                recent version that contains the given root IDs. If an
+                integer is provided will use that version.
+parallel :      bool
+                If True, will use parallel threads to fetch data.
+max_threads :   int
+                Max number of parallel threads to use.
+**kwargs
+                Keyword arguments are passed through to the initialization
+                of the ``navis.Meshes``.
+
+Returns
+-------
+navis.Neuronlist
+                Containing :class:`navis.Mesh`.

@@ -1,0 +1,158 @@
+/* --- Tables --------------------------------------------------------------
+ *
+ * Two flavours of table need help, and neither survives dark mode untouched:
+ *
+ *   1. Markdown tables. Material styles `table:not([class])` itself, but our
+ *      zebra striping used to be a hard-coded light grey picked by
+ *      `prefers-color-scheme` - i.e. the *OS* setting, not the palette
+ *      toggle. Get those two out of sync and you end up with black header
+ *      text and white-on-black stripes.
+ *   2. The pandas tables in the executed examples. mkdocs-gallery ships
+ *      `sg_gallery-dataframe.css` and `sg_gallery-rendered-html.css`, both
+ *      written for a light theme only (`color: black`, `background: #f5f5f5`).
+ *
+ * Everything below is derived from Material's own colour variables, so it
+ * follows `[data-md-color-scheme]` - the palette toggle - in both cases. The
+ * gallery stylesheets are injected *after* ours, so the `.md-typeset` prefix
+ * is load-bearing: it's what wins the specificity contest.
+ */
+
+:root,
+[data-md-color-scheme="default"] {
+  --navis-table-header-bg: hsla(0, 0%, 0%, 0.045);
+  --navis-table-stripe: hsla(0, 0%, 0%, 0.03);
+  --navis-table-hover: hsla(0, 0%, 0%, 0.06);
+}
+
+[data-md-color-scheme="slate"] {
+  --navis-table-header-bg: hsla(var(--md-hue), 15%, 90%, 0.07);
+  --navis-table-stripe: hsla(var(--md-hue), 15%, 90%, 0.04);
+  --navis-table-hover: hsla(var(--md-hue), 15%, 90%, 0.09);
+}
+
+table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Header: a faint tint instead of a hard colour flip, so the row reads as a
+ * header in either scheme without shouting. */
+.md-typeset table:not([class]) thead,
+.md-typeset .rendered_html table thead,
+.md-typeset table.dataframe thead {
+  background-color: var(--navis-table-header-bg);
+}
+
+.md-typeset table:not([class]) thead th,
+.md-typeset .rendered_html table thead th,
+.md-typeset table.dataframe thead th {
+  color: var(--md-default-fg-color);
+  font-size: 10pt;
+}
+
+/* Striping subtle enough that the eye reads it as banding, not as two
+ * different backgrounds. */
+.md-typeset table:not([class]) tbody tr:nth-child(even),
+.md-typeset .rendered_html table tbody tr:nth-child(even),
+.md-typeset table.dataframe tbody tr:nth-child(even) {
+  background-color: var(--navis-table-stripe);
+}
+
+/* mkdocs-gallery stripes the *odd* rows; unset it so both table flavours band
+ * the same way. */
+.md-typeset .rendered_html table tbody tr:nth-child(odd),
+.md-typeset table.dataframe tbody tr:nth-child(odd) {
+  background-color: transparent;
+}
+
+.md-typeset table:not([class]) tbody tr:hover,
+.md-typeset .rendered_html table tbody tr:hover,
+.md-typeset table.dataframe tbody tr:hover {
+  background-color: var(--navis-table-hover);
+  box-shadow: none;
+}
+
+/* --- mkdocs-gallery output blocks ---
+ * `sg_gallery-rendered-html.css` hard-codes black text and white/light-grey
+ * backgrounds throughout; hand those back to the theme. */
+.md-typeset .rendered_html,
+.md-typeset .rendered_html table,
+.md-typeset .rendered_html pre,
+.md-typeset .rendered_html code,
+.md-typeset table.dataframe {
+  color: var(--md-typeset-color);
+}
+
+.md-typeset .rendered_html pre,
+.md-typeset .rendered_html code {
+  background-color: var(--md-code-bg-color);
+}
+
+.md-typeset .rendered_html hr {
+  color: var(--md-default-fg-color--lightest);
+  background-color: var(--md-default-fg-color--lightest);
+}
+
+/* The gallery draws a solid black rule under the header row. */
+.md-typeset .rendered_html table thead,
+.md-typeset table.dataframe thead {
+  border-bottom: 0.05rem solid var(--md-typeset-table-color);
+}
+
+/* --- Example page showcase: code left, interactive result right --- */
+.qs-split {
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
+  margin-top: 0.6rem;
+}
+.qs-split > * {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+.qs-split .highlight > pre,
+.qs-split pre > code {
+  margin: 0;
+}
+/* rounded "boxes" for both columns, PyVista-style */
+.qs-split .highlight,
+.qs-split .highlight > pre,
+.qs-split .highlight pre > code {
+  border-radius: 0.7rem;
+}
+.qs-split .plotly-graph-div,
+.qs-split img {
+  width: 100% !important;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+}
+/* static example images: match the interactive plot box height */
+.qs-split img {
+  height: 380px;
+  object-fit: contain;
+}
+.qs-split p {
+  margin: 0;
+}
+/* stack the columns on narrow screens */
+@media (max-width: 59.9em) {
+  .qs-split {
+    flex-direction: column;
+  }
+}
+
+/* --- Content tabs: a faint outline so it's clear which content belongs to a tab --- */
+.md-typeset .tabbed-set {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  padding: 0 0.8rem 0.4rem;
+}
+/* let the divider under the labels meet the outline on both sides */
+.md-typeset .tabbed-set > .tabbed-labels {
+  margin: 0 -0.8rem;
+  padding: 0 0.8rem;
+}

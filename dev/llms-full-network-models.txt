@@ -1,0 +1,187 @@
+# navis 2.0.0-rc.1 - Network Models
+
+Full docstrings for the 'Network Models' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+### navis.models.TraversalModel(edges, seeds, source='source', target='target', weights='weight', max_steps=15, traversal_func=None)
+
+*class*
+
+Model for traversing a network starting with given seed nodes.
+
+What this does:
+
+  1. Grab all already visited nodes (starting with `seeds` in step 1)
+  2. Find all downstream nodes of these
+  3. Probabilistically traverse based on the weight of the connecting edges
+  4. Add those newly visited nodes to the pool & repeat from beginning
+  5. Stop when every (connected) neuron was visited or we reached `max_steps`
+
+Parameters
+----------
+edges :             pandas.DataFrame
+                    DataFrame representing an edge list. Must minimally have
+                    a `source` and `target` column.
+seeds :             iterable
+                    Seed nodes for traversal. Nodes that aren't found in
+                    `edges['source']` will be (silently) removed.
+weights :           str, optional
+                    Name of a column in `edges` used as weights. If not
+                    provided, all edges will be given a weight of 1. If using
+                    the default activation function the weights need to be
+                    between 0 and 1.
+max_steps :         int
+                    Limits the number of steps for each iteration.
+traversal_func :    callable, optional
+                    Function that determines whether a given edge will be
+                    traversed or not in a given step. Must take numpy array
+                    (N, 1) of edge weights and return an array with
+                    True/False of equal size. Defaults to
+                    navis.models.network_models.random_linear_activation_function
+                    which will linearly scale probability of traversal
+                    from 0 to 100% between edges weights 0 to 0.3.
+
+Examples
+--------
+>>> from navis.models import TraversalModel
+>>> import networkx as nx
+>>> import numpy as np
+>>> # Generate a random graph
+>>> G = nx.fast_gnp_random_graph(1000, .2, directed=True)
+>>> # Turn into edge list
+>>> edges = nx.to_pandas_edgelist(G)
+>>> # Add random edge weights
+>>> edges['weight'] = np.random.random(edges.shape[0])
+>>> # Initialize model
+>>> model = TraversalModel(edges, seeds=list(G.nodes)[:10])
+>>> # Run model on 2 cores
+>>> model.run_parallel(n_cores=2, iterations=100)
+>>> # Get a summary
+>>> model.summary.tail()                                    # doctest: +SKIP
+      layer_min  layer_max  layer_mean  layer_median
+node
+995           2          2        2.00             2
+996           2          3        2.33             2
+997           2          2        2.00             2
+998           2          2        2.00             2
+999           2          2        2.00             2
+
+Above Graph was traversed quickly (3 steps max). Let's adjust the
+traversal function:
+
+>>> from navis.models import random_linear_activation_function
+>>> # Use a lower probability for activation
+>>> def my_act(x):
+...     return random_linear_activation_function(x, max_w=10)
+>>> model = TraversalModel(edges, seeds=list(G.nodes)[:10],
+...                        traversal_func=my_act)
+>>> res = model.run(iterations=100)
+>>> res.tail()                                              # doctest: +SKIP
+      layer_min  layer_max  layer_mean  layer_median
+node
+995           2          4       3.210           3.0
+996           2          4       3.280           3.0
+997           2          4       3.260           3.0
+998           2          4       3.320           3.0
+999           2          4       3.195           3.0
+
+### navis.models.BayesianTraversalModel(*args, traversal_func=None, **kwargs)
+
+*class*
+
+Model for traversing a network starting with given seed nodes.
+
+This model is a Bayes net version of
+navis.models.network_models.TraversalModel that propagates
+traversal probabilities through the network and converges to a
+distribution of time of traversal for each node, rather than
+stochastically sampling.
+
+Unlike `TraversalModel`, this model should only be run once.
+Note alse that `traversal_func` should be a function returing
+probabilities of traversal, rather than a random boolean of traversal.
+
+Parameters
+----------
+edges :             pandas.DataFrame
+                    DataFrame representing an edge list. Must minimally have
+                    a `source` and `target` column.
+seeds :             iterable
+                    Seed nodes for traversal. Nodes that aren't found in
+                    `edges['source']` will be (silently) removed.
+weights :           str, optional
+                    Name of a column in `edges` used as weights. If not
+                    provided, all edges will be given a weight of 1. If using
+                    the default activation function the weights need to be
+                    between 0 and 1.
+max_steps :         int
+                    Limits the number of steps for each iteration.
+traversal_func :    callable, optional
+                    Function returning probability whether a given edge will be
+                    traversed or not in a given step. Must take numpy array
+                    (N, 1) of edge weights and return an array with
+                    probabilities of equal size. Defaults to
+                    navis.models.network_models.linear_activation_p
+                    which will linearly scale probability of traversal
+                    from 0 to 100% between edges weights 0 to 0.3.
+
+Notes
+-----
+This model is a fast, deterministic approximation of the Monte-Carlo
+navis.models.network_models.TraversalModel. For each node it
+propagates the full delivery distribution of every inbound edge (the
+parent's traversal-time distribution convolved with the edge's per-step
+firing probability) and is therefore *exact* for tree-like graphs and for
+single points of reconvergence (e.g. diamonds). It does, however, still
+assume that a node's parents are traversed *independently*. This holds
+whenever the parents' traversal times are independent (as in a diamond),
+but is only an approximation when two or more parents share correlated
+upstream ancestry. In that case the model may slightly mistime the node's
+traversal; use `TraversalModel` (Monte-Carlo) as ground truth if exactness
+matters there. Note also that, as with `TraversalModel`, results near the
+`max_steps` horizon are affected by truncation - increase `max_steps` if a
+node's traversal-time distribution has not effectively converged to 1.
+
+Examples
+--------
+>>> from navis.models import BayesianTraversalModel
+>>> import networkx as nx
+>>> import numpy as np
+>>> # Generate a random graph
+>>> G = nx.fast_gnp_random_graph(1000, .2, directed=True)
+>>> # Turn into edge list
+>>> edges = nx.to_pandas_edgelist(G)
+>>> # Add random edge weights
+>>> edges['weight'] = np.random.random(edges.shape[0])
+>>> # Initialize model
+>>> model = BayesianTraversalModel(edges, seeds=list(G.nodes)[:10])
+>>> # Run model
+>>> res = model.run()
+>>> # Get a summary
+>>> model.summary.tail()                                    # doctest: +SKIP
+      layer_min  layer_max  layer_mean  layer_median
+node
+995           2          2        2.00             2
+996           2          3        2.33             2
+997           2          2        2.00             2
+998           2          2        2.00             2
+999           2          2        2.00             2
+
+Above Graph was traversed quickly (3 steps max). Let's adjust the
+traversal function:
+
+>>> from navis.models import linear_activation_p
+>>> # Use a lower probability for activation
+>>> def my_act(x):
+...     return linear_activation_p(x, max_w=10)
+>>> model = BayesianTraversalModel(edges, seeds=list(G.nodes)[:10],
+...                                traversal_func=my_act)
+>>> res = model.run()
+>>> res.tail()                                              # doctest: +SKIP
+      layer_min  layer_max  layer_mean  layer_median
+node
+995           2          4       3.210           3.0
+996           2          4       3.280           3.0
+997           2          4       3.260           3.0
+998           2          4       3.320           3.0
+999           2          4       3.195           3.0

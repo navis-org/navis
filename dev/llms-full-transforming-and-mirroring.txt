@@ -1,0 +1,1253 @@
+# navis 2.0.0-rc.1 - Transforming and Mirroring
+
+Full docstrings for the 'Transforming and Mirroring' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+### navis.xform(x, transform, affine_fallback=True, caching=True)
+
+*function*
+
+Apply transform(s) to data.
+
+Notes
+-----
+For Neurons only: whether there is a change in units during transformation
+(e.g. nm -> um) is inferred by comparing distances between x/y/z coordinates
+before and after transform. This guesstimate is then used to convert
+`.units` and node/soma radii. This works reasonably well with base 10
+increments (e.g. nm -> um) but is off with odd changes in units.
+
+Parameters
+----------
+x :                 Neuron/List | Volume/Trimesh | numpy.ndarray | pandas.DataFrame
+                    Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                    columns. Numpy array must be shape `(N, 3)`.
+transform :         Transform/Sequence or list thereof
+                    Either a single transform or a transform sequence.
+affine_fallback :   bool
+                    In same cases the non-rigid transformation of points
+                    can fail - for example if points are outside the
+                    deformation field. If that happens, they will be
+                    returned as `NaN`. Unless `affine_fallback` is
+                    `True`, in which case we will apply only the rigid
+                    affine  part of the transformation to at least get close
+                    to the correct coordinates.
+caching :           bool
+                    If True, will (pre-)cache data for transforms whenever
+                    possible. Depending on the data and the type of
+                    transforms this can tremendously speed things up at the
+                    cost of increased memory usage:
+                      - `False` = no upfront cost, lower memory footprint
+                      - `True` = higher upfront cost, most definitely faster
+                    Only applies if input is NeuronList and if transforms
+                    include H5 transform.
+
+Returns
+-------
+same type as `x`
+                    Copy of input with transformed coordinates.
+
+Examples
+--------
+>>> import navis
+>>> # Example neurons are in 8nm voxel space
+>>> nl = navis.example_neurons()
+>>> # Make a simple Affine transform to go from voxel to nanometers
+>>> import numpy as np
+>>> M = np.diag([8, 8, 8, 8])
+>>> tr = navis.transforms.AffineTransform(M)
+>>> # Apply the transform
+>>> xf = navis.xform(nl, tr)
+
+See Also
+--------
+navis.xform_brain
+                Higher level function that finds and applies a sequence of
+                transforms to go from one template brain to another.
+
+### navis.xform_brain(x, source, target, via=None, avoid=None, affine_fallback=True, caching=True, verbose=True)
+
+*function*
+
+Transform 3D data between template brains.
+
+This requires the appropriate transforms to be registered with `navis`.
+See the docs/tutorials for details.
+
+Notes
+-----
+For Neurons only: transforms can introduce a change in the units (e.g. if
+the transform goes from micron to nanometer space). Some template brains have
+their units hard-coded in their meta data (as `_navis_units`). If that's
+not the case we fall-back to trying to infer any change in units by comparing
+distances between x/y/z coordinate before and after the transform. That
+approach works reasonably well with base 10 increments (e.g. nm -> um) but
+may be off with odd changes in units (e.g. physical -> voxel space).
+Regardless of whether hard-coded or inferred, any change in units is used to
+update the `.units` property and node/soma radii for Skeletons.
+
+Parameters
+----------
+x :                 Neuron/List | numpy.ndarray | pandas.DataFrame
+                    Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                    columns. Numpy array must be shape `(N, 3)`.
+source :            str
+                    Source template brain that the data currently is in.
+target :            str
+                    Target template brain that the data should be
+                    transformed into.
+via :               str | list thereof, optional
+                    Optionally set intermediate template(s). This can be
+                    helpful to force a specific transformation sequence.
+avoid :             str | list thereof, optional
+                    Prohibit going through specific intermediate template(s).
+affine_fallback :   bool
+                    In some cases the non-rigid transformation of points
+                    can fail - for example if points are outside the
+                    deformation field. If that happens, they will be
+                    returned as `NaN`. If `affine_fallback=True`
+                    we will apply only the rigid affine part of the
+                    transformation to those points to get as close as
+                    possible to the correct coordinates.
+caching :           bool
+                    If True, will (pre-)cache data for transforms whenever
+                    possible. Depending on the data and the type of
+                    transforms this can speed things up significantly at the
+                    cost of increased memory usage:
+                      - `False` = no upfront cost, lower memory footprint
+                      - `True` = higher upfront cost, most definitely faster
+                    Only applies if input is NeuronList and if transforms
+                    include H5 transform.
+verbose :           bool
+                    If True, will print some useful info on transform.
+
+Returns
+-------
+same type as `x`
+                    Copy of input with transformed coordinates.
+
+Examples
+--------
+This example requires the
+[flybrains](https://github.com/navis-org/navis-flybrains)
+library to be installed: `pip3 install flybrains`
+
+Also, if you haven't already, you will need to have the optional Saalfeld
+lab (Janelia Research Campus) transforms installed (this is a one-off):
+
+>>> import flybrains                                        # doctest: +SKIP
+>>> flybrains.download_jrc_transforms()                     # doctest: +SKIP
+
+Once `flybrains` is installed and you have downloaded the registrations,
+you can run this:
+
+>>> import navis
+>>> import flybrains
+>>> # navis example neurons are in raw (8nm voxel) hemibrain (JRCFIB2018Fraw) space
+>>> n = navis.example_neurons(1)
+>>> # Transform to FAFB14 space
+>>> xf = navis.xform_brain(n, source='JRCFIB2018Fraw', target='FAFB14') # doctest: +SKIP
+
+See Also
+--------
+navis.xform
+                Lower level entry point that takes data and applies a given
+                transform or sequence thereof.
+navis.mirror_brain
+                Uses non-rigid transforms to mirror neurons from the left
+                to the right side of given template brain and vice versa.
+
+### navis.symmetrize_brain(x, template, via='auto', progress=True, verbose=False)
+
+*function*
+
+Symmetrize 3D object (neuron, coordinates).
+
+The way this works is by:
+ 1. Finding the closest mirror transform (unless provided)
+ 2. Mirror data on the left-hand-side to the right-hand-side using the
+    proper (warp) mirror transform to offset deformations
+ 3. Simply flip that data back to the left-hand-side
+
+This works reasonably well but may produce odd results around the midline.
+For high quality symmetrization you are better off generating dedicated
+transform (see `navis-flybrains` for an example).
+
+Parameters
+----------
+x :             Neuron/List | Volume/trimesh | numpy.ndarray | pandas.DataFrame
+                Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                columns. Numpy array must be shape `(N, 3)`.
+template :      str | TemplateBrain
+                Source template brain space that the data is in. If string
+                will be searched against registered template brains.
+via :           "auto" | str
+                By default ("auto") it will find and apply the closest
+                mirror transform. You can also specify a template that
+                should be used. That template must have a mirror transform!
+progress :      bool
+                Whether to show a progress bar when symmetrizing multiple
+                neurons.
+verbose :       bool
+                If True, will print some useful info on the transform(s).
+
+Returns
+-------
+xs
+                Same object type as input (array, neurons, etc) but
+                hopefully symmetrical.
+
+Examples
+--------
+This example requires the
+[flybrains](https://github.com/navis-org/navis-flybrains)
+library to be installed: `pip3 install flybrains`
+
+>>> import navis
+>>> import flybrains
+>>> # Get the FAFB14 neuropil mesh
+>>> m = flybrains.FAFB14.mesh
+>>> # Symmetrize the mesh
+>>> s = navis.symmetrize_brain(m, template='FAFB14')
+>>> # Plot side-by-side for comparison
+>>> m.plot3d()                                              # doctest: +SKIP
+>>> s.plot3d(color=(1, 0, 0))                               # doctest: +SKIP
+
+### navis.mirror_brain(x, template, mirror_axis='auto', warp='auto', via=None, verbose=False, progress=True)
+
+*function*
+
+Mirror 3D object (neuron, coordinates) about given axis.
+
+The way this works is:
+ 1. Look up the length of the template space along the given axis. For this,
+    the template space has to be registered (see docs for details).
+ 2. Flip object along midpoint of axis using a affine transformation.
+ 3. (Optional) Apply a warp transform that corrects asymmetries.
+
+Parameters
+----------
+x :             Neuron/List | Volume/trimesh | numpy.ndarray | pandas.DataFrame
+                Data to transform. Dataframe must contain `['x', 'y', 'z']`
+                columns. Numpy array must be shape `(N, 3)`.
+template :      str | TemplateBrain
+                Source template brain space that the data is in. If string
+                will be searched against registered template brains.
+                Alternatively check out navis.transforms.mirror
+                for a lower level interface.
+mirror_axis :   'auto' | 'x' | 'y' | 'z', optional
+                Axis to mirror. If "auto" (default), will try get the correct
+                mirror axis from the template brain's meta data. If that is
+                not available, will default to "x".
+warp :          bool | "auto" | Transform, optional
+                If 'auto', will check if a non-rigid mirror transformation
+                exists for the given `template` and apply it after the
+                flipping. Alternatively, you can also pass a Transform or
+                TransformSequence directly.
+via :           str | None
+                If provided, (e.g. "FCWB") will first transform coordinates
+                into that space, then mirror and transform back.
+                Use this if there is no mirror registration for the original
+                template, or to transform to a symmetrical template in which
+                flipping is sufficient. Note that `mirror_axis` must match
+                the mirror axis of the "via" template!
+verbose :       bool
+                If True, will print some useful info on the transform(s).
+progress :      bool
+                Whether to show a progress bar when mirroring multiple
+                neurons.
+
+Returns
+-------
+xf
+                Same object type as input (array, neurons, etc) but with
+                transformed coordinates.
+
+Examples
+--------
+This example requires the
+[flybrains](https://github.com/navis-org/navis-flybrains)
+library to be installed: `pip3 install flybrains`
+
+Also, if you haven't already, you will need to have the optional Saalfeld
+lab (Janelia Research Campus) transforms installed (this is a one-off):
+
+>>> import flybrains                                        # doctest: +SKIP
+>>> flybrains.download_jrc_transforms()                     # doctest: +SKIP
+
+Once `flybrains` is installed and you have downloaded the registrations,
+you can run this:
+
+>>> import navis
+>>> import flybrains
+>>> # navis example neurons are in raw hemibrain (JRCFIB2018Fraw) space
+>>> n = navis.example_neurons(1)
+>>> # Mirror about x axis (this is a simple flip in this case)
+>>> mirrored = navis.mirror_brain(n * 8 / 1000, tem plate='JRCFIB2018F', via='JRC2018F') # doctest: +SKIP
+>>> # We also need to get back to raw coordinates
+>>> mirrored = mirrored / 8 * 1000                          # doctest: +SKIP
+
+See Also
+--------
+navis.mirror
+                Lower level function for mirroring. You can use this if
+                you want to mirror data without having a registered
+                template for it.
+
+### navis.mirror(points, mirror_axis_size, mirror_axis='x', warp=None)
+
+*function*
+
+Mirror 3D coordinates about given axis.
+
+This is a lower level version of `navis.mirror_brain` that:
+ 1. Flips object along midpoint of axis using a affine transformation.
+ 2. (Optional) Applies a warp transform that corrects asymmetries.
+
+Parameters
+----------
+points :            (N, 3) numpy array
+                    3D coordinates to mirror.
+mirror_axis_size :  int | float
+                    A single number specifying the size of the mirror axis.
+                    This is used to find the midpoint to mirror about.
+mirror_axis :       'x' | 'y' | 'z', optional
+                    Axis to mirror. Defaults to `x`.
+warp :              Transform, optional
+                    If provided, will apply this warp transform after the
+                    affine flipping. Typically this will be a mirror
+                    registration to compensate for left/right asymmetries.
+
+Returns
+-------
+points_mirrored
+                    Mirrored coordinates.
+
+See Also
+--------
+navis.mirror_brain
+                Higher level function that uses meta data from registered
+                template brains to transform data for you.
+
+### navis.transforms.align.align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, progress=True)
+
+*function*
+
+Align neurons using a rigid registration.
+
+Requires the `pycpd` library.
+
+Parameters
+----------
+x :             navis.NeuronList
+                Neurons to align.
+target :        navis.Neuron | np.ndarray
+                The neuron that all neurons in `x` will be aligned to.
+                If `None`, neurons will be aligned to the first neuron in `x`!
+scale :         bool
+                If True, will also scale the neuron.
+w :             float
+                `w` is used to account for outliers: higher w = more forgiving.
+                The default is w=0 which can lead to failure to converge on a
+                solution (in particular when scale=False). In that case we
+                incrementally increase `w` by a factor of 10 until we find
+                a solution. Set `verbose=True` to get detailed feedback
+                on the solution.
+sample :        float [0-1], optional
+                If provided, will calculate an initial registration on only
+                the given fraction of points followed by a landmark transform
+                to transform the rest. Use this to speed things up.
+progress :      bool
+                Whether to show a progress bar.
+
+Returns
+-------
+xf :    navis.NeuronList
+        The aligned neurons.
+regs :  list
+        The pycpd registration objects.
+
+Examples
+--------
+>>> import navis
+>>> n1, n2 = navis.example_neurons(2, kind='skeleton')
+>>> n1_aligned, regs = navis.align.align_rigid(n1, n2, sample=.2)
+
+### navis.align.align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, progress=True)
+
+*function*
+
+Align neurons using a rigid registration.
+
+Requires the `pycpd` library.
+
+Parameters
+----------
+x :             navis.NeuronList
+                Neurons to align.
+target :        navis.Neuron | np.ndarray
+                The neuron that all neurons in `x` will be aligned to.
+                If `None`, neurons will be aligned to the first neuron in `x`!
+scale :         bool
+                If True, will also scale the neuron.
+w :             float
+                `w` is used to account for outliers: higher w = more forgiving.
+                The default is w=0 which can lead to failure to converge on a
+                solution (in particular when scale=False). In that case we
+                incrementally increase `w` by a factor of 10 until we find
+                a solution. Set `verbose=True` to get detailed feedback
+                on the solution.
+sample :        float [0-1], optional
+                If provided, will calculate an initial registration on only
+                the given fraction of points followed by a landmark transform
+                to transform the rest. Use this to speed things up.
+progress :      bool
+                Whether to show a progress bar.
+
+Returns
+-------
+xf :    navis.NeuronList
+        The aligned neurons.
+regs :  list
+        The pycpd registration objects.
+
+Examples
+--------
+>>> import navis
+>>> n1, n2 = navis.example_neurons(2, kind='skeleton')
+>>> n1_aligned, regs = navis.align.align_rigid(n1, n2, sample=.2)
+
+### navis.transforms.align.align_deform(x, target=None, sample=None, progress=True, **kwargs)
+
+*function*
+
+Align neurons using a deformable registration.
+
+Requires the `pycpd` library. Note that it's often beneficial to first
+run a rough affine alignment via `rigid_align`. Anecdotally, this works
+well to align backbones but tends to pull denser parts (e.g. dendrites)
+into a tight ball.
+
+Parameters
+----------
+x :             navis.NeuronList
+                Neurons to align.
+target :        navis.Neuron | np.ndarray
+                The neuron that all neurons in `x` will be aligned to.
+                If `None`, neurons will be aligned to the first neuron in `x`!
+sample :        float [0-1], optional
+                If provided, will calculate an initial registration on only
+                the given fraction of points followed by a landmark transform
+                to transform the rest. Use this to speed things up.
+progress :      bool
+                Whether to show a progress bar.
+**kwargs
+                Additional keyword-argumens are passed through to
+                pycpd.DeformableRegistration. In brief: lower `alpha` and
+                higher `beta` typically make for more fitting deform. I have
+                gone as far as alpha=.01 and beta=10000.
+
+Returns
+-------
+xf :    navis.NeuronList
+        The aligned neurons.
+regs :  list
+        The pycpd registration objects.
+
+Examples
+--------
+>>> import navis
+>>> n1, n2 = navis.example_neurons(2, kind='skeleton')
+>>> n1_aligned, regs = navis.align.align_deform(n1, n2, sample=.2)
+
+### navis.align.align_deform(x, target=None, sample=None, progress=True, **kwargs)
+
+*function*
+
+Align neurons using a deformable registration.
+
+Requires the `pycpd` library. Note that it's often beneficial to first
+run a rough affine alignment via `rigid_align`. Anecdotally, this works
+well to align backbones but tends to pull denser parts (e.g. dendrites)
+into a tight ball.
+
+Parameters
+----------
+x :             navis.NeuronList
+                Neurons to align.
+target :        navis.Neuron | np.ndarray
+                The neuron that all neurons in `x` will be aligned to.
+                If `None`, neurons will be aligned to the first neuron in `x`!
+sample :        float [0-1], optional
+                If provided, will calculate an initial registration on only
+                the given fraction of points followed by a landmark transform
+                to transform the rest. Use this to speed things up.
+progress :      bool
+                Whether to show a progress bar.
+**kwargs
+                Additional keyword-argumens are passed through to
+                pycpd.DeformableRegistration. In brief: lower `alpha` and
+                higher `beta` typically make for more fitting deform. I have
+                gone as far as alpha=.01 and beta=10000.
+
+Returns
+-------
+xf :    navis.NeuronList
+        The aligned neurons.
+regs :  list
+        The pycpd registration objects.
+
+Examples
+--------
+>>> import navis
+>>> n1, n2 = navis.example_neurons(2, kind='skeleton')
+>>> n1_aligned, regs = navis.align.align_deform(n1, n2, sample=.2)
+
+### navis.transforms.align.align_pca(x, individually=True)
+
+*function*
+
+Align neurons along their first principal components.
+
+This will in effect turn the neurons into a 1-dimensional line.
+Requires the `scikit-learn` library.
+
+Parameters
+----------
+x :             navis.NeuronList | np.ndarray
+                The neurons to align.
+individually :  bool
+                Whether to align neurons along their individual or
+                collective first principical component.
+
+Returns
+-------
+xf :    navis.NeuronList
+        The PCA-aligned neurons.
+pcas :  list
+        The scikit-learn PCA object(s)
+
+Examples
+--------
+>>> import navis
+>>> n1, n2 = navis.example_neurons(2, kind='skeleton')
+>>> n1_aligned, pcas = navis.align.align_pca(n1, n2)  # doctest: +SKIP
+
+### navis.align.align_pca(x, individually=True)
+
+*function*
+
+Align neurons along their first principal components.
+
+This will in effect turn the neurons into a 1-dimensional line.
+Requires the `scikit-learn` library.
+
+Parameters
+----------
+x :             navis.NeuronList | np.ndarray
+                The neurons to align.
+individually :  bool
+                Whether to align neurons along their individual or
+                collective first principical component.
+
+Returns
+-------
+xf :    navis.NeuronList
+        The PCA-aligned neurons.
+pcas :  list
+        The scikit-learn PCA object(s)
+
+Examples
+--------
+>>> import navis
+>>> n1, n2 = navis.example_neurons(2, kind='skeleton')
+>>> n1_aligned, pcas = navis.align.align_pca(n1, n2)  # doctest: +SKIP
+
+### navis.transforms.align.align_pairwise(x, y=None, method='rigid', sample=None, progress=True, **kwargs)
+
+*function*
+
+Run a pairwise alignment between given neurons.
+
+Requires the `pycpd` library.
+
+Parameters
+----------
+x :         navis.NeuronList
+            Neurons to align to other neurons.
+y :         navis.NeuronList, optional
+            The neurons to align to. If `None`, will run pairwise
+            alignment of `x` vs `x`.
+method :    "rigid" | "deform" | "pca" | "rigid+deform"
+            Which method to use for alignment. Maps to the respective
+            `navis.align_{method}` function. "rigid+deform" performs a
+            rigid followed by a warping alignment.
+sample :    float [0-1], optional
+            If provided, will calculate an initial registration on only
+            the given fraction of points followed by a landmark transform
+            to transform the rest. Use this to speed things up.
+**kwargs
+            Keyword arguments are passed through to the respective
+            alignment function.
+
+Returns
+-------
+np.ndarray
+            Array of shape (x, y) with the pairwise-aligned neurons.
+
+See Also
+--------
+navis.nblast_align
+            Runs an NBLAST where neurons are first aligned pairwise.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons(2, kind='skeleton')
+>>> aligned = navis.align.align_pairwise(nl, method='rigid', sample=.2)
+
+### navis.align.align_pairwise(x, y=None, method='rigid', sample=None, progress=True, **kwargs)
+
+*function*
+
+Run a pairwise alignment between given neurons.
+
+Requires the `pycpd` library.
+
+Parameters
+----------
+x :         navis.NeuronList
+            Neurons to align to other neurons.
+y :         navis.NeuronList, optional
+            The neurons to align to. If `None`, will run pairwise
+            alignment of `x` vs `x`.
+method :    "rigid" | "deform" | "pca" | "rigid+deform"
+            Which method to use for alignment. Maps to the respective
+            `navis.align_{method}` function. "rigid+deform" performs a
+            rigid followed by a warping alignment.
+sample :    float [0-1], optional
+            If provided, will calculate an initial registration on only
+            the given fraction of points followed by a landmark transform
+            to transform the rest. Use this to speed things up.
+**kwargs
+            Keyword arguments are passed through to the respective
+            alignment function.
+
+Returns
+-------
+np.ndarray
+            Array of shape (x, y) with the pairwise-aligned neurons.
+
+See Also
+--------
+navis.nblast_align
+            Runs an NBLAST where neurons are first aligned pairwise.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons(2, kind='skeleton')
+>>> aligned = navis.align.align_pairwise(nl, method='rigid', sample=.2)
+
+### navis.transforms.AffineTransform(matrix, direction='forward')
+
+*class*
+
+Affine transformation of 3D spatial data.
+
+Parameters
+----------
+matrix :        (4, 4) np.ndarray
+                Affine matrix.
+
+Examples
+--------
+A simple scaling transform
+
+>>> from navis import transforms
+>>> import numpy as np
+>>> M = np.diag([1e3, 1e3, 1e3, 1])
+>>> tr = transforms.affine.AffineTransform(M)
+>>> points = np.array([[0, 0, 0], [1, 1, 1]])
+>>> tr.xform(points)
+array([[   0.,    0.,    0.],
+       [1000., 1000., 1000.]])
+
+### navis.transforms.ElastixTransform(file, copy_files=None, backend=None)
+
+*class*
+
+Elastix transforms of 3D spatial data.
+
+Requires either [Elastix](https://github.com/SuperElastix/elastix/) to be
+installed, or navis-fastcore - the latter implements elastix transforms in
+Rust and needs no external binaries. See the `backend` parameter.
+
+Based on code by Jasper Phelps (<https://github.com/jasper-tms/pytransformix>).
+
+Note that elastix transforms can only be inverted on the "fastcore" backend:
+the `transformix` binary has no way to compute an inverse.
+
+Parameters
+----------
+file :              str
+                    Filepath to elastix transformation file.
+copy_files :        filepath | list, optional
+                    Any files that need to be copied into the temporary
+                    directory where we perform the transform. These are
+                    typically files supplemental to the main transform
+                    file (e.g. defining an additional affine transform).
+
+                    Only relevant for the "binary" backend, and only because
+                    `transformix` looks for chained transform files in the
+                    current directory. fastcore resolves them itself - it
+                    follows the recorded path and, failing that, looks for
+                    that file's basename next to the transform that named it,
+                    which is the same thing copying them into one directory
+                    achieves. On that backend this argument is ignored.
+backend :           "auto" | "fastcore" | "binary", optional
+                    Which implementation to use. `None` (default) defers to
+                    `navis.config.default_transform_backend`. "binary" is
+                    deprecated and will be removed in 3.0.
+
+Examples
+--------
+>>> from navis import transforms
+>>> tr = transforms.ElastixTransform('/path/to/transform/transform')
+>>> tr.xform(points) # doctest: +SKIP
+
+Notes
+-----
+Inverting an elastix transform is a Gauss-Newton solve per point: ~80x the cost
+of going forwards (and ~4x a dedicated reverse registration), it drops the ~0.04%
+of points that have no preimage, and where the warp folds ~4% of points come back
+somewhere other than they started - inherent to inverting a non-injective map,
+not a solver defect.
+
+So a purpose-built reverse registration should always beat an on-the-fly
+inversion. It does: `_pick_edge` prefers a forward registration over the inverse
+of its counterpart unconditionally, and `inverse_weight_factor` (above) keeps an
+inverse hop from looking like a shortcut when routing.
+
+`navis.config.elastix_invertible` nonetheless defaults to *off*, and should stay
+that way while the deprecated "binary" backend is still selectable: it cannot
+invert at all, so turning this on would let the two backends find different
+routes. Flip it in 3.0, when that backend goes away. It is safe to enable - on
+`flybrains` it changes nothing at all, because every elastix registration there
+already ships with a reverse - so the only thing it buys today is a route where
+somebody registered an elastix transform and no reverse for it.
+
+One thing worth knowing before anyone tunes this: a dedicated reverse registration
+is *not* the inverse of its forward twin - they are independent fits. Ours agree
+to a median of ~0.2 world units, but the dedicated reverse only round-trips through
+the forward map to a median of 0.17 (p95 128), where the numerical inverse
+round-trips to ~1e-13. Preferring the dedicated registration is a choice about
+*which map you want* - the one its authors fitted, and the one the field uses - not
+a claim that it is more accurate.
+
+### navis.transforms.CMTKtransform(regs, directions='forward', threads=None, backend=None)
+
+*class*
+
+CMTK transforms of 3D spatial data.
+
+Requires either [CMTK](https://www.nitrc.org/projects/cmtk/) to be installed,
+or navis-fastcore - the latter implements CMTK transforms in Rust and needs
+no external binaries. See the `backend` parameter.
+
+Parameters
+----------
+regs :          str | list of str
+                Path(s) to CMTK transformations(s).
+directions :    "forward" | "inverse" | list thereof
+                Direction of transformation. Must provide one direction per
+                `reg`.
+threads :       int, optional
+                Number of threads to use.
+backend :       "auto" | "fastcore" | "binary", optional
+                Which implementation to use. `None` (default) defers to
+                `navis.config.default_transform_backend`. "binary" is
+                deprecated and will be removed in 3.0.
+
+Examples
+--------
+>>> from navis import transforms
+>>> tr = transforms.cmtk.CMTKtransform('/path/to/CMTK_directory.list')
+>>> tr.xform(points) # doctest: +SKIP
+
+Notes
+-----
+TODO (when navis-fastcore becomes a hard dependency and the "binary" backend
+goes away): switch `affine_fallback` to fastcore's `fallback_to_affine="hop"`.
+
+We currently ask fastcore for `fallback_to_affine=True`, i.e. "re-run a failed
+point affine-only through the *whole* chain, from where it started". That is
+what `streamxform --affine-only` does, and while we support both backends they
+have to agree - so it is the right choice for now.
+
+But it is the cruder of the two. Where several registrations are merged into
+one transform (which happens on about half of all bridging paths), a point that
+clears the first few warps and then leaves the domain loses those warps too.
+fastcore's `"hop"` keeps them and swaps the affine in only for the hop that
+actually failed. On a 2-registration chain the two differ on ~19% of points, by
+a median of ~2 world units.
+
+Once there is no binary to stay consistent with, `"hop"` is the better answer.
+
+### navis.transforms.H5transform(f, direction='forward', level=-1, cache=False, full_ingest=False)
+
+*class*
+
+Hdf5 transform of 3D spatial data.
+
+See [here](https://github.com/saalfeldlab/template-building/wiki/Hdf5-Deformation-fields)
+for specifications of the format.
+
+Parameters
+----------
+f :             str
+                Path to Hdf5 transformation.
+direction :     "forward" | "inverse"
+                Direction of transformation.
+level :         int, optional
+                For Hdf5 files with deformation fields at multiple
+                resolutions: what level of detail to use. Negative values
+                go backwards from the highest available resolution
+                (-1 = highest, -2 = second highest, etc). Ignored if only a
+                single deformation field present.
+cache :         bool
+                If True, we will cache the deformation field for subsequent
+                future transforms. This will speed up future calculations
+                in the future but comes at a memory cost.
+full_ingest :   bool
+                If True, will read and cache the full deformation field at
+                initialization. This additional upfront cost can pay off if
+                you are about to make many transforms across the volume.
+
+### navis.transforms.GridTransform(field, type='offsets', spacing=None, offset=None)
+
+*class*
+
+Deformation or coordinate field transform of 3D spatial data.
+
+This is effectively a simpler version of the H5transform class and
+only supports deformation fields stored as numpy arrays in memory.
+
+Parameters
+----------
+field :         (Nx, Ny, Nz, 3) numpy array
+                Deformation/coordinate field. The last dimension must
+                contain the x/y/z coordinates.
+type :          "offsets" | "coordinates"
+                Whether the field contains absolute coordinates or offsets/displacements.
+                Offsets are added to the input coordinates, while
+                coordinates returned as is.
+spacing :       tuple | list | numpy array, optional
+                Spacing of the deformation field in x/y/z. If not provided,
+                spacing of 1 is assumed.
+offset :        tuple | list | numpy array, optional
+                Offset of the deformation field in x/y/z. If not provided,
+                offset of 0 is assumed. N.B. offsets are applied _after_ spacing,
+                i.e. need to be provided in voxel space of the deformation field.
+
+### navis.transforms.TPStransform(landmarks_source, landmarks_target, batch_size=100000, backend=None)
+
+*class*
+
+Thin Plate Spline transforms of 3D spatial data.
+
+Runs on navis-fastcore's Rust implementation; the deprecated "python"
+backend runs on `morphops` instead (see the `backend` parameter). The spline
+is always *fitted* with `morphops` - numpy's LAPACK-backed solve is faster
+than fastcore's here - so the backend only changes how points are
+*transformed*, which is where fastcore is ~10-15x faster. The two agree to
+~1e-13.
+
+Notes
+-----
+At least in my hands, `TPStransforms` are significantly faster than
+`MovingLeastSquaresTransforms`. The results are similar but not identical,
+so make sure to use the one that works best for your use case.
+
+Parameters
+----------
+landmarks_source :  (M, 3) numpy array
+                    Source landmarks as x/y/z coordinates.
+landmarks_target :  (M, 3) numpy array
+                    Target landmarks as x/y/z coordinates.
+batch_size :        int, optional
+                    Batch size for transforming points. The
+                    thin-plate spline generating a (N, M) distance
+                    matrix, where N is the number of points and M
+                    is the number of source landmarks. Because
+                    this can get prohibitively expensive, we're
+                    batching the transformation by default.
+                    Please note that the the overhead from batching
+                    seems negligible.
+                    Ignored on the "fastcore" backend, which never
+                    materialises that matrix in the first place.
+backend :           "auto" | "fastcore" | "python", optional
+                    Which implementation to use. `None` (default) defers to
+                    `navis.config.default_transform_backend`. "python" is
+                    deprecated and will be removed in 3.0.
+
+Examples
+--------
+>>> from navis import transforms
+>>> import numpy as np
+>>> # Generate some mock landmarks
+>>> src = np.array([[0, 0, 0], [10, 10, 10], [100, 100, 100], [80, 10, 30]])
+>>> trg = np.array([[1, 15, 5], [9, 18, 21], [80, 99, 120], [5, 10, 80]])
+>>> tr = transforms.thinplate.TPStransform(src, trg)
+>>> points = np.array([[0, 0, 0], [50, 50, 50]])
+>>> tr.xform(points)
+array([[ 1.        , 15.        ,  5.        ],
+       [40.55555556, 54.        , 65.        ]])
+
+### navis.transforms.AliasTransform()
+
+*class*
+
+Helper transform that simply passes points through.
+
+Useful for defining aliases.
+
+### navis.transforms.MovingLeastSquaresTransform(landmarks_source, landmarks_target, direction='forward', batch_size=100000, backend=None)
+
+*class*
+
+Gives a transform a `.backend` property.
+
+`self._backend` holds only what the user explicitly asked for (`None` means
+"follow the config"). The effective backend is resolved lazily, on access.
+
+That laziness is load-bearing: template packages such as `flybrains` build
+all their transforms at import time, i.e. long before a user gets a chance
+to touch `navis.config`. If we snapshotted the backend in `__init__`,
+setting `navis.config.default_transform_backend` after `import flybrains`
+would silently have no effect.
+
+Subclasses whose non-fastcore implementation is not the CMTK/elastix one
+override `_fallback_backend`.
+
+### navis.transforms.SimilarityTransform(landmarks_source, landmarks_target, weights=None, scale=True)
+
+*class*
+
+Calculate and apply a similarity transform.
+
+Similarity transforms are a special case of affine transforms that consist
+of a rotation, a translation and a single uniform scaling factor but no
+shear and no reflection.
+
+The transform is the least-squares optimal fit between the two sets of
+landmarks and is found in closed form via a singular value decomposition
+(see Umeyama, 1991). Because a similarity transform has only 7 degrees of
+freedom (3 rotation, 3 translation, 1 scale), it will generally *not* map
+the source landmarks onto the target landmarks exactly - unlike, say, a
+navis.transforms.thinplate.TPStransform.
+
+Parameters
+----------
+landmarks_source :  (M, 3) array
+                    Source landmarks as x/y/z coordinates.
+landmarks_target :  (M, 3) array
+                    Target landmarks as x/y/z coordinates. Must have the
+                    same number of landmarks as `landmarks_source`.
+weights :           (M, ) array, optional
+                    Relative weight for each landmark pair. If `None`, all
+                    landmarks are weighted equally.
+scale :             bool
+                    Whether to also estimate a uniform scaling factor. If
+                    False, the transform is a rigid transform (rotation +
+                    translation only).
+
+Examples
+--------
+>>> from navis import transforms
+>>> import numpy as np
+>>> # Generate some mock landmarks
+>>> src = np.array([[0, 0, 0], [10, 10, 10], [100, 100, 100], [80, 10, 30]])
+>>> trg = np.array([[1, 15, 5], [9, 18, 21], [80, 99, 120], [5, 10, 80]])
+>>> tr = transforms.similarity.SimilarityTransform(src, trg)
+>>> tr.xform(np.array([[0, 0, 0], [50, 50, 50]]))
+array([[-0.27589955, 10.98503005,  4.26630007],
+       [38.44936026, 53.04761397, 62.7346341 ]])
+
+Note that - unlike a thin-plate spline transform - the landmarks are not
+mapped exactly because a similarity transform has only 7 degrees of freedom:
+
+>>> round(tr.scale_factor, 4)
+0.9443
+
+### navis.transforms.templates.TemplateRegistry(scan_paths=True)
+
+*class*
+
+Tracks template brains, available transforms and produces bridging sequences.
+
+Parameters
+----------
+scan_paths :    bool
+                If True will scan paths on initialization.
+
+### navis.transforms.templates.TemplateRegistry.register_transform(transform, source, target, transform_type, skip_existing=True, weight=1, weight_inv=None)
+
+*function*
+
+Register a transform.
+
+Parameters
+----------
+transform :         subclass of BaseTransform | TransformSequence
+                    A transform (AffineTransform, CMTKtransform, etc.)
+                    or a TransformSequence.
+source :            str
+                    Source for forward transform.
+target :            str
+                    Target for forward transform. Ignored for mirror
+                    transforms.
+transform_type :    "bridging" | "mirror"
+                    Type of transform.
+skip_existing :     bool
+                    If True will skip if transform is already in registry.
+weight :            float
+                    What this transform costs to traverse forwards.
+                    **Lower weight = more likely to be used** - both when
+                    choosing a route and when picking between several
+                    registrations connecting the same two templates.
+weight_inv :        float, optional
+                    What this transform costs to traverse *backwards*.
+
+                    If not given, defaults to
+                    `weight * transform.inverse_weight_factor` - i.e. the
+                    transform says for itself how much dearer it is to
+                    invert. That is 1 for anything whose inverse is stored
+                    or exact (affine, H5, thin-plate spline), and more for
+                    anything that has to solve for it numerically (CMTK,
+                    and elastix especially).
+
+                    Passing this explicitly overrides
+                    `inverse_weight_factor` entirely - use it when you know
+                    better than the default for a particular registration.
+
+                    Note that weight decides which *route* is taken; it does
+                    not, on its own, decide whether an inverse is used in
+                    place of a purpose-built registration. That is
+                    `prefer_forward` (see
+                    `TemplateRegistry.find_bridging_path`), which is on by
+                    default.
+
+See Also
+--------
+register_transformfile
+                    If you want to register a file instead of an
+                    already constructed transform.
+
+### navis.transforms.templates.TemplateRegistry.register_transformfile(path, **kwargs)
+
+*function*
+
+Parse and register a transform file.
+
+File/Directory name must follow the a `{TARGET}_{SOURCE}.{ext}`
+convention (e.g. `JRC2013_FCWB.list`).
+
+Parameters
+----------
+path :          str
+                Path to transform.
+**kwargs
+                Keyword arguments are passed to the constructor of the
+                Transform (e.g. CMTKtransform for `.list` directory).
+
+See Also
+--------
+register_transform
+                If you want to register an already constructed transform
+                instead of a transform file that still needs to be
+                parsed.
+
+### navis.transforms.templates.TemplateRegistry.register_templatebrain(template, skip_existing=True)
+
+*function*
+
+Register a template brain.
+
+This is used, for example, by navis.mirror_brain.
+
+Parameters
+----------
+template :      TemplateBrain
+                TemplateBrain to register.
+skip_existing : bool
+                If True, will skip existing template brains.
+
+### navis.transforms.templates.TemplateRegistry.register_path(paths, trigger_scan=True)
+
+*function*
+
+Register path(s) to scan for transforms.
+
+Parameters
+----------
+paths :         str | list thereof
+                Paths (or list thereof) to scans for transforms. This
+                is not permanent. For permanent additions set path(s)
+                via the `NAVIS_TRANSFORMS` environment variable.
+trigger_scan :  bool
+                If True, a re-scan of all paths will be triggered.
+
+### navis.transforms.templates.TemplateRegistry.scan_paths(extra_paths=None)
+
+*function*
+
+Scan registered paths for transforms and add to registry.
+
+Will skip transforms that already exist in this registry.
+
+Parameters
+----------
+extra_paths :   list of str
+                Any Extra paths to search.
+
+### navis.transforms.templates.TemplateRegistry.plot_bridging_graph(**kwargs)
+
+*function*
+
+Draw bridging graph using networkX.
+
+Parameters
+----------
+**kwargs
+            Keyword arguments are passed to `networkx.draw_networkx`.
+
+Returns
+-------
+None
+
+### navis.transforms.templates.TemplateRegistry.find_mirror_reg(template, non_found='raise')
+
+*function*
+
+Search for a mirror transformation for given template.
+
+Typically a mirror transformation specifies a non-rigid transformation
+to correct asymmetries in an image.
+
+Parameters
+----------
+template :  str
+            Name of the template to find a mirror transformation for.
+non_found : "raise" | "ignore"
+            What to do if no mirror transformation is found. If "ignore"
+            and no mirror transformation found, will silently return
+            `None`.
+
+Returns
+-------
+tuple
+            Named tuple containing a mirror transformation. Will only
+            ever return one - even if multiple are available.
+
+### navis.transforms.templates.TemplateRegistry.find_bridging_path(source, target, via=None, avoid=None, inverse_weight=1, prefer_forward=True, reciprocal=None)
+
+*function*
+
+Find bridging path from source to target.
+
+Parameters
+----------
+source :        str
+                Source from which to transform to `target`.
+target :        str
+                Target to which to transform to.
+via :           str | list thereof, optional
+                Force specific intermediate template(s).
+avoid :         str | list thereof, optional
+                Avoid going through specific intermediate template(s).
+inverse_weight : bool | float
+                What to charge for traversing a transform backwards. See
+                `TemplateRegistry.bridging_graph`. Lower = more likely to
+                be used.
+prefer_forward : bool
+                Where two templates are connected by both a purpose-built
+                registration and the inverse of its counterpart, use the
+                purpose-built one - regardless of weight. Set to False to
+                pick on weight alone, i.e. to take your graph's weights
+                entirely at face value.
+reciprocal :    bool | float
+                Deprecated alias for `inverse_weight`.
+
+Returns
+-------
+path :          list
+                Path from source to target: [source, ..., target]
+transforms :    list
+                Transforms as [[path_to_transform, inverse], ...]
+
+### navis.transforms.templates.TemplateRegistry.shortest_bridging_seq(source, target, via=None, inverse_weight=1, prefer_forward=True)
+
+*function*
+
+Find shortest bridging sequence to get from source to target.
+
+Parameters
+----------
+source :            str
+                    Source from which to transform to `target`.
+target :            str
+                    Target to which to transform to.
+via :               str | list of str
+                    Waystations to traverse on the way from source to
+                    target.
+inverse_weight :    float
+                    Scales the cost of traversing a transform backwards.
+                    The default of `1` takes the graph's weights at face
+                    value: each transform already declares how expensive it
+                    is to invert (see `register_transform`). Raise it to
+                    make navis detour further to avoid going backwards at
+                    all. Remember lower weight = more likely to be used.
+prefer_forward :    bool
+                    Where two templates are connected by both a
+                    purpose-built registration and the inverse of its
+                    counterpart, use the purpose-built one - regardless of
+                    weight. Set to False to pick on weight alone.
+
+Returns
+-------
+sequence :          (N, ) array
+                    Sequence of registrations that will be traversed.
+transform_seq :     TransformSequence
+                    Class that collates the required transforms to get
+                    from source to target.
+
+### navis.transforms.templates.TemplateRegistry.clear_caches()
+
+*function*
+
+Clear caches of all cached functions.
+
+### navis.transforms.templates.TemplateRegistry.summary()
+
+*function*
+
+Generate summary of available transforms.
+
+### navis.transforms.templates.TemplateRegistry.transforms
+
+*property*
+
+Registered transforms (bridging + mirror).
+
+### navis.transforms.templates.TemplateRegistry.mirrors
+
+*property*
+
+Registered mirror transforms.
+
+### navis.transforms.templates.TemplateRegistry.bridges
+
+*property*
+
+Registered bridging transforms.

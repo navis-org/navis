@@ -1,0 +1,283 @@
+# navis 2.0.0-rc.1 - Connectivity
+
+Full docstrings for the 'Connectivity' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+### navis.NeuronConnector(nrns=None)
+
+*class*
+
+Class which creates a connectivity graph from a set of neurons.
+
+Connectivity is determined by shared IDs in the `connectors` table.
+
+Add neurons with the `add_neuron` and `add_neurons` methods.
+Alternatively, supply an iterable of neurons in the constructor.
+Neurons must have unique names.
+
+See the `to_(multi)digraph` method for output.
+
+## Connectivity metrics
+
+### navis.connectivity_similarity(adjacency, metric='vertex_normalized', threshold=None, n_cores=2, **kwargs)
+
+*function*
+
+Calculate connectivity similarity.
+
+This functions offers a selection of metrics to compare connectivity:
+
+- **cosine**: Cosine similarity (see [here](https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cosine.html))
+- **rank_index**: Normalized difference in rank of synaptic partners.
+- **matching_index**: Number of shared partners divided by total number of partners.
+- **matching_index_synapses**: Number of shared synapses (i.e. number of connections from/onto the same partners)
+  divided by total number of synapses.
+
+    !!! info "Attention"
+        This metric is tricky when there is a disparity of total number of connections between neuron A and B.
+        For example, consider 100/200 and 1/50 shared/total synapse: 101/250 results in a fairly high matching
+        index of 0.404.
+
+- **matching_index_weighted_synapses**: Similar to *matching_index_synapses* but slightly less prone to above
+  mentioned error as it uses the percentage of shared synapses:
+
+    $$
+    S = \frac{\mathrm{NeuronA}_{\mathrm{sharedSynapses}}}{\mathrm{NeuronA}_{\mathrm{totalSynapses}}} \times \frac{\mathrm{NeuronB}_{\mathrm{sharedSynapses}}}{\mathrm{NeuronB}_{\mathrm{totalSynapses}}}
+    $$
+
+- **vertex**: Matching index that rewards shared and punishes non-shared partners. Based on
+  [Jarrell et al., 2012](http://science.sciencemag.org/content/337/6093/437):
+   $$
+   f(x,y) = min(x,y) - C1 \times max(x,y) \times \exp(-C2 * min(x,y))
+   $$
+   The final score is the sum of $f(x,y)$ over all edges x, y between neurons A+B and their partners. C1 determines
+   how negatively a case where one edge is much stronger than another is punished. C2 determines the point where the
+   similarity switches from negative to positive. C1 and C2 default to 0.5 and 1, respectively, but can be changed
+   by passing them in a dictionary as `**kwargs`.
+- **vertex_normalized**: This is *vertex* similarity normalized by the lowest (hypothetical total dissimilarity)
+  and highest (all edge weights the same) achievable score.
+
+Parameters
+----------
+adjacency :         pandas DataFrame | numpy array
+                    (N, M) observation vector with M observations for N
+                    neurons - e.g. an adjacency matrix. Will calculate
+                    similarity for all rows using the columns as observations.
+metric :            'cosine' | 'rank_index'| 'matching_index' | 'matching_index_synapses' | 'matching_index_weighted_synapses' | 'vertex' | 'vertex_normalized'
+                    Metric used to compare connectivity. See notes for
+                    detailed explanation.
+threshold :         int, optional
+                    Connections weaker than this will be set to zero.
+n_cores :           int
+                    Number of parallel processes to use. Defaults to half
+                    the available cores.
+**kwargs
+                    Additional keyword arguments to pass to the metric function.
+                    See notes above for details.
+
+Returns
+-------
+DataFrame
+                    Pandas DataFrame with similarity scores. Neurons without
+                    any connectivity will show up with `np.nan` for scores.
+
+### navis.connectivity_sparseness(x, which='LTS')
+
+*function*
+
+Calculate sparseness.
+
+Sparseness comes in three flavors:
+
+**Lifetime kurtosis (LTK)** quantifies the widths of tuning curves
+(according to Muench & Galizia, 2016):
+
+$$
+S = \Bigg\{ \frac{1}{N} \sum^N_{i=1} \Big[ \frac{r_i - \overline{r}}{\sigma_r} \Big] ^4  \Bigg\} - 3
+$$
+
+where $N$ is the number of observations, $r_i$ the value of
+observation $i$, and $\overline{r}$ and $\sigma_r$ the mean and
+the standard deviation of the observations' values, respectively.
+LTK is assuming a normal, or at least symmetric distribution.
+
+**Lifetime sparseness (LTS)** quantifies selectivity
+(Bhandawat et al., 2007):
+
+$$
+S = \frac{1}{1-1/N} \Bigg[1- \frac{\big(\sum^N_{j=1} r_j / N\big)^2}{\sum^N_{j=1} r_j^2 / N} \Bigg]
+$$
+
+where $N$ is the number of observations, and $r_j$ is the
+value of an observation.
+
+**Activity ratio** describes distributions with heavy tails (Rolls and
+Tovee, 1995).
+
+
+Notes
+-----
+`NaN` values will be ignored. You can use that to e.g. ignore zero
+values in a large connectivity matrix by changing these values to `NaN`
+before passing it to `navis.sparseness`.
+
+
+Parameters
+----------
+x :         DataFrame | array-like
+            (N, M) dataset with N (rows) observations for M (columns)
+            neurons. One-dimensional data will be converted to two
+            dimensions (N rows, 1 column).
+which :     "LTS" | "LTK" | "activity_ratio"
+            Determines whether lifetime sparseness (LTS) or lifetime
+            kurtosis (LTK) is returned.
+
+Returns
+-------
+sparseness
+            `pandas.Series` if input was pandas DataFrame, else
+            `numpy.array`.
+
+Examples
+--------
+Calculate sparseness of olfactory inputs to group of neurons:
+
+>>> import navis
+>>> import numpy as np
+>>> import matplotlib.pyplot as plt
+>>> # Get ORN response matrix from DoOR database
+>>> url = 'https://raw.githubusercontent.com/ropensci/DoOR.data/master/data/door_response_matrix.csv'
+>>> adj = pd.read_csv(url, delimiter=';')
+>>> # Calculate lifetime sparseness
+>>> S = navis.connectivity_sparseness(adj, which='LTS')
+>>> # Plot distribution
+>>> ax = S.plot.hist(bins=np.arange(0, 1, .1))
+>>> _ = ax.set_xlabel('LTS')
+>>> plt.show()                                              # doctest: +SKIP
+
+### navis.cable_overlap(a, b, dist=2, method='min')
+
+*function*
+
+Calculate the amount of cable of neuron A within distance of neuron B.
+
+Parameters
+----------
+a,b :       Skeleton | NeuronList
+            Neuron(s) for which to compute cable within distance. It is
+            highly recommended to resample neurons to guarantee an even
+            sampling rate.
+dist :      int | float, optional
+            Maximum distance. If the neurons have their `.units` set, you
+            can also provides this as a string such as "2 microns".
+method :    'min' | 'max' | 'mean' | 'forward' | 'reverse'
+            Method by which to calculate the overlapping cable between
+            two cables:
+
+              Assuming that neurons A and B have 300 and 150 um of cable
+              within given distances, respectively:
+
+                1. 'min' returns 150
+                2. 'max' returns 300
+                3. 'mean' returns 225
+                4. 'forward' returns 300 (i.e. A->B)
+                5. 'reverse' returns 150 (i.e. B->A)
+
+Returns
+-------
+pandas.DataFrame
+        Matrix in which neurons A are rows, neurons B are columns. Cable
+        within distance is given in the neuron's native units:
+        ```
+                    neuronD  neuronE   neuronF  ...
+        neuronA         5        1         0
+        neuronB        10       20         5
+        neuronC         4        3        15
+        ...
+        ```
+
+See Also
+--------
+navis.resample_skeleton
+            Use to resample neurons before calculating overlap.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons(4)
+>>> # Cable overlap is given in the neurons' units
+>>> # Converting the example neurons from 8x8x8 voxel space into microns
+>>> # make the results easier to interpret
+>>> nl = nl.convert_units('um')
+>>> # Resample to half a micron
+>>> nl_res = nl.resample('.5 micron', inplace=False)
+>>> # Get overlapping cable within 2 microns
+>>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
+
+### navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=2)
+
+*function*
+
+Cluster neurons based on their synapse placement.
+
+Distances score is calculated by calculating for each synapse of
+neuron A: (1) the (Euclidean) distance to the closest synapse in neuron B
+and (2) comparing the synapse density around synapse A and B.
+This is type-sensitive: presynapses will only be matched with presynapses,
+post with post, etc. The formula is described in
+[Schlegel et al., eLife (2016)](https://elifesciences.org/articles/16799):
+
+$$
+f(i_{s},j_{k}) = \exp(\frac{-d^{2}_{sk}}{2\sigma^{2}}) \exp(\frac{|n(i_{s})-n(j_{k})|}{n(i_{s})+n(j_{k})})
+$$
+
+The synapse similarity score for neurons i and j being the average
+of $f(i_{s},j_{k})$ over all synapses s of i. Synapse k is the
+closest synapse of the same sign (pre/post) in neuron j to synapse s.
+$d^{2}_{sk}$ is the Euclidean distance between these distances.
+Variable $\sigma$ (`sigma`) determines what distance between
+s and k is considered "close". $n(i_{s})$ and $n(j_{k})$ are
+defined as the number of synapses of neuron i/j that are within given
+radius $\omega$ (`omega`) of synapse s and j, respectively (same
+sign only). This esnures that in cases of a strong disparity between
+$n(i_{s})$ and $n(j_{k})$, the synapse similarity will be
+close to zero even if the distance between s and k is very small.
+
+
+Parameters
+----------
+x :                 NeuronList
+                    Neurons to compare. Must have connectors.
+sigma :             int | float
+                    Distance between synapses that is considered to be
+                    "close".
+omega :             int | float
+                    Radius over which to calculate synapse density.
+mu_score :          bool
+                    If True, score is calculated as mean between A->B and
+                    B->A comparison.
+restrict_cn :       int | list | None
+                    Restrict to given connector types. Must map to
+                    a `type`, `relation` or `label` column in the
+                    connector tables.
+                    If None, will use all connector types. Use either
+                    single integer or list. E.g. `restrict_cn=[0, 1]`
+                    to use only pre- and postsynapses.
+n_cores :           int
+                    Number of parallel processes to use. Defaults to half
+                    the available cores.
+
+Returns
+-------
+pandas.DataFrame
+
+See Also
+--------
+navis.synblast
+                    NBLAST variant using synapses.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons(5)
+>>> scores = navis.synapse_similarity(nl, omega=5000/8, sigma=2000/8)

@@ -1,0 +1,1254 @@
+# navis 2.0.0-rc.1 - Visualization
+
+Full docstrings for the 'Visualization' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+### navis.plot3d(x, **kwargs)
+
+*function*
+
+Generate interactive 3D plot.
+
+Uses either [octarine], [k3d] or [plotly] as backend.
+By default, the choice is automatic depending on what backends
+are installed and the context:
+
+  - Terminal: octarine > plotly
+  - Jupyter: plotly > octarine > k3d
+
+See the `backend` parameter on how to change this behavior.
+
+[octarine]: https://schlegelp.github.io/octarine/
+[k3d]: https://k3d-jupyter.org/
+[plotly]: http://plot.ly
+
+Parameters
+----------
+x :               Neuron/List | Volume | numpy.array | list thereof
+                  The object(s) to plot. Can be:
+                    - navis neurons, neuronlists or volumes
+                    - numpy.array (N,3) is plotted as scatter plot
+                    - multiple objects can be passed as list (see examples)
+                  See parameters below for ways to customize the plot.
+
+Object parameters
+-----------------
+color :           None | str | tuple | list | dict, default=None
+
+                  Use single str (e.g. `'red'`) or `(r, g, b)` tuple
+                  to give all neurons the same color. Use `list` of
+                  colors to assign colors: `['red', (1, 0, 1), ...].
+                  Use `dict` to map colors to neurons:
+                  `{neuron.id: (r, g, b), ...}`.
+
+palette :         str | array | list of arrays, default=None
+
+                  Name of a matplotlib or seaborn palette. If `color` is
+                  not specified will pick colors from this palette.
+
+alpha :           float [0-1], optional
+
+                  Alpha value for neurons. Overriden if alpha is provided
+                  as color specified in `color` has an alpha channel.
+
+connectors :      bool | "presynapses" | "postsynapses" | str | list, default=False
+
+                  Plot connectors. This can either be `True` (plot all
+                  connectors), `"presynapses"` (only presynaptic connectors)
+                  or `"postsynapses"` (only postsynaptic connectors). If
+                  a string or a list is provided, it will be used to filter the
+                  `type` column in the connectors table.
+
+                  Use these parameters to adjust the way connectors are plotted:
+
+                    - `cn_colors` (str | tuple | dict | "neuron" ) overrides
+                      the default connector (e.g. synpase) colors:
+                        - single color as str (e.g. `'red'`) or rgb tuple
+                          (e.g. `(1, 0, 0)`)
+                        - dict mapping the connectors tables `type` column to
+                          a color (e.g. `{"pre": (1, 0, 0)}`)
+                        - with "neuron", connectors will receive the same color
+                          as their neuron
+                    - `cn_layout` (dict): Layout of the connectors. See
+                      `navis.config.default_connector_colors` for options.
+                    - `cn_size` (float): Size of the connectors.
+                    - `cn_alpha` (float): Transparency of the connectors.
+                    - `cn_mesh_colors` (bool): Whether to color the connectors
+                      by the neuron's color.
+
+connectors_only : bool, default=False
+
+                  Plot only connectors (e.g. synapses) if available and
+                  ignore the neurons.
+
+cn_color_by :     str | array, optional
+
+                  Color connectors by a column of the connector table (or by
+                  an array with one value per connector) rather than by their
+                  `type`. Numerical data gets a colormap, categorical data one
+                  color per level - and either way the scale is shared by all
+                  neurons. Missing values are drawn grey.
+
+                  Overrides `cn_colors`/`cn_mesh_colors`. `plotly` and `k3d`
+                  draw markers rather than stalks when this is set, since a
+                  line there carries a single color.
+
+                  `plotly` and `k3d` only - the octarine backend does not
+                  support it.
+
+cn_palette :      str | list | dict, optional
+
+                  Palette for `cn_color_by`: the name of a colormap for
+                  numerical data, and for categorical data a palette name, a
+                  list of colors or a dict keyed by level. Falls back to
+                  `palette`, then to `"viridis"`.
+
+color_by :        str | array | list of arrays, default = None
+
+                  Color neurons by a property. Can be:
+
+                    - a list/array of labels, one per each neuron
+                    - a neuron property (str)
+                    - a column name in the node table of `Skeletons`
+                    - a list/array of values for each node
+
+                  Numerical values will be normalized. You can control
+                  the normalization by passing a `vmin` and/or `vmax`
+                  parameter. Must specify a colormap via `palette`.
+
+shade_by :        str | array | list of arrays, default=None
+
+                  Similar to `color_by` but will affect only the alpha
+                  channel of the color. If `shade_by='strahler'` will
+                  compute Strahler order if not already part of the node
+                  table (Skeletons only). Numerical values will be
+                  normalized. You can control the normalization by passing
+                  a `smin` and/or `smax` parameter. Does not work with
+                  `k3d` backend.
+
+radius :          bool | "auto", default=False
+
+                  If "auto" will plot neurites of `Skeletons` with radius
+                  if they have radii. If True, will try plotting neurites of
+                  `Skeletons` with radius regardless. The radius can be
+                  scaled by `linewidth`. Note that this will increase rendering
+                  time.
+
+soma :            bool, default=True
+
+                  Skeletons only: Whether to plot soma if it exists. Size
+                  of the soma is determined by the neuron's `.soma_radius`
+                  property which defaults to the "radius" column for
+                  `Skeletons`.
+
+linewidth :       float, default=3 for plotly and 1 for all others
+
+                  Skeletons only. Note that with `radius=True` this is a
+                  multiplier on the radius rather than a line width, and
+                  there it defaults to 1 in every backend - so plotly's
+                  default of 3 applies to lines only.
+
+linestyle :       str, default='-'
+
+                  Skeletons only. Follows the same rules as in matplotlib.
+
+scatter_kws :     dict, optional
+
+                  Use to modify scatter plots. Accepted parameters are:
+                    - `size` to adjust size of dots
+                    - `color` to adjust color
+
+Figure parameters
+-----------------
+backend :         'auto' (default) | 'octarine' | 'plotly' | 'k3d'
+
+                  Which backend to use for plotting. Note that there will
+                  be minor differences in what feature/parameters are
+                  supported depending on the backend:
+
+                    - `auto` selects backend based on availability and
+                      context (see above). You can override this by setting an
+                      environment variable e.g. `NAVIS_PLOT3D_BACKEND="plotly"`
+                      or `NAVIS_PLOT3D_JUPYTER_BACKEND="k3d"`.
+                    - `octarine` uses WGPU to generate high performances
+                      interactive 3D plots. Works both terminal and Jupyter.
+                    - `plotly` generates 3D plots using WebGL. Works
+                      "inline" in Jupyter notebooks but can also produce a
+                      HTML file that can be opened in any browers.
+                    - `k3d` generates 3D plots using k3d. Works only in
+                      Jupyter notebooks!
+
+hide_axes :       bool, default=True
+
+                  If True (default), hides the axes, ticks and tick labels
+                  for a clean render. Set to False to show the coordinate
+                  axes. Applies to the `plotly` backend and to
+                  `snapshot=True` (see below) - the interactive octarine
+                  viewer has no axes to hide.
+
+**Below parameters are for plotly backend only:**
+
+fig :             plotly.graph_objs.Figure
+
+                  Pass to add graph objects to existing plotly figure. Will
+                  not change layout.
+
+title :           str, default=None
+
+                  For plotly only! Change plot title.
+
+width/height :    int, optional
+
+                  Use to adjust figure size.
+
+fig_autosize :    bool, default=True
+
+                  For plotly only! Autoscale figure size.
+                  Attention: autoscale overrides width and height
+
+hover_name :      bool, default=False
+
+                  If True, hovering over neurons will show their label.
+
+hover_id :        bool, default=False
+
+                  If True, hovering over skeleton nodes will show their ID.
+
+legend :          bool, default=True
+
+                  Whether or not to show the legend.
+
+legend_orientation : "v" (default) | "h"
+
+                  Orientation of the legend. Can be 'h' (horizontal) or 'v'
+                  (vertical).
+
+legend_group :    dict, default=None
+
+                  A dictionary mapping neuron IDs to labels (strings).
+                  Use this to group neurons under a common label in the
+                  legend.
+
+inline :          bool, default=True
+
+                  If True and you are in an Jupyter environment, will
+                  render plotly/k3d plots inline. If False, will generate
+                  and return either a plotly Figure or a k3d Plot object
+                  without immediately showing it.
+
+lighting :        bool | str | dict, default=True
+
+                  For plotly only! Controls surface shading of meshes,
+                  somata and volumes:
+
+                    - `True` uses navis' default lit look
+                    - `False` (or `"plotly"`) reverts to plotly's near-flat
+                      default shading
+                    - a preset name: `"default"`/`"studio"`, `"matte"`,
+                      `"glossy"` or `"rim"`
+                    - a dict passed straight to plotly's `Mesh3d.lighting`
+                      (keys: `ambient`, `diffuse`, `specular`, `roughness`,
+                      `fresnel`)
+
+                  Related: `lightposition` (dict with x/y/z; by default
+                  derived from each mesh's bounding box) and `flatshading`
+                  (bool, default=False; `True` gives a faceted low-poly
+                  look).
+
+background :      str | dict, default=None
+
+                  For plotly only! Scene color theme. One of `"light"`
+                  (default), `"white"` or `"dark"`, any color string, or a
+                  dict overriding individual theme colors (`paper`, `scene`,
+                  `axis_bg`, `grid`, `tick`).
+
+projection :      "perspective" (default) | "orthographic"
+
+                  For plotly only! Camera projection. Orthographic avoids
+                  perspective distortion and is often preferred for figures.
+
+dragmode :        "orbit" (default) | "turntable"
+
+                  For plotly only! How click-dragging rotates the scene.
+                  "orbit" rotates freely (trackball-style); "turntable"
+                  keeps the z-axis pointing up.
+
+**Below parameters are for the Octarine backend only:**
+
+clear :           bool, default = False
+
+                  If True, will clear the viewer before adding the new
+                  objects.
+
+center :          bool, default = True
+
+                  If True, will center camera on the newly added objects.
+
+size :            (width, height) tuple, optional
+
+                  Use to adjust figure/window size. With `snapshot=True`
+                  this is the canvas size in logical pixels - see
+                  `pixel_ratio` for the supersampling applied on top. Leave
+                  it unset to have the canvas match the scene's proportions.
+
+show :            bool, default=True
+
+                  Whether to immediately show the viewer.
+
+snapshot :        bool, default=False
+
+                  If True, will render the scene offscreen and return a
+                  matplotlib `(fig, ax)` instead of an interactive viewer.
+                  The image is placed in *data* coordinates (see `view`),
+                  so you can add labels, arrows or scatter overlays in the
+                  neurons' own coordinate system afterwards.
+
+**Below parameters are for `snapshot=True` only:**
+
+view :            tuple | str | dict, default="auto"
+
+                  Which way to point the camera. Takes the same `("x", "y")`
+                  axis pairs as navis.plot2d - first entry is the axis
+                  pointing right, second the one pointing up - or the same
+                  as a string (`"xy"`, `"x-z"`). Pass a camera state dict
+                  (from `viewer.get_view()`) to reproduce a view you set up
+                  interactively, or `None` to leave the camera alone.
+                  `"auto"` uses `("x", "-y")`, i.e. the same view you get
+                  from the interactive viewer.
+
+                  Note that only axis-aligned views can be expressed in data
+                  coordinates. For any other camera the axes are in world
+                  units in the view plane instead - distances are still to
+                  scale but no longer tied to a data axis.
+
+margin :          float, default=0.05
+
+                  Padding around the scene, as a fraction of its size.
+
+pixel_ratio :     float, optional
+
+                  Supersampling factor on top of `size`: the image comes
+                  back `size * pixel_ratio` pixels across and is scaled back
+                  down when drawn, which is what smooths the edges. Defaults
+                  to whatever pygfx uses (2 for an offscreen canvas), so
+                  pass `1` if you want `size` to mean actual image pixels.
+
+bgcolor :         str, optional
+
+                  Background color. By default the render is transparent
+                  and picks up whatever is underneath it.
+
+ax :              matplotlib.axes.Axes, optional
+
+                  Axes to draw the render on. If not provided, will create
+                  a new figure.
+
+figsize/dpi :     Use to adjust the matplotlib figure. By default `figsize`
+                  matches the aspect ratio of the render.
+
+Returns
+-------
+If `backend='octarine'`
+
+    From terminal: opens a 3D window and returns :class:`octarine.Viewer`.
+    From Jupyter: :class:`octarine.Viewer` displayed in an ipywidget.
+
+    With `snapshot=True`: a matplotlib `(fig, ax)` with the rendered image.
+
+If `backend='plotly'`
+
+    Returns either `None` if you are in a Jupyter notebook (see also
+    `inline` parameter) or a `plotly.graph_objects.Figure`
+    (see examples).
+
+If `backend='k3d'`
+
+    Returns either `None` and immediately displays the plot or a
+    `k3d.plot` object that you can manipulate further (see `inline`
+    parameter).
+
+See Also
+--------
+[`octarine.Viewer`](https://schlegelp.github.io/octarine/)
+    Interactive 3D viewer.
+
+navis.get_viewer
+    Grab the viewer most recently used by `plot3d`.
+
+Examples
+--------
+>>> import navis
+
+In a Jupyter notebook using plotly as backend:
+
+>>> nl = navis.example_neurons()
+>>> # Backend is automatically chosen but we can set it explicitly
+>>> # Plot inline
+>>> nl.plot3d(backend='plotly')                             # doctest: +SKIP
+>>> # Plot as separate html in a new window
+>>> fig = nl.plot3d(backend='plotly', inline=False)
+>>> import plotly.offline
+>>> _ = plotly.offline.plot(fig)                            # doctest: +SKIP
+
+In a Jupyter notebook using k3d as backend:
+
+>>> nl = navis.example_neurons()
+>>> # Plot inline
+>>> nl.plot3d(backend='k3d')                                # doctest: +SKIP
+
+In a terminal using octarine as backend:
+
+>>> # Plot list of neurons
+>>> nl = navis.example_neurons()
+>>> v = navis.plot3d(nl, backend='octarine')                # doctest: +SKIP
+>>> # Clear canvas
+>>> navis.clear3d()
+
+Rendering to matplotlib instead of an interactive viewer - the image comes
+back in data coordinates, so you can annotate it as usual:
+
+>>> nl = navis.example_neurons(2)
+>>> fig, ax = navis.plot3d(nl, snapshot=True, view=('x', '-z'))  # doctest: +SKIP
+>>> soma = nl[0].soma_pos[0]                                   # doctest: +SKIP
+>>> _ = ax.annotate("soma", (soma[0], soma[2]))                # doctest: +SKIP
+
+Some more advanced examples:
+
+>>> # plot3d() can deal with combinations of objects
+>>> nl = navis.example_neurons()
+>>> vol = navis.example_volume('LH')
+>>> vol.color = (255, 0, 0, .5)
+>>> # This plots a neuronlists, a single neuron and a volume
+>>> v = navis.plot3d([nl[0:2], nl[3], vol])
+>>> # Clear viewer (works only with octarine)
+>>> v = navis.plot3d(nl, clear=True)
+
+See the [plotting intro](../../generated/gallery/1a_plotting_general/tutorial_plotting_00_intro)
+for even more examples.
+
+### navis.plot2d(x, **kwargs)
+
+*function*
+
+Generate 2D plots of neurons and neuropils.
+
+The main advantage of this is that you can save plot as vector graphics.
+
+Note
+----
+This function uses `matplotlib` which "fakes" 3D as it has only very limited
+control over layering objects in 3D. Therefore neurites are not necessarily
+plotted in the right Z order. This becomes especially troublesome when
+plotting a complex scene with lots of neurons criss-crossing. See the
+`method` parameter for details.
+
+Parameters
+----------
+x :                 Skeleton | Mesh | Dotprops | Voxels | NeuronList | Volume | np.ndarray
+                    Objects to plot:
+                     - multiple objects can be passed as list (see examples)
+                     - numpy array of shape (N, 3) is intepreted as points for
+                       scatter plots
+
+Object parameters
+-----------------
+Each of these notes which objects it applies to and, where it matters, which
+`methods` it works with. Unless an entry says otherwise, a parameter that does
+not apply is simply ignored - `taper` on a `Mesh`, say - so these are safe to
+set for a mixed scene. The few that raise instead say so, and setting a
+`method="2d"`-only parameter for a 3d method logs a warning.
+
+soma :              bool | dict, default=True
+
+                    Plot soma if one exists. Size of the soma is determined
+                    by the neuron's `.soma_radius` property which defaults
+                    to the "radius" column for `Skeletons`. You can also
+                    pass `soma` as a dictionary to customize the appearance
+                    of the soma - for example `soma={"color": "red", "lw": 2, "ec": 1}`.
+
+                    `Skeletons` only, since no other neuron type has a soma.
+                    Works with all `methods`.
+
+radius :            bool | "auto" | "lw", default=False
+
+                    If "auto" will plot neurites of `Skeletons` with radius
+                    if they have radii. If True, will try plotting neurites of
+                    `Skeletons` with radius regardless. The radius can be
+                    scaled by `linewidth`. Note that this will increase rendering
+                    time.
+
+                    With `method="2d"` the neurites are outlined directly in the
+                    view plane; the 3d methods mesh them with
+                    navis.conversion.tree2meshneuron instead.
+
+                    Use `"lw"` to map the radius onto the line width instead of
+                    drawing an outline. It looks near-identical, gets exact
+                    round joins for free, and more than halves the size of
+                    vector output - at the cost of being somewhat slower to
+                    render, and of only being correct on axes it can measure:
+                    line widths are in points, so the conversion from data
+                    units is redone on every draw.
+
+                    `Skeletons` only. Works with all `methods`, but `"lw"` is
+                    a `method="2d"` feature - the 3d methods have no line width
+                    in data units and fall back to meshing, i.e. to `True`.
+
+taper :             "strahler" | "subtree", default=None
+
+                    Vary the width of neurites by a topological measure instead
+                    of keeping it constant - useful for the many skeletons whose
+                    `radius` column is a placeholder. "strahler" tapers by
+                    Strahler index (chunky, shows the branch hierarchy),
+                    "subtree" by the height of the subtree below each node
+                    (smooth). Widths range from 0.35x to 3.5x `linewidth`.
+                    Ignored when neurites are drawn with `radius`.
+
+                    `method="2d"` only, and only meaningful for `Skeletons`:
+                    `Dotprops` are drawn as skeletons but have no branch
+                    hierarchy to taper by, so they come out at a single width.
+
+halo :              bool | float | dict, default=False
+
+                    Draw each neuron with a background-coloured outline
+                    underneath, so that crossings read as one neuron passing in
+                    front of another. Pass a number for the width in points
+                    (`True` uses 3), or a dict with "width" and/or "color" keys.
+                    The colour defaults to the axes' background.
+
+                    `method="2d"` only. Applies to `Skeletons`, `Dotprops` and
+                    `Meshes`; `Volumes` never get one, since they are scenery
+                    and belong behind everything.
+
+depth_sort :        bool | int | "global", default=False
+
+                    Interleave neurons by depth instead of drawing them one
+                    after the other, which is as close to real occlusion as
+                    matplotlib gets. Two ways to do it:
+
+                      - `True` or an integer: bucket everything into that many
+                        bins along the axis pointing into the screen (`True`
+                        uses 10) and give each bin its own z-order. Approximate,
+                        but cheap and it interleaves the different neuron types
+                        with each other. A negative number flips which end of
+                        the depth axis counts as nearest.
+                      - `"global"`: sort *exactly*, merging each neuron type
+                        into one artist so that two neurons interleave element
+                        by element rather than bin by bin.
+
+                    Bins cost one artist per bin per neuron (two with `halo`),
+                    so keep the count modest for large `NeuronLists`.
+                    `"global"` costs the aggregate artists that make 2d
+                    plotting fast: a flat `Mesh` is normally one filled outline
+                    and a `Skeleton` a handful of polylines, and sorting across
+                    neurons forces both down to their elements. For skeletons
+                    that still comes out cheaper than 10 bins; for meshes it is
+                    several times the cost of either. It also gives up the
+                    fill-once `alpha` that a single outline buys a `Mesh` or a
+                    `radius` ribbon. Which is to say: reach for it on a finished
+                    figure, not while you are exploring.
+
+                    With `"global"`, artists are stacked in the order their
+                    neuron type first appears in `x`, `Dotprops` merge with the
+                    `Skeletons` they are drawn as, per-neuron legend entries
+                    become proxy handles, and `halo` is not available - a halo
+                    has to sit *between* two neurons of a type, which a single
+                    artist cannot express, so passing both warns and falls back
+                    to bins.
+
+                    `method="2d"` only - the 3d methods do their own z-ordering.
+                    Applies to `Skeletons`, `Dotprops` and `Meshes`; `Voxels`
+                    are a scatter and keep their own artist, and `Volumes` stay
+                    behind all of them either way.
+
+style :             str, default=None
+
+                    Name of a bundle of the settings above, see
+                    `navis.plotting.dd.PLOT_STYLES` for what each one sets.
+                    Currently only "publication" (radius, depth-sorted, soma,
+                    shaded meshes). A style never overrides an argument you
+                    passed yourself, so e.g. `style="publication",
+                    radius=False` does what it says.
+
+                    A style is just a set of defaults, so it inherits the
+                    applicability of whatever it sets - "publication" has parts
+                    that only apply to `Skeletons` and parts that only work with
+                    `method="2d"`.
+
+linewidth :         int | float, default=1
+
+                    Width of neurites, and the scaling factor for `radius`.
+                    Also accepts alias `lw`.
+
+                    `Skeletons` and `Dotprops` only, with all `methods`. The
+                    contour drawn by `volume_outlines` has a fixed width of its
+                    own and does not follow this.
+
+linestyle :         str, default='-'
+
+                    Line style of neurites. Also accepts alias `ls`.
+
+                    `Skeletons` and `Dotprops` only, and only where they are
+                    actually drawn as lines - an outline (`radius` in 2d) or a
+                    mesh (`radius` in 3d) has no line style, though
+                    `radius="lw"` keeps it. Works with all `methods`.
+
+color :             None | str | tuple | list | dict, default=None
+
+                    Use single str (e.g. `'red'`) or `(r, g, b)` tuple
+                    to give all neurons the same color. Use `list` of
+                    colors to assign colors: `['red', (1, 0, 1), ...].
+                    Use `dict` to map colors to neuron IDs:
+                    `{id: (r, g, b), ...}`.
+
+                    Applies to every neuron type and to `Volumes`, with all
+                    `methods`. Bare `(N, 3)` point arrays take their color from
+                    `scatter_kws` instead.
+
+palette :           str | array | list of arrays, default=None
+
+                    Name of a matplotlib or seaborn palette. If `color` is
+                    not specified will pick colors from this palette.
+
+                    Same scope as `color`.
+
+color_by :          str | array | list of arrays, default = None
+
+                    Color neurons by a property. Can be:
+                      - a list/array of labels, one per each neuron
+                      - a neuron property (str)
+                      - a column name in the node table of `Skeletons`
+                      - a list/array of values for each node
+                    Numerical values will be normalized. You can control
+                    the normalization by passing a `vmin` and/or `vmax` parameter.
+
+                    One value per neuron works for any neuron type. Colouring
+                    *within* a neuron needs a node or vertex table, so it is
+                    `Skeletons` and `Meshes` only - `Dotprops` and `Voxels`
+                    raise. Works with all `methods`.
+
+shade_by :          str | array | list of arrays, default=None
+
+                    Similar to `color_by` but will affect only the alpha
+                    channel of the color. If `shade_by='strahler'` will
+                    compute Strahler order if not already part of the node
+                    table (Skeletons only). Numerical values will be
+                    normalized. You can control the normalization by passing
+                    a `smin` and/or `smax` parameter.
+
+                    Always per node/vertex, so `Skeletons` and `Meshes` only.
+                    Works with all `methods`.
+
+alpha :             float [0-1], default=None
+
+                    Alpha value for neurons. `None` means "leave alone", so
+                    neurons are opaque unless `color` carries its own alpha
+                    (rgb*a*); setting `alpha` explicitly overrides that. You
+                    can set the alpha value for connectors with `cn_alpha`.
+
+                    Applies to every neuron type except `Voxels` (whose opacity
+                    encodes their value), and to `Volumes`. Works with all
+                    `methods`.
+
+mesh_shade :        bool | str | dict, default=False
+
+                    Shade `Mesh` neurons and `Volumes` so they look like
+                    surfaces rather than flat blobs. Shading multiplies into
+                    whatever colour they already have, so it composes with
+                    `color`, `color_by` and `depth_coloring`.
+
+                    With `method="2d"` this takes a mode:
+
+                      - `True` or `"lambert"`: diffuse shading
+                      - `"cel"`: the same, posterised into three tones
+                      - `"rim"`: diffuse plus a bright rim at grazing angles
+                      - `"ghost"`: opacity from the grazing angle instead of
+                        brightness, so a neuron inside a neuropil stays visible
+
+                    Pass a dict to tune it, e.g.
+                    `mesh_shade={"mode": "lambert", "ambient": .4}`; `light` is
+                    a direction in view space (x right, y up, z at the viewer)
+                    and `strength` scales the "rim" and "ghost" terms.
+
+                    The 3d methods only understand `True`/`False`, and there it
+                    covers everything that is real geometry: `Meshes`, somata and
+                    `Skeletons` drawn with `radius`. `Volumes` are the exception -
+                    matplotlib always shades those in 3d, whatever you pass.
+
+                    Note that culling back faces and painting the rest from
+                    back to front happens either way in 2d - `mesh_shade` only
+                    controls the lighting on top of that. A shaded mesh does
+                    need one polygon per face rather than a single filled
+                    outline, though, so where a translucent mesh overlaps
+                    itself it will double-darken instead of filling once.
+
+depth_coloring :    bool, default=False
+
+                    If True, will use neuron color to encode depth (Z).
+                    Overrides `color` argument. Does not work with
+                    `method = '3d_complex'` (raises).
+
+                    Applies to `Skeletons`, `Dotprops` and `Meshes`; `Volumes`
+                    and `Voxels` keep their own colors.
+
+depth_scale :       bool, default=True
+
+                    If True and `depth_coloring=True` will plot a scale.
+
+                    `method="2d"` only - with `method="3d"` the depth colors are
+                    recomputed as you rotate, so there is no fixed scale to draw.
+
+connectors :        bool | "presynapses" | "postsynapses" | str | list, default=False
+
+                    Plot connectors. This can either be `True` (plot all
+                    connectors), `"presynapses"` (only presynaptic connectors)
+                    or `"postsynapses"` (only postsynaptic connectors). If
+                    a string or a list is provided, it will be used to filter the
+                    `type` column in the connectors table.
+
+                    Use these parameters to adjust the way connectors are plotted:
+
+                      - `cn_colors` (str | tuple | dict | "neuron" ) overrides
+                        the default connector (e.g. synpase) colors:
+                          - single color as str (e.g. `'red'`) or rgb tuple
+                            (e.g. `(1, 0, 0)`)
+                          - dict mapping the connectors tables `type` column to
+                            a color (e.g. `{"pre": (1, 0, 0)}`)
+                          - with "neuron", connectors will receive the same color
+                            as their neuron
+                      - `cn_layout` (dict): Layout of the connectors. See
+                        `navis.config.default_connector_colors` for options.
+                        `display` is either `"lines"` (the default: a stalk
+                        from each connector back to its node, `Skeletons`
+                        only) or `"circles"`.
+                      - `cn_size` (float): Size of the connectors.
+                      - `cn_alpha` (float): Transparency of the connectors.
+                      - `cn_mesh_colors` (bool): Whether to color the connectors
+                        by the neuron's color.
+
+                    All connectors of a neuron go into a single artist, drawn
+                    in a fixed, shuffled order. Painting one type after
+                    another would let a rare type bury a common one wherever
+                    markers overlap; interleaving them keeps the visible mix
+                    a fair sample of the real one.
+
+                    Applies to any neuron that carries a connector table,
+                    whatever its type, and works with all `methods`.
+
+connectors_only :   boolean, default=False
+
+                    Plot only connectors, not the neuron. Same scope as
+                    `connectors`.
+
+cn_color_by :       str | array, optional
+
+                    Color connectors by a column of the connector table (or
+                    by an array with one value per connector) rather than by
+                    their `type`. Numerical data gets a colormap, categorical
+                    data one color per level - and either way the scale is
+                    shared by all neurons, so the same value is the same color
+                    throughout. Missing values are drawn grey.
+
+                    Overrides `cn_colors`/`cn_mesh_colors`. The `plotly` and
+                    `k3d` backends fall back to markers when this is set,
+                    since a line there carries a single color; `plot2d` colors
+                    stalks per connector like anything else.
+
+                    Same scope as `connectors`; works with all `methods`.
+
+cn_palette :        str | list | dict, optional
+
+                    Palette for `cn_color_by`: the name of a colormap for
+                    numerical data, and for categorical data a palette name,
+                    a list of colors or a dict keyed by level. Falls back to
+                    `palette`, then to `"viridis"`.
+
+cn_legend :         bool, default=False
+
+                    Add a legend entry per connector *type* - not per type
+                    per neuron, which is why this is not simply a label on
+                    the artists. With a numerical `cn_color_by` you get a
+                    colorbar instead. Call `ax.legend()` afterwards as usual.
+
+                    `method="2d"` and `"3d"` only.
+
+cn_zorder :         int, optional
+
+                    Where connectors sit in the stack. Defaults to 1000,
+                    i.e. above everything, so that a synapse is never hidden
+                    by the neurite it sits on; pass a lower value to put them
+                    behind the neurons instead.
+
+                    `method="2d"` only - the 3d methods leave stacking to
+                    `matplotlib`.
+
+scatter_kws :       dict, default={}
+
+                    Parameters to be used when plotting points. Accepted
+                    keywords are: `size` and `color`.
+
+                    Applies to bare `(N, 3)` point arrays and to `Voxels`, which
+                    are drawn as a scatter too - though `Voxels` only take `size`
+                    from here and their color from `color`/`palette`. Works with
+                    all `methods`.
+
+volume_outlines :   bool | "both", default=False
+
+                    If True will plot volume outline with no fill. Only
+                    works with `method="2d"`. Requires the `shapely` package.
+                    The contour is always drawn opaque - a volume's alpha is
+                    a fill alpha, and there is nothing to see through a line.
+
+                    `Volumes` only; `Meshes` are always drawn as surfaces.
+
+dps_scale_vec :     float
+
+                    Scale vector for dotprops. `Dotprops` only; works with all
+                    `methods`.
+
+Figure parameters
+-----------------
+method :            '2d' (default) | '3d' | '3d_complex'
+
+                    Method used to generate plot. Comes in three flavours:
+                     1. `2d` uses normal matplotlib. Neurons are plotted on
+                        top of one another in the order their are passed to
+                        the function. Use the `view` parameter (below) to
+                        set the view (default = xy).
+                     2. `3d` uses matplotlib's 3D axis. Here, matplotlib
+                        decide the depth order (zorder) of plotting. Can
+                        change perspective either interacively or by code
+                        (see examples).
+                     3. `3d_complex` same as 3d but each neuron segment is
+                        added individually. This allows for more complex
+                        zorders to be rendered correctly. Slows down
+                        rendering!
+
+view :              tuple, default = ("x", "y")
+
+                    Sets view for `method='2d'`. Can be any combination of
+                    "x", "y", "z" and their negations. For example, to plot
+                    from the top, use `view=('x', '-y')`. For 3D `methods`,
+                    this will set the initial view which can be changed by
+                    adjusting `ax.azim`, `ax.elev` and `ax.roll` (see examples).
+
+non_view_axes3d :   "show" | "hide" (default) | "fade"
+
+                    Only relevant for methods '3d' and '3d_complex': what to
+                    do with the axis that are not in the view. If 'hide', will
+                    hide them. If 'show', will show them. If 'fade', will
+                    make them semi-transparent. This is relevant if you
+                    intend if you intend to customize the view after plotting.
+
+autoscale :         bool, default=True
+
+                    If True, will scale the axes to fit the data. Works with all
+                    `methods`.
+
+scalebar :          int | float | str | pint.Quantity | dict, default=False
+
+                    Adds a scale bar. Provide integer, float or str to set
+                    size of scalebar. Int|float are assumed to be in same
+                    units as data. You can specify units in as string:
+                    e.g. "1 um". For methods '3d' and '3d_complex', this
+                    will create an axis object.
+
+                    You can customize the scalebar by passing a dictionary.
+                    For example:
+
+                    `{size: "1 micron", color: 'k', lw: 3, alpha: 0.9}`
+
+
+ax :                matplotlib.Axes, default=None
+
+                    Pass an axis object if you want to plot on an existing
+                    canvas. Must match `method` - i.e. 2D or 3D axis.
+
+figsize :           tuple, default=None
+
+                    Size of figure. Ignored if `ax` is provided.
+
+rasterize :         bool, default=False
+
+                    Neurons produce rather complex vector graphics which can
+                    lead to large files when saving to SVG, PDF or PS. Use
+                    this parameter to rasterize neurons and meshes/volumes
+                    (but not axes or labels) to reduce file size.
+
+                    Applies to neurons and `Volumes` with all `methods`. The
+                    scatter artists - `Voxels`, point arrays and connectors -
+                    are left as vectors.
+
+orthogonal :        bool, default=True
+
+                    Whether to use orthogonal or perspective view for
+                    methods '3d' and '3d_complex'.
+
+group_neurons :     bool, default=False
+
+                    If True, neurons will be grouped by tagging their artists
+                    with the neuron ID. Works with SVG export but not PDF.
+
+                    The 3d `methods` only - nothing is tagged with
+                    `method="2d"`. With `method='3d_complex'` a `Skeleton` is
+                    drawn segment by segment, so it comes out as hundreds of
+                    groups sharing an ID rather than as one group.
+
+Returns
+-------
+fig :               matplotlib.Figure
+ax :                matplotlib.Axes
+
+Examples
+--------
+
+>>> import navis
+>>> import matplotlib.pyplot as plt
+
+Plot list of neurons as simple 2d:
+
+>>> nl = navis.example_neurons()
+>>> fig, ax = navis.plot2d(nl, method='2d', view=('x', '-z'))
+>>> plt.show() # doctest: +SKIP
+
+Add a volume:
+
+>>> vol = navis.example_volume('LH')
+>>> fig, ax = navis.plot2d([nl, vol], method='2d', view=('x', '-z'))
+>>> plt.show() # doctest: +SKIP
+
+Change neuron colors:
+
+>>> fig, ax = navis.plot2d(
+...              nl,
+...              method='2d',
+...              view=('x', '-z'),
+...              color=['r', 'g', 'b', 'm', 'c', 'y']
+...          )
+>>> plt.show() # doctest: +SKIP
+
+Tell overlapping neurons apart by giving each a halo and letting them
+interleave by depth:
+
+>>> fig, ax = navis.plot2d(nl, method='2d', halo=True, depth_sort=True)
+>>> plt.show() # doctest: +SKIP
+
+Draw neurites at their real radius, with a soma - or taper them by branch
+order if the radii are not trustworthy:
+
+>>> fig, ax = navis.plot2d(nl[0], method='2d', style='publication')
+>>> fig, ax = navis.plot2d(nl[0], method='2d', taper='strahler')
+>>> plt.show() # doctest: +SKIP
+
+Plot in "fake" 3D:
+
+>>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
+>>> plt.show() # doctest: +SKIP
+>>> # In an interactive window you can dragging the plot to rotate
+
+Plot in "fake" 3D and change perspective:
+
+>>> fig, ax = navis.plot2d(nl, method='3d', view=('x', '-z'))
+>>> # Change view
+>>> ax.elev = -20
+>>> ax.azim = 45
+>>> ax.roll = 180
+>>> plt.show() # doctest: +SKIP
+
+Plot using depth-coloring:
+
+>>> fig, ax = navis.plot2d(nl, method='3d', depth_coloring=True, view=('x', '-z'))
+>>> plt.show() # doctest: +SKIP
+
+See the [plotting intro](../../generated/gallery/1a_plotting_general/tutorial_plotting_00_intro)
+for more examples.
+
+See Also
+--------
+navis.plot3d
+        Use this if you want interactive, perspectively correct renders
+        and if you don't need vector graphics as outputs.
+navis.plot1d
+        A nifty way to visualise neurons in a single dimension.
+navis.plot_flat
+        Plot neurons as flat structures (e.g. dendrograms).
+
+### navis.plot1d(x, ax=None, color=None, color_by=None, palette=None, **kwargs)
+
+*function*
+
+Plot neuron topology in 1D according to Cuntz et al. (2010).
+
+This function breaks a neurons into segments between branch points.
+See Cuntz et al., PLoS Computational Biology (2010) for detailed
+explanation. For very complex neurons, this neuron "barcode" can get
+fairly complicated - make sure to zoom in.
+
+Parameters
+----------
+x :         Skeleton | NeuronList
+            Neuron(s) to plot.
+ax :        matplotlib.ax, optional
+color :     tuple | dict
+            Color. If dict must map neuron UUID to color.
+palette :   str | array | list of arrays, default=None
+            Name of a matplotlib or seaborn palette. If `color` is
+            not specified will pick colors from this palette.
+color_by :  str | array | list of arrays, default = None
+            Can be the name of a column in the node table of
+            `Skeletons` or an array of (numerical or categorical)
+            values for each node. Numerical values will be normalized.
+            You can control the normalization by passing a `vmin`
+            and/or `vmax` parameter.
+**kwargs
+            Will be passed to `matplotlib.patches.Rectangle`.
+
+Returns
+-------
+matplotlib.ax
+
+Examples
+--------
+
+>>> import navis
+>>> import matplotlib.pyplot as plt
+>>> n = navis.example_neurons(2)
+>>> ax = navis.plot1d(n)
+>>> plt.show() # doctest: +SKIP
+
+Close figures (only relevant for doctests)
+
+>>> plt.close('all')
+
+See the [`flat plotting tutorial`](generated/gallery/1d_plotting_misc/tutorial_plotting_misc_00_barcode/)
+for more examples.
+
+### navis.plot_flat(x, layout='subway', connectors=False, highlight_connectors=None, shade_by_length=False, normalize_distance=False, reroot_soma=False, ax=None, **kwargs)
+
+*function*
+
+Plot neuron as flat diagrams.
+
+Parameters
+----------
+x :                     Skeleton
+                        A single neuron to plot.
+layout :                'subway' | 'dot' | 'neato' | 'fdp' | 'sfpd' | 'twopi' | 'circo'
+                        Layout to use. All but 'subway' require graphviz to
+                        be installed. For the 'fdp' and 'neato' it is highly
+                        recommended to downsample the neuron first.
+connectors :            bool
+                        If True (and neuron actually has connectors), will plot
+                        connectors.
+highlight_connectors :  list of connector IDs, optional
+                        Will highlight these connector IDs.
+ax :                    matplotlib.ax, optional
+                        Ax to plot on. Will create new one if not provided.
+shade_by_length :       bool, optional
+                        Change shade of branch with length. For layout
+                        "subway" only.
+normalize_distance :    bool, optional
+                        If True, will normalise all distances to the longest
+                        neurite. For layout "subway" only.
+**kwargs
+                        Keyword argument passed on to the respective
+                        plotting functions.
+
+Returns
+-------
+ax :                    matplotlib.ax
+pos :                   dict
+                        (X, Y) positions for each node: `{node_id: (x, y)}`.
+
+
+Examples
+--------
+Plot neuron in "subway" layout:
+
+>>> import navis
+>>> n = navis.example_neurons(1).convert_units('nm')
+>>> ax, pos = navis.plot_flat(n, layout='subway',
+...                           figsize=(12, 2),
+...                           connectors=True)
+>>> _ = ax.set_xlabel('distance [nm]')
+>>> plt.show() # doctest: +SKIP
+
+Plot neuron in "dot" layout (requires pygraphviz and graphviz):
+
+>>> # First downsample to speed up processing
+>>> ds = navis.downsample_neuron(n, 10, preserve_nodes='connectors')
+>>> ax, pos = navis.plot_flat(ds, layout='dot', connectors=True) # doctest: +SKIP
+>>> plt.show()                                                   # doctest: +SKIP
+
+To close all figures (only for doctests)
+
+>>> plt.close('all')
+
+See the [plotting intro](../../generated/gallery/1a_plotting_general/tutorial_plotting_00_intro)
+and the [neuron topology tutorial](../../generated/gallery/1d_plotting_misc/tutorial_plotting_misc_01_topology)
+for more examples.
+
+### navis.clear3d()
+
+*function*
+
+Clear viewer 3D canvas.
+
+### navis.close3d()
+
+*function*
+
+Close and forget existing 3D viewer.
+
+### navis.pop3d()
+
+*function*
+
+Remove the last item added to the 3D canvas.
+
+### navis.get_viewer()
+
+*function*
+
+Grab active 3D viewer.
+
+Returns
+-------
+[`octarine.Viewer`](https://schlegelp.github.io/octarine/) or `None`
+    The viewer most recently used by navis.plot3d, or `None` if
+    there isn't one.
+
+Examples
+--------
+>>> import navis
+>>> # Plot a neuron in 3d
+>>> n = navis.example_neurons(1)
+>>> _ = n.plot3d(color='red', backend='octarine')       # doctest: +SKIP
+>>> # Grab the active viewer and take a screenshot
+>>> viewer = navis.get_viewer()                         # doctest: +SKIP
+>>> viewer.screenshot('neuron.png')                     # doctest: +SKIP
+>>> # Close viewer
+>>> navis.close3d()
+
+## Plotting Volumes/Meshes
+
+### navis.Volume(vertices, faces=None, name=None, color=(0.85, 0.85, 0.85, 0.2), id=None, units=None, **kwargs)
+
+*class*
+
+Mesh consisting of vertices and faces.
+
+Subclass of `trimesh.Trimesh` with a few additional methods.
+
+Parameters
+----------
+vertices :  list | array | mesh-like
+            `(N, 3)` vertices coordinates or an object that has
+            `.vertices` and `.faces` attributes in which case `faces`
+            parameter will be ignored.
+faces :     list | array
+            `(M, 3)` array of indexed triangle faces.
+name :      str, optional
+            A name for the volume.
+color :     tuple, optional
+            RGB(A) color.
+id :        int, optional
+            If not provided, neuron will be assigned a random UUID as `.id`.
+**kwargs
+            Keyword arguments passed through to `trimesh.Trimesh`
+
+See Also
+--------
+navis.example_volume
+            Loads example volume(s).
+
+### navis.Volume.combine(x, name='comb_vol', color=(0.85, 0.85, 0.85, 0.2))
+
+*function*
+
+Merge multiple volumes into a single object.
+
+Parameters
+----------
+x :     list or dict of Volumes
+name :  str, optional
+        Name of the combined volume.
+color : tuple | str, optional
+        Color of the combined volume.
+
+Returns
+-------
+navis.Volume
+
+### navis.Volume.plot3d(**kwargs)
+
+*function*
+
+Plot volume using navis.plot3d.
+
+Parameters
+----------
+**kwargs
+        Keyword arguments. Will be passed to navis.plot3d.
+        See `help(navis.plot3d)` for a list of keywords.
+
+See Also
+--------
+navis.plot3d
+            Function called to generate 3d plot.
+
+Examples
+--------
+>>> import navis
+>>> vol = navis.example_volume('LH')
+>>> v = vol.plot3d(color = (255, 0, 0))
+
+### navis.Volume.validate()
+
+*function*
+
+Use trimesh to try and fix issues (holes/normals).
+
+### navis.Volume.resize(x, method='center', inplace=False)
+
+*function*
+
+Resize volume.
+
+Parameters
+----------
+x :         int | float
+            Resizing factor. For methods "center", "centroid" and
+            "origin" this is the fraction of original size (e.g.
+            `.5` for half size). For method "normals", this is
+            is the absolute displacement (e.g. `-1000` to shrink
+            volume by that many units)!
+method :    "center" | "centroid" | "normals" | "origin"
+            Point in space to use for resizing.
+
+            .. list-table::
+                :widths: 15 75
+                :header-rows: 1
+
+                * - method
+                  - explanation
+                * - center
+                  - average of all vertices
+                * - centroid
+                  - average of the triangle centroids weighted by the
+                    area of each triangle.
+                * - origin
+                  - resizes relative to origin of coordinate system
+                    (0, 0, 0)
+                * - normals
+                  - resize using face normals. Note that this method
+                    uses absolute displacement for parameter `x`.
+
+inplace :   bool, optional
+            If False, will return resized copy.
+
+Returns
+-------
+navis.Volume
+            Resized copy of original volume. Only if `inplace=False`.
+None
+            If `inplace=True`.

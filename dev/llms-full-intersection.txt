@@ -1,0 +1,139 @@
+# navis 2.0.0-rc.1 - Intersection
+
+Full docstrings for the 'Intersection' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+### navis.in_volume(x, volume, mode='IN', backend=('ncollpyde', 'pyoctree'), n_rays=None, prevent_fragments=False, validate=False, inplace=False)
+
+*function*
+
+Test if points/neurons are within a given volume.
+
+Notes
+-----
+This function requires [ncollpyde](https://github.com/clbarnes/ncollpyde)
+(recommended and installed with `navis`) or
+[pyoctree](https://github.com/mhogg/pyoctree) as backends for raycasting.
+If neither is installed, we can fall back to using scipy's ConvexHull
+instead. This is, however, slower and will give wrong positives for concave
+meshes!
+
+Parameters
+----------
+x :                 (N, 3) array-like | pandas.DataFrame | Neuron/List
+                    Object(s) to intersect with the volume.
+                     - Neuron(s) will be subset to parts within the volume
+                     - Array-like is treated as list of x/y/z coordinates;
+                       has to be of shape `(N, 3)`
+                     - `pandas.DataFrame` needs to have `x, y, z`
+                       columns
+
+volume :            Volume | mesh-like | dict or list thereof
+                    Multiple volumes can be given as list
+                    (`[volume1, volume2, ...]`) or dict
+                    (`{'label1': volume1, ...}`).
+mode :              'IN' | 'OUT', optional
+                    If 'IN', parts of the neuron that are within the volume
+                    are kept.
+backend :           'ncollpyde' | 'pyoctree' | 'scipy' | iterable thereof
+                    Which backend so be used (see Notes). If multiple
+                    backends are given, will use the first backend that is
+                    available.
+n_rays :            int | None, optional
+                    Number of rays used to determine if a point is inside
+                    a volume. More rays give more reliable results but are
+                    slower (especially with pyoctree backend). If `None`
+                    will use default number of rays (3 for ncollpyde, 1 for
+                    pyoctree).
+prevent_fragments : bool, optional
+                    Only relevant if input is Skeleton(s). If True, will
+                    attempt to keep neuron from fragmenting.
+validate :          bool, optional
+                    If True, validate `volume` and try to fix issues using
+                    trimesh. Will raise ValueError if issue could not be
+                    fixed.
+inplace :           bool, optional
+                    Only relevant if input is Neuron/List. Ignored
+                    if multiple volumes are provided.
+
+Returns
+-------
+Neuron
+                  If input is a single neuron or NeuronList, will return
+                  subset of the neuron(s) (nodes and connectors) that are
+                  within given volume.
+list of bools
+                  If input is `(N, 3)` array of coordinates, returns a `(N, )`
+                  boolean array: `True` if in volume, `False` if not in
+                  order.
+dict
+                  If multiple volumes are provided, results will be
+                  returned in dictionary with volumes as keys::
+
+                    {'volume1': in_volume(x, volume1),
+                     'volume2': in_volume(x, volume2),
+                     ... }
+
+Examples
+--------
+Prune neuron to volume
+
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> lh = navis.example_volume('LH')
+>>> n_lh = navis.in_volume(n, lh, inplace=False)
+>>> n_lh                                                    # doctest: +SKIP
+type            navis.Skeleton
+name                  1734350788
+id                    1734350788
+n_nodes                      344
+n_connectors                None
+n_branches                    49
+n_leafs                       50
+cable_length             32313.5
+soma                        None
+units                8 nanometer
+dtype: object
+
+Find out which points are inside a volume
+
+>>> in_v = navis.in_volume(n.nodes[['x', 'y', 'z']].values, lh)
+>>> in_v
+array([False, False, False, ..., False, False, False])
+>>> in_v.sum()
+344
+
+### navis.intersection_matrix(x, volumes, attr=None, **kwargs)
+
+*function*
+
+Compute intersection matrix between a set of neurons and volumes.
+
+Parameters
+----------
+x :               NeuronList | single neuron
+                  Neuron(s) to intersect.
+volumes :         list or dict of navis.Volume
+                  Volume(s) to intersect with.
+attr :            str | None, optional
+                  Attribute to return for intersected neurons (e.g.
+                  'cable_length' for Skeletons). If None, will return
+                  the neuron subset to the volumes.
+**kwargs
+                  Keyword arguments passed to navis.in_volume.
+
+Returns
+-------
+pandas DataFrame
+
+Examples
+--------
+>>> import navis
+>>> # Grab neurons
+>>> nl = navis.example_neurons(3)
+>>> # Grab a single volume
+>>> lh = navis.example_volume("LH")
+>>> # Re-use for testing
+>>> vols = {'lh1': lh, 'lh2': lh}
+>>> # Generate intersection matrix with cable length
+>>> m = navis.intersection_matrix(nl, vols, attr='cable_length')

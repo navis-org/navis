@@ -1,0 +1,608 @@
+# navis 2.0.0-rc.1 - Utility
+
+Full docstrings for the 'Utility' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+### navis.health_check(x, verbose=True)
+
+*function*
+
+Run a health check on Skeletons and flag potential issues.
+
+Parameters
+----------
+x :         Skeleton | NeuronList
+            Neuron(s) whose nodes to classify nodes.
+verbose :   bool
+            If True, will print errors in addition to returning them.
+
+Returns
+-------
+list of issues or None
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> navis.health_check(n)
+Neuron 1734350788 seems perfectly fine.
+
+### navis.set_pbars(hide=None, leave=None, jupyter=None)
+
+*function*
+
+Set global progress bar behaviors.
+
+Parameters
+----------
+hide :      bool, optional
+            Set to True to hide all progress bars.
+leave :     bool, optional
+            Set to False to clear progress bars after they have finished.
+jupyter :   bool, optional
+            Set to False to force using of classic tqdm even if in
+            Jupyter environment.
+
+Returns
+-------
+Nothing
+
+Examples
+--------
+>>> from navis.utils import set_pbars
+>>> # Hide progress bars after finishing
+>>> set_pbars(leave=False)
+>>> # Never show progress bars
+>>> set_pbars(hide=True)
+>>> # Never use Jupyter widget progress bars
+>>> set_pbars(jupyter=False)
+
+### navis.set_loggers(level='INFO')
+
+*function*
+
+Set levels for all associated module loggers.
+
+Examples
+--------
+>>> from navis.utils import set_loggers
+>>> from navis import config
+>>> # Get current level
+>>> lvl = config.logger.level
+>>> # Set new level
+>>> set_loggers('INFO')
+>>> # Revert to old level
+>>> set_loggers(lvl)
+
+### navis.set_parallel_backend(backend=None, *, n_workers=None, isolated=None, pickles_by_value=None, chunks_per_worker=None, marshals_exceptions=None)
+
+*function*
+
+Set where `parallel=True` runs its work.
+
+Parameters
+----------
+backend :   str | ParallelBackend | executor, optional
+            One of the registered backend names (see
+            navis.list_parallel_backends), `"auto"` to pick the best
+            available, or a backend instance. `None` leaves the setting
+            unchanged.
+
+            It also takes a scheduler object directly - any
+            `concurrent.futures.Executor`, a `dask.distributed.Client` or
+            a `submitit.Executor` - which is how you point navis at a
+            cluster. Configure it with its own library's API and hand it
+            over; navis deliberately has no `slurm_partition`-style
+            parameters of its own.
+n_workers : int, optional
+            Default number of workers. `None` leaves it unchanged.
+isolated :  bool, optional
+            Only for a bare executor: whether its workers have their own
+            address space. Inferred where we recognise the executor,
+            otherwise assumed False (the safe guess).
+pickles_by_value : bool, optional
+            Only for a bare executor: whether it can ship lambdas and
+            closures (i.e. uses `dill`/`cloudpickle` rather than `pickle`).
+chunks_per_worker : int, optional
+            Only for a bare executor: how many units of work to aim for per
+            worker. `None` (the default) sends one neuron per unit, which is
+            right on one machine and wasteful across a network - recognised
+            remote executors are bundled automatically, so this is for
+            tuning that or for an executor we don't recognise.
+marshals_exceptions : bool, optional
+            Only for a bare executor: whether an exception raised in a
+            worker arrives here as itself. Set False for a transport that
+            only reports *that* the work failed (submitit does this), and
+            navis will bring failures back as data instead so you still
+            catch your own exception.
+
+Returns
+-------
+A restorer that can be used as a context manager to scope the change.
+
+Examples
+--------
+>>> import navis
+>>> # Set globally
+>>> _ = navis.set_parallel_backend('serial')
+>>> # ... or just for a block
+>>> with navis.set_parallel_backend('serial'):
+...     nl = navis.example_neurons(2)
+>>> _ = navis.set_parallel_backend('auto')
+
+### navis.list_parallel_backends()
+
+*function*
+
+List the parallel backends that can be used on this machine.
+
+Returns
+-------
+list of str
+
+Examples
+--------
+>>> import navis
+>>> 'serial' in navis.list_parallel_backends()
+True
+
+### navis.set_default_connector_colors(x)
+
+*function*
+
+Set/update default connector colors.
+
+Parameters
+----------
+x :         dict
+            New default connector colors. Can be:
+
+               {'cn_label': (r, g, b), ..}
+               {'cn_label': {'color': (r, g, b)}, ..}
+
+### navis.config.remove_log_handlers()
+
+*function*
+
+Remove all handlers from the `navis` logger.
+
+It may be preferable to skip navis' default log handler being added in the
+first place.
+Do this by setting an environment variable before the first import:
+`NAVIS_SKIP_LOG_SETUP=True`.
+
+### navis.patch_cloudvolume()
+
+*function*
+
+Monkey patch cloud-volume to return navis neurons.
+
+This function must be run before initializing the `CloudVolume`! Adds new
+methods/parameters to `CloudVolume.mesh.get` and `CloudVolume.skeleton.get`.
+See examples for details.
+
+Examples
+--------
+>>> import navis
+>>> import cloudvolume as cv
+>>> # Monkey patch cloudvolume
+>>> navis.patch_cloudvolume()
+>>> # Connect to the Google segmentation of FAFB
+>>> vol = cv.CloudVolume('precomputed://gs://fafb-ffn1-20200412/segmentation',
+...                       use_https=True,
+...                       progress=False)
+>>> ids = [2137190164, 2268989790]
+>>> # Fetch as navis neuron using newly added method or ...
+>>> nl = vol.mesh.get_navis(ids, lod=3)
+>>> # ... alternatively use `as_navis` keyword argument in original method
+>>> nl = vol.mesh.get(ids, lod=3, as_navis=True)
+>>> type(nl)
+<class 'navis.core.neuronlist.NeuronList'>
+>>> # The same works for skeletons
+>>> skels = vol.skeleton.get_navis(ids)
+
+### navis.example_neurons(n=None, kind='skeleton', synapses=True, source='swc')
+
+*function*
+
+Load example neuron(s).
+
+These example neurons are skeletons and meshes of the same olfactory
+projection neurons from the DA1 glomerulus which have been automatically
+segmented in the Janelia hemibrain data set [1]. See also
+`https://neuprint.janelia.org`.
+
+Coordinates are in voxels which equal 8 x 8 x 8 nanometers.
+
+Parameters
+----------
+n :         int | None, optional
+            Number of neurons to return. If None, will return all available
+            example neurons. Can never return more than the maximum number
+            of available example neurons.
+kind :      "skeleton" | "mesh" | "mix"
+            What kind of neurons to return.
+synapses :  bool,
+            If True, will also load synapses.
+source :    'swc' | 'gml', optional
+            Only relevant for skeletons. Skeletons can be generated from SWC
+            files or GML graphs (this is really only used for testing).
+
+Returns
+-------
+Skeleton
+            If `n=1` and `kind='skeleton'`.
+Mesh
+            If `n=1` and `kind='mesh'`.
+NeuronList
+            List of the above neuron types if `n>1`.
+
+References
+----------
+[1] Louis K. Scheffer et al., bioRxiv. 2020. doi: https://doi.org/10.1101/2020.04.07.030213
+A Connectome and Analysis of the Adult Drosophila Central Brain.
+
+Examples
+--------
+Load a single neuron
+
+>>> import navis
+>>> n = navis.example_neurons(n=1)
+
+Load all example neurons
+
+>>> nl = navis.example_neurons()
+
+### navis.example_volume(name)
+
+*function*
+
+Load an example volume.
+
+Volumes are in hemibrain space which means coordinates are in voxels
+at 8 x 8 x 8 nanometers/voxel.
+
+Parameters
+----------
+name :      str
+            Name of available volume. Currently available::
+
+              "LH" = lateral horn in hemibrain space
+              "neuropil" = neuropil in hemibrain space
+
+Returns
+-------
+navis.Volume
+
+Examples
+--------
+Load LH volume
+
+>>> import navis
+>>> lh = navis.example_volume('LH')
+
+## Conversion
+
+### navis.neuron2nx(x, simplify=False, epsilon=None, connectivity=6)
+
+*function*
+
+Turn Skeleton, Mesh or Voxels into an NetworkX graph.
+
+Parameters
+----------
+x :         Skeleton | Mesh | Voxels | NeuronList
+            Neuron(s) to convert.
+simplify :  bool
+            For Skeletons only: simplify the graph by keeping only roots,
+            leaves and branching points. Preserves the original
+            branch lengths (i.e. weights).
+epsilon :   float, optional
+            For Dotprops only: maximum distance between two points to
+            connect them. If `None`, will use 5x the average distance
+            between points (i.e. `5 * x.sampling_resolution`).
+connectivity : 6 | 18 | 26
+            For Voxels only. Defines the connectedness:
+             - 6 = faces (default)
+             - 18 = faces + edges
+             - 26 = faces + edges + vertices
+
+Returns
+-------
+graph:      networkx.Graph | networkx.DiGraph
+            NetworkX representation of the neuron. Returns list of graphs
+            if x is multiple neurons. Graph is directed for Skeletons
+            and undirected for Meshes and Voxels. Graph is weighted
+            for Skeletons and Meshes.
+
+### navis.neuron2igraph(x, simplify=False, connectivity=18, epsilon=None)
+
+*function*
+
+Turn Skeleton, Mesh or Voxels into an iGraph graph.
+
+Parameters
+----------
+x :                     Skeleton | Mesh | Voxels | NeuronList
+                        Neuron(s) to convert.
+simplify :              bool
+                        For Skeletons only: simplify the graph by keeping only roots,
+                        leaves and branching points. Preserves the original branch
+                        lengths (i.e. weights).
+connectivity :          6 | 18 | 26
+                        For Voxels only. Defines the connectedness:
+                         - 6 = faces
+                         - 18 = faces + edges
+                         - 26 = faces + edges + vertices
+epsilon :               float, optional
+                        For Dotprops only: maximum distance between two points to
+                        connect them. If `None`, will use 5x the average distance
+                        between points (i.e. `5 * x.sampling_resolution`).
+
+Returns
+-------
+igraph.Graph
+            Representation of the neuron. Returns list of graphs
+            if x is multiple neurons. Directed for Skeletons, undirected
+            for Meshes.
+
+### navis.neuron2KDTree(x, tree_type='c', data='auto', **kwargs)
+
+*function*
+
+Turn neuron into scipy KDTree.
+
+Parameters
+----------
+x :         Skeleton | Mesh | Voxels | Dotprops
+            A single neuron to turn into a KDTree.
+tree_type : 'c' | 'normal'
+            Type of KDTree:
+              1. `'c'` = `scipy.spatial.cKDTree` (faster)
+              2. `'normal'` = `scipy.spatial.KDTree` (more functions)
+data :      'auto' | str
+            Data used to generate tree. "auto" will pick the core data
+            depending on neuron type: `nodes`, `vertices`, `voxels` and
+            `points` for Skeleton, Mesh, Voxels and Dotprops,
+            respectively. Other values (e.g. "connectors" or "nodes") must
+            map to a neuron property that is either (N, 3) array or
+            DataFrame with x/y/z columns.
+**kwargs
+            Keyword arguments passed at KDTree initialization.
+
+
+Returns
+-------
+`scipy.spatial.cKDTree` or `scipy.spatial.KDTree`
+
+### navis.neuron2tangents(x)
+
+*function*
+
+Turn skeleton(s) into points + tangent vectors.
+
+This will drop zero-length vectors (i.e when node and parent occupy the
+exact same position).
+
+Parameters
+----------
+x :         Skeleton | NeuronList
+
+Returns
+-------
+points :    (N, 3) array
+            Midpoints for each child->parent node pair.
+vect :      (N, 3) array
+            Normalized child-> parent vectors.
+length :    (N, ) array
+            Distance between parent and child
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> t = navis.neuron2tangents(n)
+
+### navis.network2nx(x, threshold=None, group_by=None)
+
+*function*
+
+Generate NetworkX graph from edge list or adjacency.
+
+Parameters
+----------
+x :                 pandas.DataFrame
+                    Connectivity information:
+
+                     1. List of edges (columns: 'source', 'target', 'weight')
+                     2. Adjacency matrix (pd.DataFrame, rows=sources,
+                        columns=targets)
+
+threshold :         float | int, optional
+                    Connections weaker than this will be excluded.
+group_by :          None | dict, optional
+                    Provide a dictionary `{group_name: [skid1, skid2, ...]}`
+                    to collapse sets of nodes into groups.
+
+Returns
+-------
+networkx.DiGraph
+                    NetworkX representation of the network.
+
+### navis.network2igraph(x, threshold=None)
+
+*function*
+
+Generate iGraph graph from edge list or adjacency.
+
+Requires iGraph to be installed.
+
+Parameters
+----------
+x :                 pandas.DataFrame | np.array
+                    Connectivity information:
+
+                     1. List of edges (columns: 'source', 'target', 'weight')
+                     2. Adjacency matrix (pd.DataFrame, rows=sources,
+                        columns=targets)
+
+threshold :         float | int, optional
+                    Connections weaker than this will be excluded.
+
+Returns
+-------
+igraph.Graph(directed=True)
+                    iGraph representation of the network.
+
+### navis.nx2neuron(G, root=None, break_cycles=False, **kwargs)
+
+*function*
+
+Create Skeleton from NetworkX Graph.
+
+This function will try to generate a neuron-like tree structure from
+the Graph. Therefore the graph must not contain loops!
+
+All node attributes (e.g. `x`, `y`, `z`, `radius`) will be added to
+the neuron's `.nodes` table.
+
+Parameters
+----------
+G :             networkx.Graph
+                Graph to convert to neuron.
+root :          str | int | list, optional
+                Node in graph to use as root for neuron. If not provided,
+                will use first node in `g.nodes`. Ignored if graph
+                consists of several disconnected components.
+break_cycles :  bool
+                The input graph must not contain cycles. We can break them
+                up at risk of disconnecting parts of the graph.
+**kwargs
+                Keyword arguments are passed to the construction of
+                navis.Skeleton.
+
+Returns
+-------
+Skeleton
+
+Examples
+--------
+>>> import navis
+>>> import networkx as nx
+>>> G = nx.balanced_tree(2, 3)
+>>> tn = navis.nx2neuron(G)
+>>> tn
+type            navis.Skeleton
+name                        None
+n_nodes                       15
+n_connectors                None
+n_branches                     6
+n_leafs                        8
+cable_length                 0.0
+soma                        None
+units            1 dimensionless
+dtype: object
+
+### navis.edges2neuron(edges, vertices=None, validate=True, **kwargs)
+
+*function*
+
+Create Skeleton from edges and (optional) vertex coordinates.
+
+Parameters
+----------
+edges :         (N, 2) array
+                Edges between vertices.
+vertices :      (N, 3) array, optional
+                Vertex positions. If not provided, will position
+                all vertices at (0, 0, 0).
+validate :      bool
+                If True (default) will fix issues with cycles
+                and edges orientation. Only skip this if
+                you are absolutely sure your data are good.
+**kwargs
+                Additional keyword arguments are passed to
+                initialization of the Skeleton.
+
+Returns
+-------
+Skeleton
+
+Examples
+--------
+
+>>> import navis
+>>> import numpy as np
+>>> verts = np.random.rand(5, 3)
+>>> edges = np.array([(0, 1), (1, 2), (2, 3), (2, 4)])
+>>> sk = navis.edges2neuron(edges, vertices=verts)
+
+### navis.cast_neuron(x, dtype, inplace=False)
+
+*function*
+
+Convert neuron(s) to given data type.
+
+Which data is converted depends on the neuron type:
+
+- `Skeletons`: the `x`, `y`, `z` and `radius` node columns
+- `Meshes`: the vertices (faces are indices and stay untouched)
+- `Dotprops`: the points and - for float dtypes - the tangent vectors
+  and alpha values
+- `Voxels`: the voxel values (i.e. `.grid` or `.values`)
+
+Connectors (if present) are converted for all neuron types. Anything that
+indexes into the above (mesh faces, voxel coordinates, node/parent IDs) is
+left untouched.
+
+Parameters
+----------
+x :         Neuron | NeuronList
+            Neuron(s) to convert.
+dtype :     str | type | np.dtype
+            Data type to convert to - e.g. `np.float32`, `"float32"` or
+            `"uint8"`. Must be a numeric data type.
+inplace :   bool, optional
+            If True, will modify original neuron. If False, we will
+            operate on and return a copy.
+parallel :  bool
+            If True and input is NeuronList, distribute the
+            work across multiple processes. See
+            `navis.set_parallel_backend` for where it runs.
+n_cores :   int, optional
+            Numbers of cores to use if `parallel=True`.
+            Defaults to half the available cores.
+chunksize : int, optional
+            Number of neurons to hand a worker at a time.
+            Defaults to letting the backend decide.
+backend :   str | ParallelBackend, optional
+            Override where this call runs. Defaults to
+            `navis.config.default_parallel_backend`.
+progress :  bool
+            Whether to show a progress bar. Overruled by
+            `navis.set_pbars`.
+omit_failures :bool
+               If True will omit failures instead of raising
+               an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+Neuron/NeuronList
+            Same datatype as input.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> n = navis.example_neurons(1, kind='mesh')
+>>> n.vertices.dtype
+dtype('float64')
+>>> n32 = navis.cast_neuron(n, np.float32)
+>>> n32.vertices.dtype
+dtype('float32')
+
+Note that downcasting is lossy - use with care:
+
+>>> n.memory_usage() > n32.memory_usage()
+True

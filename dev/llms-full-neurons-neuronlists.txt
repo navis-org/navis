@@ -1,0 +1,2781 @@
+# navis 2.0.0-rc.1 - Neurons & NeuronLists
+
+Full docstrings for the 'Neurons & NeuronLists' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+### navis.Skeleton(x, units=None, **metadata)
+
+*class*
+
+Neuron represented as hierarchical tree (i.e. a skeleton).
+
+Parameters
+----------
+x
+                Data to construct neuron from:
+                 - `pandas.DataFrame` is expected to be a SWC table
+                 - `pandas.Series` is expected to have a DataFrame as
+                   `.nodes` - additional properties will be attached
+                   as meta data
+                 - `tuple` of `(vertices, edges)` arrays is passed to
+                   navis.edges2neuron
+                 - `str` is passed to navis.read_swc
+                 - `BufferedIOBase` e.g. from `open(filename)`
+                 - `networkx.DiGraph` parsed by navis.nx2neuron
+                 - `skeletor.Skeleton`
+                 - `sparsecubes.Skeleton`
+                 - `Skeleton` - in this case we will try to copy every
+                   attribute
+                 - `None` will initialize an empty neuron
+units :         str | pint.Units | pint.Quantity
+                Units for coordinates. Defaults to `None` (dimensionless).
+                Strings must be parsable by pint: e.g. "nm", "um",
+                "micrometer" or "8 nanometers".
+**metadata
+                Any additional data to attach to neuron.
+
+### navis.Mesh(x, units=None, process=True, validate=False, **metadata)
+
+*class*
+
+Neuron represented as mesh with vertices and faces.
+
+Parameters
+----------
+x :             mesh-like | tuple | dictionary | filepath | None
+                Data to construct neuron from:
+                 - any object that has `.vertices` and `.faces`
+                   properties (e.g. a trimesh.Trimesh)
+                 - a tuple `(vertices, faces)`
+                 - a dictionary `{"vertices": (N, 3), "faces": (M, 3)}`
+                 - filepath to a file that can be read by `trimesh.load`
+                 - `None` will initialize an empty Mesh
+                 - `skeletor.Skeleton` will use the mesh and the skeleton
+                   (including the vertex to node map)
+
+units :         str | pint.Units | pint.Quantity
+                Units for coordinates. Defaults to `None` (dimensionless).
+                Strings must be parsable by pint: e.g. "nm", "um",
+                "micrometer" or "8 nanometers".
+process :       bool
+                If True (default and highly recommended), will remove NaN
+                and infinite values, and merge duplicate vertices.
+validate :      bool
+                If True, will try to fix some common problems with
+                meshes. See `navis.fix_mesh` for details.
+**metadata
+                Any additional data to attach to neuron.
+
+### navis.Voxels(x, offset=None, cache=True, units=None, sparsify='auto', **metadata)
+
+*class*
+
+Neuron represented as voxels.
+
+Parameters
+----------
+x
+                Data to construct neuron from:
+                 - a 2D (N, 3) array of voxel positions (x, y, z)
+                 - a 2D (N, 4) array of voxel positions + values (x, y, z, value)
+                 - a 3D (N, M, J) array representing the voxel grid
+
+offset :        (3, ) array, optional
+                An (optional) offset in units (not voxels), i.e. the
+                position of voxel (0, 0, 0). This is useful to keep the
+                voxel grid small while still maintaining correct positioning
+                e.g. for plotting.
+cache :         bool
+                Whether to cache different representations (i.e. grid
+                and voxels) of the data. Set to False to save some memory.
+units :         str | pint.Units | pint.Quantity
+                Units (scales) for voxels. Defaults to `1` (dimensionless).
+                Strings must be parsable by pint: e.g. "nm", "um",
+                "micrometer" or "8 nanometers".
+sparsify :      "auto" | bool
+                Whether to store a dense grid as sparse voxels (see
+                navis.Voxels.sparsify). Neurons are typically
+                sparse enough that this saves a lot of memory - the example
+                neurons here shrink by 7-46x. Ignored if `x` is already
+                sparse.
+                 - "auto" (default) sparsifies only if it cuts memory by at
+                   least `SPARSIFY_MARGIN`
+                 - True always sparsifies
+                 - False keeps the dense grid
+**metadata
+                Any additional data to attach to neuron.
+
+### navis.Dotprops(points, k, vect=None, alpha=None, units=None, **metadata)
+
+*class*
+
+Neuron represented as points + local vectors.
+
+Dotprops consist of points with x/y/z coordinates, a tangent vector and an
+alpha value describing the immediate neighbourhood (see also references).
+
+Typically constructed using navis.make_dotprops.
+
+References
+----------
+Masse N.Y., Cachero S., Ostrovsky A., and Jefferis G.S.X.E. (2012). A mutual
+information approach to automate identification of neuronal clusters in
+Drosophila brain images. Frontiers in Neuroinformatics 6 (00021).
+doi: 10.3389/fninf.2012.00021
+
+Parameters
+----------
+points :        numpy array
+                (N, 3) array of x/y/z coordinates.
+k :             int, optional
+                Number of nearest neighbors for tangent vector calculation.
+                This can be `None` or `0` but then vectors must be
+                provided on initialization and can subsequently not be
+                re-calculated. Typical values here are `k=20` for dense
+                (e.g. from light level data) and `k=5` for sparse
+                (e.g. from skeletons) point clouds.
+vect :          numpy array, optional
+                (N, 3) array of vectors. If not provided will
+                recalculate both `vect` and `alpha` using `k`.
+alpha :         numpy array, optional
+                (N, ) array of alpha values. If not provided will
+                recalculate both `alpha` and `vect` using `k`.
+units :         str | pint.Units | pint.Quantity
+                Units for coordinates. Defaults to `None` (dimensionless).
+                Strings must be parsable by pint: e.g. "nm", "um",
+                "micrometer" or "8 nanometers".
+**metadata
+                Any additional data to attach to neuron.
+
+### navis.NeuronList(x, make_copy=False, make_using=None, parallel=False, n_cores=None, **kwargs)
+
+*class*
+
+Collection of neurons.
+
+Gives quick access to neurons' attributes and functions.
+
+Parameters
+----------
+x :                 list | array | Skeleton | Mesh | Dotprops | NeuronList
+                    Data to construct neuronlist from. Can be either:
+
+                    1. Skeleton/Mesh(s) or Dotprops
+                    2. NeuronList(s)
+                    3. Anything that constructs a Skeleton/Mesh
+                    4. List of the above
+
+make_copy :         bool, optional
+                    If True, Neurons are deepcopied before being
+                    assigned to the NeuronList.
+make_using :        function | class, optional
+                    Function or class used to construct neurons from
+                    elements in `x` if they aren't already neurons.
+                    By default, will use `navis.Neuron` to try to infer
+                    what kind of neuron can be constructed.
+parallel :          bool
+                    If True, will use parallel threads when initialising the
+                    NeuronList. Should be slightly up to a lot faster
+                    depending on the numbers of cores and the input data.
+n_cores :           int
+                    Number of cores to use for when `parallel=True`.
+                    Defaults to half the available cores.
+**kwargs
+                    Will be passed to constructor of Skeleton/Mesh (see
+                    `make_using`).
+
+## General Neuron methods
+
+### navis.BaseNeuron.copy(deepcopy=False)
+
+*function*
+
+Return a copy of the neuron.
+
+### navis.BaseNeuron.plot3d(**kwargs)
+
+*function*
+
+Plot neuron using navis.plot3d.
+
+Parameters
+----------
+**kwargs
+        Keyword arguments. Will be passed to navis.plot3d.
+        See `help(navis.plot3d)` for a list of keywords.
+
+See Also
+--------
+navis.plot3d
+            Function called to generate 3d plot.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons()
+>>> #Plot with connectors
+>>> viewer = nl.plot3d(connectors=True)
+
+### navis.BaseNeuron.plot2d(**kwargs)
+
+*function*
+
+Plot neuron using navis.plot2d.
+
+Parameters
+----------
+**kwargs
+        Will be passed to navis.plot2d.
+        See `help(navis.plot2d)` for a list of keywords.
+
+See Also
+--------
+navis.plot2d
+            Function called to generate 2d plot.
+
+### navis.BaseNeuron.summary(add_props=None)
+
+*function*
+
+Get a summary of this neuron.
+
+### navis.BaseNeuron.convert_units(to, inplace=False)
+
+*function*
+
+Convert coordinates to different unit.
+
+Only works if neuron's `.units` is not dimensionless.
+
+Parameters
+----------
+to :        pint.Unit | str
+            Units to convert to. If string, must be parsable by pint.
+            See examples.
+inplace :   bool, optional
+            If True will convert in place. If not will return a
+            copy.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> n.units
+<Quantity(8, 'nanometer')>
+>>> n.cable_length
+266476.8
+>>> n2 = n.convert_units('um')
+>>> n2.units
+<Quantity(1.0, 'micrometer')>
+>>> n2.cable_length
+2131.8
+
+### navis.BaseNeuron.map_units(units, on_error='raise')
+
+*function*
+
+Convert units to match neuron space.
+
+Only works if neuron's `.units` is isometric and not dimensionless.
+
+Parameters
+----------
+units :     number | str | pint.Quantity | pint.Units
+            The units to convert to neuron units. Simple numbers are just
+            passed through.
+on_error :  "raise" | "ignore"
+            What to do if an error occurs (e.g. because `neuron` does not
+            have units specified). If "ignore" will simply return `units`
+            unchanged.
+
+See Also
+--------
+navis.core.to_neuron_space
+            The base function for this method.
+
+Examples
+--------
+>>> import navis
+>>> # Example neurons are in 8x8x8nm voxel space
+>>> n = navis.example_neurons(1)
+>>> n.map_units('1 nanometer')
+0.125
+>>> # Numbers are passed-through
+>>> n.map_units(1)
+1
+>>> # For neuronlists
+>>> nl = navis.example_neurons(3)
+>>> nl.map_units('1 nanometer')
+[0.125, 0.125, 0.125]
+
+### navis.BaseNeuron.memory_usage(deep=False, estimate=False)
+
+*function*
+
+Return estimated memory usage of this neuron.
+
+Works by going over attached data (numpy arrays and pandas DataFrames
+such as vertices, nodes, etc) and summing up their size in memory.
+
+Parameters
+----------
+deep :      bool
+            Passed to pandas DataFrames. If True will also inspect
+            memory footprint of `object` dtypes.
+estimate :  bool
+            If True, we will only estimate the size. This is
+            considerably faster but will slightly underestimate the
+            memory usage.
+
+Returns
+-------
+int
+            Memory usage in bytes.
+
+### navis.BaseNeuron.mask(mask, inplace=False, warn_cut=True)
+
+*function*
+
+Restrict this neuron to part of itself.
+
+The neuron *becomes* the masked region: every property and every navis
+function sees only that part until it is unmasked. Masks nest - each
+`mask()` can be undone by one `unmask()`.
+
+Parameters
+----------
+mask :      see navis.subset_neuron
+            Anything `subset_neuron` accepts, including a callable that
+            takes this neuron and returns a selection.
+inplace :   bool
+            If False, mask a copy and return it, leaving this neuron
+            untouched.
+warn_cut :  bool
+            Warn if the mask cuts across branches, leaving nodes that
+            look like the ends of the arbour but are not. Silent for
+            masks that keep whole subtrees, e.g. a compartment.
+
+Returns
+-------
+Neuron
+            The masked neuron.
+
+See Also
+--------
+navis.masked
+            Context manager - prefer it where the mask has a natural
+            scope, since it unmasks even if something raises.
+navis.BaseNeuron.unmask
+navis.BaseNeuron.apply_mask
+
+### navis.BaseNeuron.unmask(reset=True, warn_cut=True)
+
+*function*
+
+Undo the innermost mask, in place.
+
+Parameters
+----------
+reset :     bool
+            If True, restore the neuron exactly as it was and discard
+            anything done while masked. If False, fold edits made to the
+            masked region back into the whole neuron.
+warn_cut :  bool
+            With `reset=False`, warn if folding the mask back left the
+            neuron in more pieces than it was - usually a leaf-sensitive
+            edit having eroded the mask boundary.
+
+Returns
+-------
+self
+
+Raises
+------
+navis.core.masking.MaskingError
+            If the neuron is not masked.
+navis.core.schema.MergeError
+            With `reset=False`, if the masked region was restructured by
+            something that could not keep track of where its elements
+            came from. Refusing beats folding them back wrongly.
+
+### navis.BaseNeuron.apply_mask(inplace=False)
+
+*function*
+
+Make the innermost mask permanent.
+
+The masked region becomes the neuron; there is nothing left to go back
+to.
+
+Parameters
+----------
+inplace :   bool
+            If False, return a copy and leave this neuron masked.
+
+Returns
+-------
+Neuron
+
+## General Neuron properties
+
+### navis.BaseNeuron.connectors
+
+*property*
+
+Connector table. If none, will return `None`.
+
+### navis.BaseNeuron.postsynapses
+
+*property*
+
+Table with postsynapses (filtered from connectors table).
+
+Requires a "type" column in connector table. Will look for type labels
+that include "post" or that equal 1 or "1".
+
+### navis.BaseNeuron.presynapses
+
+*property*
+
+Table with presynapses (filtered from connectors table).
+
+Requires a "type" column in connector table. Will look for type labels
+that include "pre" or that equal 0 or "0".
+
+### navis.BaseNeuron.datatables
+
+*property*
+
+Names of all DataFrames attached to this neuron.
+
+### navis.BaseNeuron.id
+
+*property*
+
+ID of the neuron.
+
+Must be hashable. If not set, will assign a random unique identifier.
+Can be indexed by using the `NeuronList.idx[]` locator.
+
+### navis.BaseNeuron.name
+
+*property*
+
+Neuron name.
+
+### navis.BaseNeuron.units
+
+*property*
+
+Units for coordinate space.
+
+### navis.BaseNeuron.type
+
+*property*
+
+Neuron type.
+
+### navis.BaseNeuron.soma
+
+*property*
+
+The soma of the neuron (if any).
+
+### navis.BaseNeuron.bbox
+
+*property*
+
+Bounding box of neuron.
+
+## Skeletons
+
+### navis.Skeleton.convert_units(to, inplace=False)
+
+*function*
+
+Convert coordinates to different unit.
+
+Only works if neuron's `.units` is not dimensionless.
+
+Parameters
+----------
+to :        pint.Unit | str
+            Units to convert to. If string, must be parsable by pint.
+            See examples.
+inplace :   bool, optional
+            If True will convert in place. If not will return a
+            copy.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> n.units
+<Quantity(8, 'nanometer')>
+>>> n.cable_length
+266476.8
+>>> n2 = n.convert_units('um')
+>>> n2.units
+<Quantity(1.0, 'micrometer')>
+>>> n2.cable_length
+2131.8
+
+### navis.Skeleton.cell_body_fiber(reroot_soma=True, inplace=False)
+
+*function*
+
+Prune neuron to its cell body fiber.
+
+Parameters
+----------
+reroot_soma :       bool, optional
+                    If True, will reroot to soma.
+inplace :           bool, optional
+                    If True, operation will be performed on itself.
+                    If False, operation is performed on copy which is
+                    then returned.
+
+See Also
+--------
+navis.cell_body_fiber
+    This is the base function. See for details and examples.
+
+### navis.Skeleton.downsample(factor=5, inplace=False, **kwargs)
+
+*function*
+
+Downsample the neuron by given factor.
+
+Parameters
+----------
+factor :                int, optional
+                        Factor by which to downsample the neurons.
+                        Default = 5.
+inplace :               bool, optional
+                        If True, operation will be performed on
+                        itself. If False, operation is performed on
+                        copy which is then returned.
+**kwargs
+                        Additional arguments passed to
+                        navis.downsample_neuron.
+
+See Also
+--------
+navis.downsample_neuron
+    Base function. See for details and examples.
+
+### navis.Skeleton.get_graph_nx()
+
+*function*
+
+Calculate and return networkX representation of neuron.
+
+Once calculated stored as `.graph`. Call function again to update
+graph.
+
+See Also
+--------
+navis.neuron2nx
+
+### navis.Skeleton.get_igraph()
+
+*function*
+
+Calculate and return iGraph representation of neuron.
+
+Once calculated stored as `.igraph`. Call function again to update
+iGraph.
+
+See Also
+--------
+navis.neuron2igraph
+
+### navis.Skeleton.prune_by_longest_neurite(n=1, reroot_soma=False, inplace=False)
+
+*function*
+
+Prune neuron down to the longest neurite.
+
+Parameters
+----------
+n :                 int, optional
+                    Number of longest neurites to preserve.
+reroot_soma :       bool, optional
+                    If True, will reroot to soma before pruning.
+inplace :           bool, optional
+                    If True, operation will be performed on itself.
+                    If False, operation is performed on copy which is
+                    then returned.
+
+See Also
+--------
+navis.longest_neurite
+    This is the base function. See for details and examples.
+
+### navis.Skeleton.prune_by_strahler(to_prune, inplace=False)
+
+*function*
+
+Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
+
+Will reroot neuron to soma if possible.
+
+Parameters
+----------
+to_prune :  int | list | range | slice
+            Strahler indices to prune. For example:
+
+            1. `to_prune=1` removes all leaf branches
+            2. `to_prune=[1, 2]` removes SI 1 and 2
+            3. `to_prune=range(1, 4)` removes SI 1, 2 and 3
+            4. `to_prune=slice(1, -1)` removes everything but the
+               highest SI
+            5. `to_prune=slice(-1, None)` removes only the highest
+               SI
+
+inplace :   bool, optional
+            If True, operation will be performed on itself. If False,
+            operation is performed on copy which is then returned.
+
+See Also
+--------
+navis.prune_by_strahler
+    This is the base function. See for details and examples.
+
+### navis.Skeleton.prune_by_volume(v, mode='IN', prevent_fragments=False, inplace=False)
+
+*function*
+
+Prune neuron by intersection with given volume(s).
+
+Parameters
+----------
+v :                 str | navis.Volume | list of either
+                    Volume(s) to check for intersection
+mode :              'IN' | 'OUT', optional
+                    If 'IN', parts of the neuron inside the volume are
+                    kept.
+prevent_fragments : bool, optional
+                    If True, will add nodes to `subset` required to
+                    keep neuron from fragmenting.
+inplace :           bool, optional
+                    If True, operation will be performed on itself. If
+                    False, operation is performed on copy which is then
+                    returned.
+
+See Also
+--------
+navis.in_volume
+    Base function. See for details and examples.
+
+### navis.Skeleton.prune_distal_to(node, inplace=False)
+
+*function*
+
+Cut off nodes distal to given nodes.
+
+Parameters
+----------
+node :      node ID | node tag
+            Provide either node ID(s) or a unique tag(s)
+inplace :   bool, optional
+            If True, operation will be performed on itself. If False,
+            operation is performed on copy which is then returned.
+
+See Also
+--------
+navis.cut_skeleton
+    Base function. See for details and examples.
+
+### navis.Skeleton.prune_proximal_to(node, inplace=False)
+
+*function*
+
+Remove nodes proximal to given node. Reroots neuron to cut node.
+
+Parameters
+----------
+node :      node_id | node tag
+            Provide either a node ID or a (unique) tag
+inplace :   bool, optional
+            If True, operation will be performed on itself. If False,
+            operation is performed on copy which is then returned.
+
+See Also
+--------
+navis.cut_skeleton
+    Base function. See for details and examples.
+
+### navis.Skeleton.prune_twigs(size, inplace=False, recursive=False)
+
+*function*
+
+Prune terminal twigs under a given size.
+
+Parameters
+----------
+size :          int | float
+                Twigs shorter than this will be pruned.
+inplace :       bool, optional
+                If False, pruning is performed on copy of original neuron
+                which is then returned.
+recursive :     int | bool | "inf", optional
+                If `int` will undergo that many rounds of recursive
+                pruning. Use `float("inf")` to prune until no more
+                twigs under the given size are left.
+
+See Also
+--------
+navis.prune_twigs
+    This is the base function. See for details and examples.
+
+### navis.Skeleton.reload(inplace=False)
+
+*function*
+
+Reload neuron. Must have filepath as `.origin` as attribute.
+
+Returns
+-------
+Skeleton
+        If `inplace=False`.
+
+### navis.Skeleton.reroot(new_root, inplace=False)
+
+*function*
+
+Reroot neuron to given node ID or node tag.
+
+Parameters
+----------
+new_root :  int | str
+            Either node ID or node tag.
+inplace :   bool, optional
+            If True, operation will be performed on itself. If False,
+            operation is performed on copy which is then returned.
+
+See Also
+--------
+navis.reroot_skeleton
+    Base function. See for details and examples.
+
+### navis.Skeleton.resample(resample_to, inplace=False)
+
+*function*
+
+Resample neuron to given resolution.
+
+Parameters
+----------
+resample_to :           int
+                        Resolution to which to resample the neuron.
+inplace :               bool, optional
+                        If True, operation will be performed on
+                        itself. If False, operation is performed on
+                        copy which is then returned.
+
+See Also
+--------
+navis.resample_skeleton
+    Base function. See for details and examples.
+
+### navis.Skeleton.snap(locs, to='nodes')
+
+*function*
+
+Snap xyz location(s) to closest node or synapse.
+
+Parameters
+----------
+locs :      (N, 3) array | (3, ) array
+            Either single or multiple XYZ locations.
+to :        "nodes" | "connectors"
+            Whether to snap to nodes or connectors.
+
+Returns
+-------
+id :        int | list of int
+            ID(s) of the closest node/connector.
+dist :      float | list of float
+            Distance(s) to the closest node/connector.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> id, dist = n.snap([0, 0, 0])
+>>> id
+1124
+
+### navis.Skeleton.adjacency_matrix
+
+*property*
+
+Adjacency matrix of the skeleton.
+
+### navis.Skeleton.cable_length
+
+*property*
+
+Cable length.
+
+### navis.Skeleton.cycles
+
+*property*
+
+Cycles in neuron (if any).
+
+See also
+--------
+networkx.find_cycles()
+            Function used to find cycles.
+
+### navis.Skeleton.edges
+
+*property*
+
+Edges between nodes.
+
+See Also
+--------
+edge_coords
+        Same but with x/y/z coordinates instead of node IDs.
+
+### navis.Skeleton.edge_coords
+
+*property*
+
+Coordinates of edges between nodes.
+
+See Also
+--------
+edges
+        Same but with node IDs instead of x/y/z coordinates.
+
+### navis.Skeleton.igraph
+
+*property*
+
+iGraph representation of this neuron.
+
+### navis.Skeleton.is_tree
+
+*property*
+
+Whether neuron is a tree.
+
+Also returns True if neuron consists of multiple separate trees!
+
+See also
+--------
+:attr:`Skeleton.cycles`
+            If your neuron is not a tree, this will help you identify
+            cycles.
+
+### navis.Skeleton.n_branches
+
+*property*
+
+Number of branch points.
+
+### navis.Skeleton.n_leafs
+
+*property*
+
+Number of leaf nodes.
+
+### navis.Skeleton.n_skeletons
+
+*property*
+
+Number of seperate skeletons in this neuron.
+
+### navis.Skeleton.n_trees
+
+*property*
+
+Count number of connected trees in this neuron.
+
+### navis.Skeleton.nodes
+
+*property*
+
+Node table.
+
+### navis.Skeleton.root
+
+*property*
+
+Root node(s).
+
+### navis.Skeleton.sampling_resolution
+
+*property*
+
+Average cable length between child -> parent nodes.
+
+### navis.Skeleton.segments
+
+*property*
+
+Neuron broken down into linear segments (see also `.small_segments`).
+
+### navis.Skeleton.simple
+
+*property*
+
+Simplified representation consisting only of root, branch points and leafs.
+
+### navis.Skeleton.soma_pos
+
+*property*
+
+Search for soma and return its position.
+
+Returns `None` if no soma. You can also use this to assign a soma by
+position in which case it will snap to the closest node.
+
+### navis.Skeleton.subtrees
+
+*property*
+
+List of subtrees. Sorted by size as sets of node IDs.
+
+### navis.Skeleton.vertices
+
+*property*
+
+Vertices of the skeleton.
+
+### navis.Skeleton.volume
+
+*property*
+
+Radius-based volume.
+
+### navis.rewire_skeleton(x, g, root=None, inplace=False)
+
+*function*
+
+Rewire neuron from graph.
+
+This function takes a graph representation of a neuron and rewires its
+node table accordingly. This is useful if we made changes to the graph
+(i.e. adding or removing edges) and want those to propagate to the node
+table.
+
+Parameters
+----------
+x :         Skeleton
+            Neuron to be rewired.
+g :         networkx.Graph
+            Graph to use for rewiring. Please note that directionality (if
+            present) is not taken into account. Nodes not included in the
+            graph will be disconnected (i.e. won't have a parent). Nodes
+            in the graph but not in the table are ignored!
+root :      int
+            Node ID for the new root. If not given, will try to use the
+            current root.
+inplace :   bool
+            If True, will rewire the neuron inplace. If False, will return
+            a rewired copy of the neuron.
+
+Returns
+-------
+Skeleton
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> n.n_trees
+1
+>>> # Drop one edge from graph
+>>> g = n.graph.copy()
+>>> g.remove_edge(310, 309)
+>>> # Rewire neuron
+>>> n2 = navis.rewire_skeleton(n, g, inplace=False)
+>>> n2.n_trees
+2
+
+### navis.insert_nodes(x, where, coords=None, validate=True, inplace=False)
+
+*function*
+
+Insert new nodes between existing nodes.
+
+Parameters
+----------
+x :         Skeleton
+            Neuron to insert new nodes into.
+where :     list of node pairs
+            Must be a list of node ID pairs. A new node will be added
+            between the nodes of each pair (see examples).
+coords :    None | list of (x, y, z) coordinates | list of fractions
+            Can be:
+             - `None`: new nodes will be inserted exactly between the two
+                         nodes
+             - (N, 3) array of coordinates for the newly inserted nodes
+             - (N, ) array of fractional distances [0-1]: e.g. 0.25 means
+               that a new node will be inserted a quarter of the way between
+               the two nodes (from the child's perspective)
+validate :  bool
+            If True, will make sure that pairs in `where` are always
+            in (parent, child) order. If you know this to already be the
+            case, set `validate=False` to save some time.
+inplace :   bool
+            If True, will rewire the neuron inplace. If False, will return
+            a rewired copy of the neuron.
+
+Returns
+-------
+Skeleton
+
+Examples
+--------
+Insert new nodes between some random points
+
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> n.n_nodes
+4465
+>>> where = n.nodes[['parent_id', 'node_id']].values[100:200]
+>>> _ = navis.insert_nodes(n, where=where, inplace=True)
+>>> n.n_nodes
+4565
+
+### navis.remove_nodes(x, which, inplace=False)
+
+*function*
+
+Drop nodes from neuron without disconnecting it.
+
+Dropping node 2 from 1->2->3 will lead to connectivity 1->3.
+
+Parameters
+----------
+x :         Skeleton
+            Neuron to remove nodes from.
+which :     list of node IDs
+            IDs of nodes to remove.
+inplace :   bool
+            If True, will rewire the neuron inplace. If False, will return
+            a rewired copy of the neuron.
+
+Returns
+-------
+Skeleton
+
+Examples
+--------
+Drop points from a neuron
+
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> n.n_nodes
+4465
+>>> # Drop a hundred nodes
+>>> n2 = navis.remove_nodes(n, n.nodes.node_id.values[100:200])
+>>> n2.n_nodes
+4365
+
+See Also
+--------
+navis.collapse_nodes
+        Collapse a group of nodes into a single node. This is different
+        from removing nodes as it will potentially change the structure of
+        the neuron.
+
+### navis.collapse_nodes(x, which, new_co=None, inplace=False)
+
+*function*
+
+Collapse group of nodes into a single node.
+
+Parameters
+----------
+x :         Skeleton
+            Neuron to collapse nodes in.
+which :     list of node IDs
+            IDs of nodes to collapse. The first node in the list will be
+            the one that the others are collapsed into.
+new_co :    (x, y, z) coordinates, optional
+            Coordinates for the new node. If not given, will use the
+            center of the nodes to be collapsed.
+inplace :   bool
+            If True, will modify the neuron inplace. If False, will return
+            a modified copy of the neuron.
+
+Returns
+-------
+Skeleton
+
+Examples
+--------
+Collapse a group of nodes into a single node
+
+>>> import navis
+>>> import numpy as np
+>>> n = navis.example_neurons(1)
+>>> n.n_nodes
+4465
+>>> # Collapse nodes around the soma
+>>> soma_dist = np.linalg.norm(n.vertices - n.soma_pos, axis=1)
+>>> to_collapse = n.nodes.node_id[soma_dist < 1000].values
+>>> x = navis.collapse_nodes(n, to_collapse, new_co=n.soma_pos[0])
+>>> x.n_nodes
+4415
+
+See Also
+--------
+navis.remove_nodes
+        Remove nodes from the neuron without changing the structure.
+
+### navis.graph.simplify_graph(G, inplace=False)
+
+*function*
+
+Simplify skeleton graph (networkX or igraph).
+
+This function will simplify the graph by keeping only roots, leafs and
+branch points. Preserves branch lengths (i.e. weights)!
+
+Parameters
+----------
+G :         networkx.DiGraph | igraph.Graph
+            The skeleton graph to simplify.
+inplace :   bool
+            If True, will modify the graph in place.
+
+Returns
+-------
+G :         networkx.DiGraph | networkx.DiGraph
+            Simplified graph.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> # Simplify skeleton's NetworkX graph representation
+>>> G_simp_nx = navis.graph.simplify_graph(n.graph)
+>>> # Check that we have the expected number of nodes
+>>> assert len(G_simp_nx.nodes) == (n.n_branches + n.n_root + n.n_leafs)
+>>> # Simplify skeleton's iGraph graph representation
+>>> G_simp_ig = navis.graph.simplify_graph(n.igraph)
+>>> # Check that we have the expected number of nodes
+>>> assert len(G_simp_ig.vs) == (n.n_branches + n.n_root + n.n_leafs)
+
+### navis.graph.skeleton_adjacency_matrix(x, sort=True)
+
+*function*
+
+Generate adjacency matrix for a skeleton.
+
+Parameters
+----------
+x :         Skeleton
+            Neuron for which to generate adjacency matrix.
+sort :      bool, optional
+            If True, will sort the adjacency matrix by topology.
+
+Returns
+-------
+pd.DataFrame
+            Adjacency matrix where rows are nodes and columns are
+            their parents.
+
+See Also
+--------
+navis.geodesic_matrix
+    For distances between all points.
+navis.distal_to
+    Check if a node A is distal to node B.
+navis.dist_between
+    Get point-to-point geodesic ("along-the-arbor") distances.
+
+## Mesh neurons
+
+### navis.Mesh.faces
+
+*property*
+
+Faces making up the neuron.
+
+### navis.Mesh.vertices
+
+*property*
+
+Vertices making up the neuron.
+
+### navis.Mesh.extra_edges
+
+*property*
+
+Edges that are not part of any face.
+
+These express connectivity the surface itself does not have - e.g.
+bridges between disconnected fragments. Always a `(M, 2)` array of
+vertex indices; empty if there are none.
+
+Note that extra edges are dropped whenever the number of vertices
+changes (see `.vertices`).
+
+### navis.Mesh.trimesh
+
+*property*
+
+Trimesh representation of the neuron.
+
+Note that this is a `navis.utils.TrimeshPlus` - a `trimesh.Trimesh`
+that also carries this neuron's `.extra_edges`.
+
+### navis.Mesh.volume
+
+*property*
+
+Volume of the neuron.
+
+Calculated from the surface integral. Garbage if neuron is not
+watertight.
+
+### navis.Mesh.sampling_resolution
+
+*property*
+
+Average distance between vertices.
+
+### navis.Mesh.skeletonize(method='wavefront', heal=True, inv_dist=None, **kwargs)
+
+*function*
+
+Skeletonize mesh.
+
+See navis.conversion.mesh2skeleton for details.
+
+Parameters
+----------
+method :    "wavefront" | "teasar"
+            Method to use for skeletonization.
+heal :      bool
+            Whether to heal a fragmented skeleton after skeletonization.
+inv_dist :  int | float
+            Only required for method "teasar": invalidation distance for
+            the traversal. Smaller `inv_dist` captures smaller features
+            but is slower and vice versa. A good starting value is around
+            2-5 microns.
+**kwargs
+            Additional keyword are passed through to
+            navis.conversion.mesh2skeleton.
+
+Returns
+-------
+skeleton :  navis.Skeleton
+
+### navis.Mesh.snap(locs, to='vertices')
+
+*function*
+
+Snap xyz location(s) to closest vertex or synapse.
+
+Parameters
+----------
+locs :      (N, 3) array | (3, ) array
+            Either single or multiple XYZ locations.
+to :        "vertices" | "connectors"
+            Whether to snap to vertex or connector.
+
+Returns
+-------
+ix :        int | list of int
+            Index/indices of the closest vertex/connector.
+dist :      float | list of float
+            Distance(s) to the closest vertex/connector.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind='mesh')
+>>> ix, dist = n.snap([0, 0, 0])
+>>> ix
+300
+
+### navis.Mesh.validate(inplace=False)
+
+*function*
+
+Use trimesh to try and fix some common mesh issues.
+
+See navis.fix_mesh for details.
+
+## Voxel neurons
+
+### navis.Voxels.centroid
+
+*property*
+
+Centre of mass of the neuron, in units (i.e. including the offset).
+
+Note this is the centroid of the *occupied voxels* - it is not weighted
+by their values.
+
+Requires sparse-cubes >= 0.4.0.
+
+### navis.Voxels.closing(iterations=1, connectivity=6, fill=None, inplace=False)
+
+*function*
+
+Dilate, then erode: bridges narrow gaps and fills small pits.
+
+Note this **can fuse structures** that pass within `2 * iterations`
+voxels of each other. To fill enclosed voids without that risk use
+navis.Voxels.fill_cavities, which is topology-safe. See
+navis.Voxels.dilate for the parameters.
+
+Returns
+-------
+navis.Voxels
+                Only if `inplace=False`.
+
+### navis.Voxels.connected_components(connectivity=26)
+
+*function*
+
+Label the neuron's connected components.
+
+Requires sparse-cubes >= 0.4.0.
+
+Parameters
+----------
+connectivity :  6 | 18 | 26, optional
+                Which neighbours count as connected: 6 = faces only,
+                18 = faces + edges, 26 = faces + edges + corners.
+
+Returns
+-------
+np.ndarray
+            (N, ) array of component labels (`0 .. n_components - 1`),
+            aligned row for row with `.voxels`.
+
+See Also
+--------
+navis.drop_fluff
+            Uses this to remove small disconnected fragments.
+
+### navis.Voxels.densify(inplace=False)
+
+*function*
+
+Convert to a dense grid representation.
+
+Voxels are backed by either a dense 3D grid or a sparse (N, 3)
+array of voxel coordinates plus values. Both views are available via
+`.grid` and `.voxels`/`.values` whatever the backing - this method
+changes which one is actually stored. See
+navis.Voxels.sparsify for the inverse.
+
+Note that the grid's shape is derived from the voxel coordinates and
+can be orders of magnitude larger than the sparse data it replaces.
+Check `.grid_nbytes` before densifying a sparse neuron.
+
+Parameters
+----------
+inplace :   bool, optional
+            If False, will return a densified copy.
+
+Returns
+-------
+navis.Voxels
+            Densified copy of original neuron. Only if `inplace=False`.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> n = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]]))
+>>> n._base_data_type
+'voxels'
+>>> dense = n.densify()
+>>> dense._base_data_type
+'grid'
+>>> dense.shape
+(3, 3, 3)
+
+### navis.Voxels.density
+
+*property*
+
+Fraction of filled voxels.
+
+### navis.Voxels.dice(other)
+
+*function*
+
+Dice coefficient (F1 score) with `other`.
+
+Like navis.Voxels.iou but counts the intersection twice, so
+it is more forgiving of partial overlap. Values are ignored.
+
+Parameters
+----------
+other :     Voxels | (N, 3) array
+            Neuron (or raw voxel indices) to compare against.
+
+Returns
+-------
+float
+            Between 0 (disjoint) and 1 (identical).
+
+### navis.Voxels.difference(other, inplace=False)
+
+*function*
+
+Voxels in this neuron but not in `other` (set subtraction).
+
+See navis.Voxels.union for how neurons are aligned.
+
+Parameters
+----------
+other :     Voxels | (N, 3) array
+            Neuron (or raw voxel indices) to subtract.
+inplace :   bool, optional
+            If False, will return a modified copy.
+
+Returns
+-------
+navis.Voxels
+            Only if `inplace=False`. The result is a subset of this
+            neuron, so all voxels keep their values.
+
+### navis.Voxels.dilate(iterations=1, connectivity=6, fill=None, inplace=False)
+
+*function*
+
+Grow the neuron by its voxel neighbourhood.
+
+Adds every background voxel adjacent to the neuron, `iterations` times
+over. Note that iterating a 6-connected step grows a diamond, not a
+ball - this matches `scipy.ndimage.binary_dilation`'s semantics.
+
+Parameters
+----------
+iterations :    int, optional
+                Number of dilation steps.
+connectivity :  6 | 18 | 26, optional
+                Which neighbours count as adjacent: 6 = faces only,
+                18 = faces + edges, 26 = faces + edges + corners.
+fill :          int | float, optional
+                Value given to the newly added voxels. Defaults to this
+                neuron's maximum value, i.e. a binary neuron stays
+                binary. Existing voxels always keep their values.
+inplace :       bool, optional
+                If False, will return a modified copy.
+
+Returns
+-------
+navis.Voxels
+                Only if `inplace=False`.
+
+See Also
+--------
+navis.Voxels.erode
+                The inverse operation.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> n = navis.Voxels(np.array([[5, 5, 5]]))
+>>> n.dilate().nnz  # doctest: +SKIP
+7
+
+### navis.Voxels.distance_transform(spacing=None, workers=-1)
+
+*function*
+
+Distance from each voxel to the nearest background voxel.
+
+Requires sparse-cubes >= 0.4.0.
+
+Parameters
+----------
+spacing :   (3, ) array, optional
+            Voxel size to scale distances by. Defaults to this neuron's
+            units, i.e. distances come out in the neuron's own units
+            rather than in voxels. Pass `[1, 1, 1]` for voxel counts.
+workers :   int, optional
+            Number of threads to use. Default (-1) uses all cores.
+
+Returns
+-------
+np.ndarray
+            (N, ) array of distances, aligned row for row with
+            `.voxels` (and hence with `.values`).
+
+### navis.Voxels.erode(iterations=1, connectivity=6, inplace=False)
+
+*function*
+
+Shrink the neuron by peeling voxels that touch the background.
+
+A voxel survives only if *all* of its `connectivity` neighbours are also
+part of the neuron, so the outer shell is always removed. Note this can
+consume a thin neuron entirely - use navis.Voxels.thin if you
+want to preserve topology.
+
+Parameters
+----------
+iterations :    int, optional
+                Number of erosion steps.
+connectivity :  6 | 18 | 26, optional
+                See navis.Voxels.dilate.
+inplace :       bool, optional
+                If False, will return a modified copy.
+
+Returns
+-------
+navis.Voxels
+                Only if `inplace=False`. Surviving voxels keep their
+                values.
+
+### navis.Voxels.fill_cavities(fill=None, inplace=False, **kwargs)
+
+*function*
+
+Fill enclosed background voids.
+
+Unlike navis.Voxels.closing this is topology-safe: it only
+fills voids that are actually enclosed and can never fuse two separate
+structures.
+
+Parameters
+----------
+fill :      int | float, optional
+            Value given to the newly filled voxels. Defaults to this
+            neuron's maximum value.
+inplace :   bool, optional
+            If False, will return a modified copy.
+**kwargs
+            Passed through to `sparsecubes.binary.fill_cavities`, e.g.
+            `mode` or `max_cavity_size`.
+
+Returns
+-------
+navis.Voxels
+            Only if `inplace=False`.
+
+### navis.Voxels.grid
+
+*property*
+
+Voxel grid representation.
+
+### navis.Voxels.intersection(*others, inplace=False)
+
+*function*
+
+Voxels present in this neuron *and* in every one of the others.
+
+See navis.Voxels.union for how neurons are aligned.
+
+Parameters
+----------
+*others :   Voxels | (N, 3) array
+            One or more neurons (or raw voxel indices) to intersect with.
+inplace :   bool, optional
+            If False, will return a modified copy.
+
+Returns
+-------
+navis.Voxels
+            Only if `inplace=False`. The result is a subset of this
+            neuron, so all voxels keep their values.
+
+### navis.Voxels.iou(other)
+
+*function*
+
+Intersection over union (Jaccard index) with `other`.
+
+A pure overlap measure on the occupied voxels - values are ignored.
+See navis.Voxels.union for how the two neurons are aligned.
+
+Parameters
+----------
+other :     Voxels | (N, 3) array
+            Neuron (or raw voxel indices) to compare against.
+
+Returns
+-------
+float
+            Between 0 (disjoint) and 1 (identical).
+
+See Also
+--------
+navis.Voxels.dice
+            The Dice coefficient, which weights the overlap higher.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> a = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1]]))
+>>> b = navis.Voxels(np.array([[1, 1, 1], [2, 2, 2]]))
+>>> a.iou(b)
+0.3333333333333333
+
+### navis.Voxels.max()
+
+*function*
+
+Maximum value (excludes zeros).
+
+### navis.Voxels.mesh(**kwargs)
+
+*function*
+
+Convert this neuron into a mesh.
+
+Shorthand for navis.mesh - see there for details.
+
+Parameters
+----------
+**kwargs
+            Keyword arguments are passed through to
+            navis.conversion.voxels2mesh.
+
+Returns
+-------
+navis.Mesh
+            Note that data tables (e.g. `connectors`) are not carried
+            over from the input neuron.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind='mesh')
+>>> vx = navis.voxelize(n, pitch='2 microns')
+>>> m = vx.mesh()
+>>> type(m)
+<class 'navis.core.mesh.Mesh'>
+
+### navis.Voxels.min()
+
+*function*
+
+Minimum value (excludes zeros).
+
+### navis.Voxels.nnz
+
+*property*
+
+Number of non-zero voxels.
+
+### navis.Voxels.offset
+
+*property*
+
+Offset in units (not voxels), i.e. the position of voxel (0, 0, 0).
+
+### navis.Voxels.opening(iterations=1, connectivity=6, fill=None, inplace=False)
+
+*function*
+
+Erode, then dilate: strips specks and thin spurs, keeps bulk shape.
+
+Small structures that the erosion destroys do not come back, which makes
+this the standard way to remove surface noise before meshing or
+skeletonizing. See navis.Voxels.dilate for the parameters.
+
+Returns
+-------
+navis.Voxels
+                Only if `inplace=False`.
+
+### navis.Voxels.shape
+
+*property*
+
+Shape of voxel grid.
+
+### navis.Voxels.skeletonize(**kwargs)
+
+*function*
+
+Convert this neuron into a skeleton.
+
+Shorthand for navis.skeletonize - see there for details.
+
+Parameters
+----------
+**kwargs
+            Keyword arguments are passed through to
+            navis.conversion.voxels2skeleton, e.g. `method`
+            ("teasar" or "thin") or `heal`.
+
+Returns
+-------
+navis.Skeleton
+            Note that data tables (e.g. `connectors`) are not carried
+            over from the input neuron.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind='mesh')
+>>> vx = navis.voxelize(n, pitch='2 microns')
+>>> sk = vx.skeletonize()
+>>> type(sk)
+<class 'navis.core.skeleton.Skeleton'>
+
+### navis.Voxels.sparsify(inplace=False)
+
+*function*
+
+Convert to a sparse voxel representation.
+
+Voxels are backed by either a dense 3D grid or a sparse (N, 3)
+array of voxel coordinates plus values. Both views are available via
+`.grid` and `.voxels`/`.values` whatever the backing - this method
+changes which one is actually stored. See
+navis.Voxels.densify for the inverse.
+
+Parameters
+----------
+inplace :   bool, optional
+            If False, will return a sparsified copy.
+
+Returns
+-------
+navis.Voxels
+            Sparsified copy of original neuron. Only if `inplace=False`.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> grid = np.zeros((3, 3, 3))
+>>> grid[0, 0, 0] = grid[1, 1, 1] = 1
+>>> n = navis.Voxels(grid, sparsify=False)  # keep the dense grid
+>>> n._base_data_type
+'grid'
+>>> sparse = n.sparsify()
+>>> sparse._base_data_type
+'voxels'
+>>> sparse.voxels
+array([[0, 0, 0],
+       [1, 1, 1]])
+>>> sparse.shape  # the grid's shape is preserved
+(3, 3, 3)
+
+### navis.Voxels.strip(inplace=False)
+
+*function*
+
+Strip empty voxels (leading/trailing planes of zeros).
+
+### navis.Voxels.surface_area
+
+*property*
+
+Area of the neuron's exposed (blocky, staircase) surface.
+
+This is the area of the voxel faces that border the background, so it
+follows the voxel grid rather than a smoothed surface - meshing the
+neuron first and taking `Mesh.area` will give you a somewhat
+smaller number.
+
+Requires sparse-cubes >= 0.4.0.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind='mesh')
+>>> vx = navis.voxelize(n, pitch='2 microns')
+>>> vx.surface_area  # doctest: +SKIP
+<Quantity(21776.0, 'micrometer ** 2')>
+
+### navis.Voxels.symmetric_difference(other, fill=None, inplace=False)
+
+*function*
+
+Voxels in exactly one of this neuron and `other` (set XOR).
+
+See navis.Voxels.union for how neurons are aligned.
+
+Parameters
+----------
+other :     Voxels | (N, 3) array
+            Neuron (or raw voxel indices) to compare against.
+fill :      int | float, optional
+            Value given to voxels contributed by `other`. Defaults to
+            this neuron's maximum.
+inplace :   bool, optional
+            If False, will return a modified copy.
+
+Returns
+-------
+navis.Voxels
+            Only if `inplace=False`.
+
+### navis.Voxels.thin(inplace=False, **kwargs)
+
+*function*
+
+Thin the neuron to a one-voxel-wide medial curve (centerline).
+
+Unlike navis.Voxels.erode this preserves topology and
+endpoints. Note that - unlike navis.thin_voxels, which goes
+through scikit-image and a dense grid - this works straight off the
+sparse voxels and never allocates the bounding box.
+
+Parameters
+----------
+inplace :   bool, optional
+            If False, will return a modified copy.
+**kwargs
+            Passed through to `sparsecubes.binary.thin`, e.g.
+            `preserve_endpoints` or `max_iterations`.
+
+Returns
+-------
+navis.Voxels
+            Only if `inplace=False`. Surviving voxels keep their values.
+
+### navis.Voxels.threshold(threshold, inplace=False)
+
+*function*
+
+Drop below-threshold voxels.
+
+### navis.Voxels.union(*others, fill=None, inplace=False)
+
+*function*
+
+Voxels present in this neuron *or* any of the others.
+
+Note that `others` must live on the same voxel lattice: same voxel size,
+and offsets differing by a whole number of voxels. Differing offsets are
+translated automatically; anything else raises.
+
+Parameters
+----------
+*others :   Voxels | (N, 3) array
+            One or more neurons (or raw voxel indices) to combine with.
+fill :      int | float, optional
+            Value given to voxels contributed by `others`. Defaults to
+            this neuron's maximum. Voxels already in this neuron keep
+            their own values, so this neuron always wins on overlap.
+inplace :   bool, optional
+            If False, will return a modified copy.
+
+Returns
+-------
+navis.Voxels
+            Only if `inplace=False`.
+
+### navis.Voxels.voxels
+
+*property*
+
+Voxels making up the neuron.
+
+## Dotprops
+
+### navis.Dotprops.points
+
+*property*
+
+Center of tangent vectors.
+
+### navis.Dotprops.vect
+
+*property*
+
+Tangent vectors.
+
+### navis.Dotprops.alpha
+
+*property*
+
+Alpha values for tangent vectors.
+
+High alpha indicates that the local neighborhood is pointing in the same direction.
+Low alpha indicates that the tangent vectors are pointing in different directions.
+
+### navis.Dotprops.to_skeleton(scale_vec='auto')
+
+*function*
+
+Turn Dotprop into a Skeleton.
+
+This does *not* skeletonize the neuron but rather generates a line
+segment for each point based on the tangent vector. This is mainly
+used under the hood for plotting. Also note that only minimal meta
+data is carried over.
+
+For proper skeletonization see navis.skeletonize.
+
+Parameters
+----------
+scale_vec :     "auto" | float
+                Factor by which to scale each tangent vector when
+                generating the line segments. If "auto" (default for
+                plotting) will use the sampling resolution (median
+                distance between points) to determine a suitable
+                values.
+
+Returns
+-------
+Skeleton
+
+### navis.Dotprops.snap(locs, to='points')
+
+*function*
+
+Snap xyz location(s) to closest point or synapse.
+
+Parameters
+----------
+locs :      (N, 3) array | (3, ) array
+            Either single or multiple XYZ locations.
+to :        "points" | "connectors"
+            Whether to snap to points or connectors.
+
+Returns
+-------
+ix :        int | list of int
+            Index/Indices of the closest point/connector.
+dist :      float | list of float
+            Distance(s) to the closest point/connector.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> dp = navis.make_dotprops(n, k=5)
+>>> ix, dist = dp.snap([0, 0, 0])
+>>> ix
+1123
+
+## Converting between types
+
+### navis.make_dotprops(x, k=20, resample=False, threshold=None, on_issue='warn', make_using=None)
+
+*function*
+
+Produce dotprops from neurons or point clouds.
+
+This is following the implementation in R's `nat` library.
+
+Parameters
+----------
+x :         Neuron | NeuronList | pandas.DataFrame | numpy.ndarray
+            Data/object to generate dotprops from. DataFrame must have
+            'x', 'y' and 'z' columns.
+k :         int (> 1), optional
+            Number of nearest neighbours to use for tangent vector
+            calculation:
+
+              - `k=0` or `k=None` is possible but only for
+                `Skeletons` where we then use the midpoints between
+                child -> parent nodes and their vectors
+              - `k` is only guaranteed if the input has at least `k`
+                points
+              - `k` includes self-hits and while `k=1` is not
+                strictly forbidden, it makes little sense and will
+                likely produce nonsense dotprops
+
+resample :  float | int | str, optional
+            If provided will resample neurons to the given resolution:
+
+              - for `Meshes`, `Voxels` and point clouds, we are using
+                `trimesh.points.remove_close` to remove surface vertices
+                closer than the given resolution. Note that this is only
+                approximate and also means that `Mesh/Voxels`
+                can not be up-sampled!
+              - if the neuron has `.units` set you can also provide this
+                as string, e.g. "1 micron".
+
+threshold : float, optional
+            Only for `Voxels`: determines which voxels will be
+            converted to dotprops points.
+on_issue :  "warn" (default) | "raise" | "fix"
+            What to do if issues are found during processing:
+              - "warn": log a warning, fix the issue and continue
+              - "raise": raise an error and stop
+              - "fix": silently fix the issue and continue
+make_using :    function | class, optional
+                Function or class used to construct dotprops. Must take
+                `points`, `alpha` and `vect` as inputs. By default, will use
+                `navis.Dotprops` but you can use this to e.g. produce
+                custom subclasses.
+parallel :  bool
+            If True and input is NeuronList, distribute the
+            work across multiple processes. See
+            `navis.set_parallel_backend` for where it runs.
+n_cores :   int, optional
+            Numbers of cores to use if `parallel=True`.
+            Defaults to half the available cores.
+chunksize : int, optional
+            Number of neurons to hand a worker at a time.
+            Defaults to letting the backend decide.
+backend :   str | ParallelBackend, optional
+            Override where this call runs. Defaults to
+            `navis.config.default_parallel_backend`.
+progress :  bool
+            Whether to show a progress bar. Overruled by
+            `navis.set_pbars`.
+omit_failures :bool
+               If True will omit failures instead of raising
+               an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+navis.Dotprops
+
+            If input is multiple neurons, will return a
+            navis.NeuronList of navis.Dotprops.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1)
+>>> dp = navis.make_dotprops(n)
+>>> dp
+type        navis.Dotprops
+name             DA1_lPN_R
+id              1734350788
+k                       20
+units          8 nanometer
+n_points              4465
+dtype: object
+
+### navis.skeletonize(x, **kwargs)
+
+*function*
+
+Turn neuron into skeleton.
+
+For meshes, this function is a thin-wrapper for `skeletor`. For voxels it
+wraps `sparsecubes`. Both use sensible defaults for neurons but if you want
+to fine-tune your skeletons you should look into using those directly.
+
+Parameters
+----------
+x :         Mesh | trimesh.Trimesh | Dotprops | Voxels
+            Object(s) to skeletonize. Note that the quality of the results
+            very much depends on the input, so it might be worth doing some
+            pre-processing (see below).
+**kwargs
+            Keyword arguments are passed through to the respective
+            converters:
+                - meshes: navis.conversion.mesh2skeleton
+                - dotprops and point clouds: navis.conversion.points2skeleton
+                - voxels: navis.conversion.voxels2skeleton
+parallel :  bool
+            If True and input is NeuronList, distribute the
+            work across multiple processes. See
+            `navis.set_parallel_backend` for where it runs.
+n_cores :   int, optional
+            Numbers of cores to use if `parallel=True`.
+            Defaults to half the available cores.
+chunksize : int, optional
+            Number of neurons to hand a worker at a time.
+            Defaults to letting the backend decide.
+backend :   str | ParallelBackend, optional
+            Override where this call runs. Defaults to
+            `navis.config.default_parallel_backend`.
+progress :  bool
+            Whether to show a progress bar. Overruled by
+            `navis.set_pbars`.
+omit_failures :bool
+               If True will omit failures instead of raising
+               an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+skeleton :  navis.Skeleton
+            For meshes, this has a `.vertex_map` attribute that maps each
+            vertex in the input mesh to a skeleton node ID.
+
+See Also
+--------
+navis.drop_fluff
+            Use this if your mesh has lots of tiny free floating bits to
+            reduce noise and speed up skeletonization.
+
+Examples
+--------
+# Skeletonize a mesh
+>>> import navis
+>>> # Get a mesh neuron
+>>> n = navis.example_neurons(1, kind='mesh')
+>>> # Convert to skeleton
+>>> sk = navis.skeletonize(n)
+>>> # Mesh vertex indices to node IDs map
+>>> sk.vertex_map                                           # doctest: +SKIP
+array([938, 990, 990, ...,  39, 234, 234])
+
+# Skeletonize dotprops (i.e. point-clouds)
+>>> import navis
+>>> # Get a skeleton and turn into dotprops
+>>> dp = navis.make_dotprops(navis.example_neurons(1))
+>>> # Turn back into a skeleton
+>>> sk = navis.skeletonize(dp)
+
+# Skeletonize voxels
+>>> import navis
+>>> vx = navis.voxelize(navis.example_neurons(1, kind='mesh'), pitch='2 microns')
+>>> sk = navis.skeletonize(vx)
+
+### navis.mesh(x, **kwargs)
+
+*function*
+
+Generate mesh from object(s).
+
+Voxels or (N, 3) arrays of voxel coordinates will be meshed using
+a marching cubes algorithm. Skeletons will be meshed by creating
+cylinders using the radii.
+
+Parameters
+----------
+x :             Voxels | (N, 3) np.array | Skeleton
+                Object to mesh. See notes above.
+**kwargs
+                Keyword arguments are passed through to the respective
+                converters: navis.conversion.voxels2mesh and
+                navis.conversion.tree2meshneuron, respectively.
+parallel :      bool
+                If True and input is NeuronList, distribute the
+                work across multiple processes. See
+                `navis.set_parallel_backend` for where it runs.
+n_cores :       int, optional
+                Numbers of cores to use if `parallel=True`.
+                Defaults to half the available cores.
+chunksize :     int, optional
+                Number of neurons to hand a worker at a time.
+                Defaults to letting the backend decide.
+backend :       str | ParallelBackend, optional
+                Override where this call runs. Defaults to
+                `navis.config.default_parallel_backend`.
+progress :      bool
+                Whether to show a progress bar. Overruled by
+                `navis.set_pbars`.
+omit_failures : bool
+                If True will omit failures instead of raising
+                an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+mesh :          trimesh.Trimesh | Mesh
+                Returns a trimesh or Mesh depending on the input.
+                Data tables (e.g. `connectors`) are not carried over from
+                input neuron.
+
+### navis.voxelize(x, pitch, bounds=None, counts=False, vectors=False, alphas=False, smooth=0)
+
+*function*
+
+Turn neuron into voxels.
+
+Parameters
+----------
+x :             Skeleton | Mesh | Dotprops
+                Neuron(s) to voxelize. Uses the neurons' nodes, vertices and
+                points, respectively.
+pitch :         float | iterable thereof
+                Side length(s) voxels. Can be isometric (float) or an
+                iterable of dimensions in (x, y, z).
+bounds :        (3, 2)  or (2, 3) array, optional
+                Boundaries [in units of `x`] for the voxel grid. If not
+                provided, will use `x.bbox`.
+counts :        bool
+                If True, voxel grid will have point counts for values
+                instead of just True/False.
+vectors :       bool
+                If True, will also attach a vector field as `.vectors`
+                property.
+alphas :        bool
+                If True, will also return a grid with alpha values as
+                `.alpha` property.
+smooth :        int
+                If non-zero, will apply a Gaussian filter with `smooth`
+                as `sigma`.
+parallel :      bool
+                If True and input is NeuronList, distribute the
+                work across multiple processes. See
+                `navis.set_parallel_backend` for where it runs.
+n_cores :       int, optional
+                Numbers of cores to use if `parallel=True`.
+                Defaults to half the available cores.
+chunksize :     int, optional
+                Number of neurons to hand a worker at a time.
+                Defaults to letting the backend decide.
+backend :       str | ParallelBackend, optional
+                Override where this call runs. Defaults to
+                `navis.config.default_parallel_backend`.
+progress :      bool
+                Whether to show a progress bar. Overruled by
+                `navis.set_pbars`.
+omit_failures : bool
+                If True will omit failures instead of raising
+                an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+Voxels
+                Has the voxel grid as `.grid` and (optionally) `.vectors`
+                and `.alphas` properties. `.grid` data type depends
+                on settings:
+                 - default = bool (i.e. True/False)
+                 - if `counts=True` = integer
+                 - if `smooth=True` = float
+                Empty voxels will have vector (0, 0, 0) and alpha 0. Also
+                note that data tables (e.g. `connectors`) are not carried
+                over from the input neuron.
+
+Examples
+--------
+>>> import navis
+>>> # Get a skeleton
+>>> n = navis.example_neurons(1)
+>>> # Convert to voxel neuron
+>>> vx = navis.voxelize(n, pitch='5 microns')
+
+### navis.conversion.voxels2mesh(vox, spacing='auto', step_size=1, smooth=True, chunk_size=None, pad_chunks=None, merge_fragments=None, progress=None)
+
+*function*
+
+Generate mesh from voxels.
+
+Uses sparsecubes.mesh, which works directly off the sparse voxels
+instead of densifying them to a 3D grid the way marching cubes does.
+
+Parameters
+----------
+vox :           Voxels | (N, 3) np.array
+                Object to voxelize. Can be a Voxels neuron or an (N, 3) array
+                of x, y, z voxel coordinates.
+spacing :       np.array
+                (3, ) array with x, y, z voxel size. If `auto` and input is
+                a `Voxels` we will use the neuron's `.units` property,
+                else spacing will be `(1, 1, 1)`.
+step_size :     int, optional
+                Step size for the meshing algorithm.
+                Higher values = faster but coarser.
+smooth :        bool
+                How vertices are placed:
+                  - True (default) uses SurfaceNets: one vertex per surface
+                    cell, placed at the centroid of the surface crossings
+                    around it. Smooths the staircase you would otherwise get
+                    on diagonal surfaces. Vertices are floats.
+                  - False gives blocky, axis-aligned quads with corners on
+                    the integer voxel grid. Vertices keep the input's
+                    integer dtype.
+chunk_size :    int, optional
+                Deprecated and ignored - meshing no longer densifies the
+                voxels, so there is nothing to chunk.
+pad_chunks :    bool, optional
+                Deprecated and ignored, see `chunk_size`.
+merge_fragments :  bool, optional
+                Deprecated and ignored, see `chunk_size`.
+progress :      bool, optional
+                Deprecated and ignored: meshing is now a single pass with
+                no chunk loop to report on.
+
+Returns
+-------
+mesh :          trimesh.Trimesh | Mesh
+                Returns a trimesh or Mesh depending on the input.
+                Data tables (e.g. `connectors`) are not carried over from
+                input neuron.
+
+### navis.conversion.voxels2skeleton(vox, method='wavefront', spacing='auto', heal=False, **kwargs)
+
+*function*
+
+Turn voxels into a skeleton.
+
+Uses sparsecubes, which works directly off the sparse voxels instead
+of densifying them to a 3D grid.
+
+Parameters
+----------
+vox :           Voxels | (N, 3) np.array
+                Object to skeletonize. Can be a Voxels neuron or an (N, 3)
+                array of x, y, z voxel coordinates.
+method :        "wavefront" | "teasar" | "thin"
+                Which algorithm to use:
+                  - "wavefront" (default) propagates a geodesic wave and
+                    collapses each ring of equidistant voxels to its
+                    centroid. Needs neither a thinning pass nor a distance
+                    transform, which makes it the fastest of the three, and
+                    node positions are sub-voxel. Radii come for free from
+                    the rings (volume-preserving by default).
+                  - "teasar" produces well-centered, medial-axis skeletons.
+                    This is a sparse reimplementation of `kimimaro`.
+                  - "thin" peels the voxels down to a one-voxel-wide medial
+                    curve and extracts the centerline from that. Tends to
+                    produce more (and shorter) branches.
+                Note this mirrors navis.conversion.mesh2skeleton,
+                which also defaults to "wavefront".
+spacing :       "auto" | (3, ) array
+                Voxel size. If "auto" and input is a `Voxels` we use
+                the neuron's `.units`, else spacing will be `(1, 1, 1)`.
+heal :          bool
+                Whether to heal the resulting skeleton if it has multiple
+                connected components. Note that voxel data is often
+                fragmented, so this can make a big difference.
+**kwargs
+                Keyword arguments are passed through to the underlying
+                `sparsecubes` skeletonizer, e.g. `min_branch_length`, or
+                `radius_agg`/`step_size` for "wavefront".
+parallel :      bool
+                If True and input is NeuronList, distribute the
+                work across multiple processes. See
+                `navis.set_parallel_backend` for where it runs.
+n_cores :       int, optional
+                Numbers of cores to use if `parallel=True`.
+                Defaults to half the available cores.
+chunksize :     int, optional
+                Number of neurons to hand a worker at a time.
+                Defaults to letting the backend decide.
+backend :       str | ParallelBackend, optional
+                Override where this call runs. Defaults to
+                `navis.config.default_parallel_backend`.
+progress :      bool
+                Whether to show a progress bar. Overruled by
+                `navis.set_pbars`.
+omit_failures : bool
+                If True will omit failures instead of raising
+                an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+skeleton :      navis.Skeleton
+                Note that data tables (e.g. `connectors`) are not carried
+                over from the input neuron.
+
+See Also
+--------
+navis.skeletonize
+                The high-level wrapper you would normally use.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind='mesh')
+>>> vx = navis.voxelize(n, pitch='2 microns')
+>>> sk = navis.conversion.voxels2skeleton(vx)
+>>> sk.n_nodes > 0
+True
+
+### navis.conversion.tree2meshneuron(x, tube_points=8, radius_scale_factor=1, use_normals=True, warn_missing_radii=True)
+
+*function*
+
+Convert Skeleton to Mesh.
+
+Uses the `radius` to convert skeleton to 3D tube mesh. Missing radii are
+treated as zeros.
+
+Parameters
+----------
+x :             Skeleton | NeuronList
+                Neuron to convert.
+tube_points :   int
+                Number of points making up the circle of the cross-section
+                of the tube.
+radius_scale_factor : float
+                Factor to scale radii by.
+use_normals :   bool
+                If True will rotate tube along its curvature.
+warn_missing_radii : bool
+                Whether to warn if radii are missing or <= 0.
+parallel :      bool
+                If True and input is NeuronList, distribute the
+                work across multiple processes. See
+                `navis.set_parallel_backend` for where it runs.
+n_cores :       int, optional
+                Numbers of cores to use if `parallel=True`.
+                Defaults to half the available cores.
+chunksize :     int, optional
+                Number of neurons to hand a worker at a time.
+                Defaults to letting the backend decide.
+backend :       str | ParallelBackend, optional
+                Override where this call runs. Defaults to
+                `navis.config.default_parallel_backend`.
+progress :      bool
+                Whether to show a progress bar. Overruled by
+                `navis.set_pbars`.
+omit_failures : bool
+                If True will omit failures instead of raising
+                an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+Mesh
+                Data tables (e.g. `connectors`) are not carried over from
+                the input neuron.
+
+Examples
+--------
+>>> import navis
+>>> # Get a skeleton
+>>> n = navis.example_neurons(1)
+>>> # Convert to mesh neuron
+>>> m = navis.conversion.tree2meshneuron(n)
+
+## NeuronList methods
+
+### navis.NeuronList.apply(func, *, parallel=False, n_cores=None, chunksize=None, backend=None, progress=True, omit_failures=False, **kwargs)
+
+*function*
+
+Apply function across all neurons in this NeuronList.
+
+Parameters
+----------
+func :          callable
+                Function to be applied. Must accept
+                navis.BaseNeuron as first argument.
+parallel :      bool
+                If True (default) will use multiprocessing. Spawning the
+                processes takes time (and memory). Using `parallel=True`
+                makes only sense if the NeuronList is large or the
+                function takes a long time to run.
+n_cores :       int
+                Number of CPUs to use for multiprocessing. Defaults to
+                half the available cores.
+chunksize :     int, optional
+                Number of neurons to hand a worker at a time. Defaults
+                to letting the backend decide.
+backend :       str | ParallelBackend | concurrent.futures.Executor, optional
+                Where to run. Defaults to
+                navis.set_parallel_backend's setting. Note that
+                `func` must be importable by name (i.e. not a lambda)
+                unless the backend can serialise by value.
+progress :      bool
+                Whether to show a progress bar.
+omit_failures : bool
+                If True, will ignore failures.
+
+**kwargs
+            Will be passed to function.
+
+Returns
+-------
+Results
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons()
+>>> # Apply resampling function
+>>> nl_rs = nl.apply(navis.resample_skeleton, resample_to=1000, inplace=False)
+
+### navis.NeuronList.head(N=5)
+
+*function*
+
+Return summary for top N neurons.
+
+### navis.NeuronList.itertuples()
+
+*function*
+
+Helper to mimic `pandas.DataFrame.itertuples()`.
+
+### navis.NeuronList.mean()
+
+*function*
+
+Return mean numeric and boolean values over all neurons.
+
+### navis.NeuronList.remove_duplicates(key='name', keep='first', inplace=False)
+
+*function*
+
+Remove duplicate neurons from list.
+
+Parameters
+----------
+key :       str | list, optional
+            Attribute(s) by which to identify duplicates. In case of
+            multiple, all attributes must match to flag a neuron as
+            duplicate.
+keep :      str
+            Which of the duplicated neurons to keep.
+inplace :   bool, optional
+            If False will return a copy of the original with
+            duplicates removed.
+
+### navis.NeuronList.sum()
+
+*function*
+
+Return sum numeric and boolean values over all neurons.
+
+### navis.NeuronList.summary(N=None, add_props=[], progress=False)
+
+*function*
+
+Get summary over all neurons in this NeuronList.
+
+Parameters
+----------
+N :         int | slice, optional
+            If int, get only first N entries.
+add_props : list, optional
+            Additional properties to add to summary. If attribute not
+            available will return 'NA'.
+progress :  bool
+            Whether to show a progress bar. Can be useful for very
+            large list.
+
+Returns
+-------
+pandas DataFrame
+
+### navis.NeuronList.tail(N=5)
+
+*function*
+
+Return summary for bottom N neurons.
+
+### navis.NeuronList.unmix()
+
+*function*
+
+Split into NeuronLists of the same neuron type.
+
+Returns
+-------
+dict
+        Dictionary of `{Neurontype: NeuronList}`
+
+### navis.NeuronList.bbox
+
+*property*
+
+Bounding box across all neurons in the list.
+
+### navis.NeuronList.empty
+
+*property*
+
+Return True if NeuronList is empty.
+
+### navis.NeuronList.is_degenerated
+
+*property*
+
+Return True if contains neurons with non-unique IDs.
+
+### navis.NeuronList.is_mixed
+
+*property*
+
+Return True if contains more than one type of neuron.
+
+### navis.NeuronList.pipeline
+
+*property*
+
+Start a navis.Pipeline bound to this NeuronList.
+
+Steps are collected as you chain them and nothing runs until `.run()`.
+Handy for one-off chains; build a navis.Pipeline directly if you
+want to re-use it across several lists.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons(3)
+>>> res = (nl.pipeline
+...          .heal_skeleton()
+...          .prune_twigs(5000)
+...          .run())
+>>> len(res)
+3
+
+### navis.NeuronList.shape
+
+*property*
+
+Shape of NeuronList (N, ).
+
+### navis.NeuronList.types
+
+*property*
+
+Return neuron types present in this list.
+
+## Pipelines
+
+### navis.Pipeline(*steps, elide_copies=True, desc=None)
+
+*class*
+
+A reusable, composable sequence of operations.
+
+Chaining navis functions over a `NeuronList` with `parallel=True` sends the
+neurons to a worker and back once per function. A pipeline fuses consecutive
+per-neuron steps into a single task, so they make that trip once for the
+whole chain - and lets each step modify the intermediate the previous one
+produced instead of taking its own copy.
+
+Pipelines are immutable: navis.Pipeline.add and friends return a
+new pipeline, so one can be built up, shared and re-used freely.
+
+Parameters
+----------
+*steps :        callable | tuple | Pipeline
+                The steps to run, in order. Each can be:
+
+                  - a callable, e.g. `navis.heal_skeleton`
+                  - `(callable, args)`, `(callable, kwargs)` or
+                    `(callable, args, kwargs)`
+                  - a `functools.partial` - bind its arguments by keyword,
+                    since positional ones would come *before* the neuron
+                  - another `Pipeline`, whose steps are spliced in
+
+                Steps do not have to be navis functions - anything callable
+                will do (see navis.Pipeline.add).
+elide_copies :  bool
+                Whether steps may modify intermediates in place instead of
+                copying them. Turn this off if a step returns a new neuron
+                that shares data with its input.
+desc :          str, optional
+                Progress bar description. Defaults to the step names.
+
+See Also
+--------
+navis.NeuronList.pipeline
+                Build and run a pipeline straight off a `NeuronList`.
+navis.NeuronList.apply
+                Map a single function over a `NeuronList`.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons(3, kind='skeleton')
+
+Steps can be given up front...
+
+>>> pipe = navis.Pipeline(
+...     navis.heal_skeleton,
+...     (navis.prune_twigs, (5000,)),
+...     (navis.resample_skeleton, {'resample_to': 1000}),
+... )
+>>> pipe
+Pipeline with 3 step(s): heal_skeleton | prune_twigs | resample_skeleton
+
+... or added one at a time. Any navis function can be named directly:
+
+>>> pipe = navis.Pipeline().heal_skeleton().prune_twigs(5000)
+>>> len(pipe)
+2
+
+Running it returns a new `NeuronList` and leaves the input alone:
+
+>>> res = pipe(nl)
+>>> len(res)
+3
+>>> all(a.n_nodes >= b.n_nodes for a, b in zip(nl, res))
+True
+
+With `parallel=True` each neuron is sent to a worker once for the whole
+chain, instead of once per step:
+
+>>> res = pipe(nl, parallel=True, n_cores=2)             # doctest: +SKIP
+
+The input does not have to be neurons - it is whatever the first step
+accepts. Here a query object is turned into neurons by the first step, and
+everything after that runs per neuron:
+
+>>> import navis.interfaces.neuprint as neu                      # doctest: +SKIP
+>>> pipe = navis.Pipeline(neu.fetch_skeletons).resample_skeleton(1000)  # doctest: +SKIP
+>>> res = pipe(neu.NeuronCriteria(type='.*LPN'), parallel=True)  # doctest: +SKIP
+
+### navis.Pipeline.add(func, *args, **kwargs)
+
+*function*
+
+Add a step and return the new pipeline.
+
+The step is applied to each neuron individually if the value reaching it
+is a `NeuronList`, and called once with the whole value otherwise. Use
+navis.Pipeline.add_each or
+navis.Pipeline.add_once to force one or the other.
+
+Parameters
+----------
+func :      callable
+            Any callable. It is handed the value flowing through the
+            pipeline as its first argument.
+*args
+**kwargs
+            Bound to `func` now and passed on every call.
+
+Returns
+-------
+Pipeline
+            A **new** pipeline - the original is not modified.
+
+Examples
+--------
+>>> import navis
+>>> pipe = navis.Pipeline(navis.heal_skeleton)
+>>> longer = pipe.add(navis.prune_twigs, 5000)
+>>> len(pipe), len(longer)
+(1, 2)
+
+Steps do not have to be navis functions:
+
+>>> def n_nodes(x):
+...     return x.n_nodes
+>>> res = navis.Pipeline(n_nodes)(navis.example_neurons(2))
+>>> len(res)
+2
+
+### navis.Pipeline.add_each(func, *args, **kwargs)
+
+*function*
+
+Add a step that is mapped over the elements of the value.
+
+Use this to fan out over something that is not a `NeuronList` - e.g. to
+fetch a list of IDs in parallel.
+
+Examples
+--------
+>>> import navis
+>>> pipe = navis.Pipeline().add_each(navis.example_neurons)
+>>> res = pipe([1, 1])
+>>> len(res)
+2
+
+### navis.Pipeline.add_once(func, *args, **kwargs)
+
+*function*
+
+Add a step that is called once, with the whole value.
+
+Use this for functions that work across a whole `NeuronList` rather than
+neuron by neuron - navis.xform_brain pools all the coordinates and
+transforms them in one go, for example.
+
+Examples
+--------
+>>> import navis
+>>> pipe = navis.Pipeline().add_once(len)
+>>> pipe(navis.example_neurons(3))
+3

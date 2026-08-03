@@ -1,0 +1,1023 @@
+# navis 2.0.0-rc.1 - Machine Learning
+
+Full docstrings for the 'Machine Learning' section of the navis API.
+Index of the whole API: https://navis-org.github.io/navis/llms.txt
+
+### navis.ml.normalize_neuron(x, center='centroid', scale='rms', rotate='pca', return_matrix=False)
+
+*function*
+
+Normalize a neuron's pose: center, orient and scale it canonically.
+
+Learning-based models should not have to spend capacity discovering that a
+neuron means the same thing after it is shifted, rotated or rescaled. This
+removes those nuisance degrees of freedom up front by mapping every neuron
+into a canonical frame with a single rigid-plus-uniform-scale transform
+``p' = s * R @ (p - c)``:
+
+- **center** (`c`) moves a chosen reference point to the origin,
+- **rotate** (`R`) aligns the principal axes of the arbor with x/y/z, and
+- **scale** (`s`) normalizes the overall size.
+
+The transform is affine, so it is applied faithfully to *everything* the
+neuron carries - skeleton nodes, mesh vertices, dotprops points **and their
+tangent vectors**, connectors, soma and node radii, and the `.units` - via
+navis.xform. Because it is a single matrix it is exactly invertible:
+pass ``return_matrix=True`` to get the 4x4 matrix and map model outputs in
+the normalized frame back to the original coordinates (see Examples).
+
+Parameters
+----------
+x :         Skeleton | Mesh | Dotprops | NeuronList
+            Neuron(s) to normalize. Each neuron in a `NeuronList` is
+            normalized **independently** (into its own canonical frame).
+            `Voxels` are not supported - rotating a dense grid needs
+            resampling; convert to points/mesh first.
+center :    "centroid" | "bbox" | "soma" | (x, y, z) | None
+            Reference point moved to the origin.
+            - "centroid" (default): mean of the coordinates.
+            - "bbox": midpoint of the axis-aligned bounding box.
+            - "soma": the soma position (`Skeleton` with a soma only).
+            - an explicit ``(x, y, z)`` coordinate.
+            - None: no centering.
+rotate :    "pca" | None
+            - "pca" (default): rotate so the largest-variance axis becomes
+              x, the next y and the smallest z. Signs are disambiguated
+              deterministically, so the same shape always lands in the same
+              orientation no matter how it came in, and handedness is
+              preserved (neurons are never mirrored). Orientation is unstable
+              when two principal axes have near-equal spread (e.g. a neuron
+              with no dominant axis).
+            - None: no reorientation.
+scale :     "rms" | "extent" | "max" | None
+            Size normalization, applied after centering/rotation.
+            - "rms" (default): unit root-mean-square radius (robust to a few
+              far-flung nodes; the natural choice for most models).
+            - "extent": longest principal-axis extent becomes 1 (fits the
+              arbor into a unit box along its principal axes).
+            - "max": farthest point sits at radius 1 (unit enclosing sphere;
+              sensitive to outliers).
+            - None: no scaling. Node/soma radii and `.units` are then left
+              untouched; otherwise they are rescaled by `s` to stay
+              physically consistent.
+return_matrix : bool
+            If True, also return the 4x4 homogeneous matrix (or, for a
+            `NeuronList`, a list of matrices) that maps original -> normalized
+            coordinates.
+
+Returns
+-------
+xf :        same type as `x`
+            A **copy** of `x` in its canonical pose (the input is never
+            modified).
+matrix :    (4, 4) np.ndarray | list of np.ndarray
+            Only if ``return_matrix=True``. `matrix @ [x, y, z, 1]` reproduces
+            the normalization; ``np.linalg.inv(matrix)`` maps normalized
+            coordinates back to the original frame.
+
+See Also
+--------
+navis.ml.chunk_neuron
+            Break a (typically pre-normalized) neuron into fixed-size
+            fragments for batching.
+navis.ml.sample_points_uniform
+            Draw a uniform point sample from a neuron/cloud.
+navis.transforms.align
+            Register neurons *to each other* (rigid/deformable/PCA) rather
+            than each into an absolute canonical frame.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> norm = navis.ml.normalize_neuron(n)
+>>> co = norm.nodes[["x", "y", "z"]].values
+>>> bool(np.allclose(co.mean(axis=0), 0, atol=1e-6))   # centered
+True
+>>> float(round(np.sqrt((co ** 2).sum(axis=1).mean()), 6))  # unit RMS radius
+1.0
+>>> # Keep the matrix to map coordinates back to the original frame:
+>>> norm, M = navis.ml.normalize_neuron(n, return_matrix=True)
+>>> back = (np.linalg.inv(M) @ np.append(co[0], 1))[:3]
+>>> orig = n.nodes[["x", "y", "z"]].values[0]
+>>> bool(np.allclose(back, orig, atol=1e-4))
+True
+
+### navis.ml.augment_neuron(x, drop=None, warp=None, rotate=None, scale=None, translate=None, jitter=None, random_state=None)
+
+*function*
+
+Apply a pipeline of augmentations in one call.
+
+A convenience wrapper that chains the individual augmentations in a sensible
+order - ``drop -> warp -> rotate -> scale -> translate -> jitter`` (topology
+first, smooth deformation before rigid ones, independent noise last). Each
+argument is ``None`` (or ``False``) to skip that step, its primary value to
+run it with defaults, ``True`` to run it with defaults, or a dict of keyword
+arguments for full control. A skipped step draws nothing from the RNG, so
+toggling one step off does not change the random draws of the others.
+
+Parameters
+----------
+x :         Skeleton | Mesh | Dotprops | NeuronList
+drop :      float | dict, optional
+            `fraction` for navis.ml.drop_nodes.
+warp :      float | dict, optional
+            `magnitude` for navis.ml.warp_neuron.
+rotate :    bool | float | dict, optional
+            `max_angle` for navis.ml.rotate_neuron; ``True`` = a full
+            random rotation with defaults.
+scale :     (low, high) | dict, optional
+            `scale_range` for navis.ml.scale_neuron.
+translate : float | (3,) | dict, optional
+            `magnitude` for navis.ml.translate_neuron.
+jitter :    float | dict, optional
+            `sigma` for navis.ml.jitter_neuron.
+random_state : int | np.random.Generator, optional
+            One seed drives every step (drawn in sequence), so the whole
+            pipeline is reproducible.
+
+Returns
+-------
+same type as `x`
+            An augmented copy.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> aug = navis.ml.augment_neuron(
+...     n, drop=0.1, rotate=True, scale=(0.8, 1.25), jitter=50, random_state=0
+... )
+
+### navis.ml.jitter_neuron(x, sigma, random_state=None)
+
+*function*
+
+Perturb coordinates with Gaussian noise.
+
+Simulates the positional uncertainty of a reconstruction: every node/vertex/
+point (and every connector) is displaced by an independent draw from a normal
+distribution. Dotprops tangent vectors are regenerated from the jittered
+points, so orientation noise follows naturally.
+
+Parameters
+----------
+x :         Skeleton | Mesh | Dotprops | NeuronList
+sigma :     float | (3,) array-like
+            Standard deviation of the noise **in coordinate units** (per-axis
+            if a 3-vector). Note this is absolute: for a neuron normalized to
+            unit RMS (see navis.ml.normalize_neuron) a `sigma` of
+            ~0.01-0.05 is a gentle jitter; for a raw neuron in nanometers you
+            would use something on the order of the node spacing.
+random_state : int | np.random.Generator, optional
+            Seed/generator for reproducibility.
+
+Returns
+-------
+same type as `x`
+            A jittered copy.
+
+See Also
+--------
+navis.ml.warp_neuron
+            Smooth, spatially-correlated deformation (the low-frequency
+            counterpart to this per-point noise).
+navis.ml.augment_neuron
+            Compose several augmentations in one call.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> j = navis.ml.jitter_neuron(n, sigma=50, random_state=0)
+>>> j.n_nodes == n.n_nodes           # topology is untouched
+True
+
+### navis.ml.rotate_neuron(x, axis=None, max_angle=None, random_state=None)
+
+*function*
+
+Rotate a neuron by a random rotation about its centroid.
+
+Parameters
+----------
+x :         Skeleton | Mesh | Dotprops | NeuronList
+axis :      None | "x" | "y" | "z" | (3,) array-like
+            Rotation axis. If None, rotate about a uniformly random axis (a
+            full uniformly-random orientation when `max_angle` is also None).
+max_angle : float, optional
+            Maximum rotation magnitude in **degrees**. The angle is drawn
+            uniformly from ``[-max_angle, max_angle]``. If None: a full
+            uniformly-random rotation when `axis` is None, otherwise the full
+            ``[-180, 180]`` range about the given axis.
+random_state : int | np.random.Generator, optional
+
+Returns
+-------
+same type as `x`
+            A rotated copy (rotated in place - about the centroid - so it does
+            not fly off when the neuron is not centered on the origin).
+
+See Also
+--------
+navis.ml.normalize_neuron
+            Remove orientation entirely (canonical PCA pose) instead of
+            sampling random orientations.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> r = navis.ml.rotate_neuron(n, axis="z", max_angle=30, random_state=0)
+
+### navis.ml.translate_neuron(x, magnitude, random_state=None)
+
+*function*
+
+Shift a neuron by a random translation.
+
+Relocates the whole neuron by a single random offset - the pose augmentation
+for models that are **not** translation-invariant (i.e. that see absolute
+position, so where a neuron sits should not become a fixed cue). Unlike
+navis.ml.rotate_neuron and navis.ml.scale_neuron, which act about
+the centroid and leave the neuron where it is, this moves its location.
+
+Parameters
+----------
+x :         Skeleton | Mesh | Dotprops | NeuronList
+magnitude : float | (3,) array-like
+            Maximum absolute displacement **in coordinate units** (per-axis if
+            a 3-vector). Each axis's offset is drawn uniformly from
+            ``[-magnitude, magnitude]``. Like `jitter`, this is absolute: for a
+            neuron normalized to unit RMS (see navis.ml.normalize_neuron)
+            a `magnitude` of ~0.1-0.5 is a modest shift; for a raw neuron in
+            nanometers use something on the order of its extent.
+random_state : int | np.random.Generator, optional
+            Seed/generator for reproducibility.
+
+Returns
+-------
+same type as `x`
+            A translated copy.
+
+See Also
+--------
+navis.ml.rotate_neuron
+            Random rotation about the centroid (leaves location unchanged).
+navis.ml.augment_neuron
+            Compose several augmentations in one call.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> t = navis.ml.translate_neuron(n, magnitude=1000, random_state=0)
+>>> t.n_nodes == n.n_nodes           # topology and sizes are untouched
+True
+
+### navis.ml.scale_neuron(x, scale_range=(0.8, 1.25), anisotropic=False, random_state=None)
+
+*function*
+
+Scale a neuron by a random factor about its centroid.
+
+Radii and `.units` are rescaled to match (by the geometric mean of the axis
+factors when `anisotropic`), so `radius` stays consistent with the coordinates
+and ``coordinate * units`` keeps its physical meaning.
+
+Parameters
+----------
+x :         Skeleton | Mesh | Dotprops | NeuronList
+scale_range : (low, high)
+            Range of scale factors. Drawn **log-uniformly** so that, e.g.,
+            0.8 and 1.25 are equally likely (they are reciprocals). Both must
+            be > 0.
+anisotropic : bool
+            If True, draw an independent factor per axis (a stretch/squash);
+            dotprops tangent vectors are renormalized accordingly. If False
+            (default), one factor for all three axes (a similarity).
+random_state : int | np.random.Generator, optional
+
+Returns
+-------
+same type as `x`
+            A scaled copy.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> s = navis.ml.scale_neuron(n, scale_range=(0.8, 1.25), random_state=0)
+
+### navis.ml.warp_neuron(x, sigma=0.5, magnitude=0.05, grid=3, random_state=None)
+
+*function*
+
+Apply a smooth elastic deformation.
+
+A low-frequency random displacement field warps the neuron - the morphology
+equivalent of an elastic image augmentation. Displacements are defined at a
+coarse grid of control points and interpolated with a Gaussian kernel, so the
+warp is smooth (nearby points move together) and topology is preserved. Sizes
+are expressed as fractions of the neuron's bounding-box diagonal, so the same
+settings behave the same regardless of a neuron's absolute size or units.
+
+Parameters
+----------
+x :         Skeleton | Mesh | Dotprops | NeuronList
+sigma :     float
+            Smoothness of the warp as a fraction of the bounding-box diagonal:
+            the Gaussian kernel's length scale. Small (~0.1) = local wiggles,
+            large (~1) = a gentle global bend. Default 0.5.
+magnitude : float
+            Displacement strength as a fraction of the bounding-box diagonal
+            (standard deviation of the per-control-point displacement).
+            Default 0.05 (~5%).
+grid :      int
+            Number of control points per axis (``grid**3`` total). Must be
+            >= 2. More control points allow higher-frequency warps.
+random_state : int | np.random.Generator, optional
+
+Returns
+-------
+same type as `x`
+            A warped copy.
+
+See Also
+--------
+navis.ml.jitter_neuron
+            Independent per-point noise (no spatial correlation).
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> w = navis.ml.warp_neuron(n, sigma=0.5, magnitude=0.05, random_state=0)
+>>> w.n_nodes == n.n_nodes
+True
+
+### navis.ml.drop_nodes(x, fraction=0.1, random_state=None)
+
+*function*
+
+Randomly drop a fraction of a neuron's nodes/points.
+
+Simulates a sparser or partial reconstruction.
+
+- **Skeleton**: drops random *non-branch, non-root* nodes and reconnects
+  their children through the gap (via navis.remove_nodes), so the arbor
+  stays connected and its branching structure is preserved - only the node
+  density drops. Connectors on a dropped node are reattached to its nearest
+  surviving ancestor (the node its children collapse into), so none are left
+  pointing at a removed node.
+- **Dotprops**: drops random points (a point cloud has no topology to keep).
+- **Mesh**: not supported - deleting vertices tears the surface. Convert
+  to skeleton/dotprops/points first.
+
+Parameters
+----------
+x :         Skeleton | Dotprops | NeuronList
+fraction :  float
+            Fraction of nodes/points to drop, in ``[0, 1)``. For skeletons this
+            is a fraction of *all* nodes but only droppable (non-branch,
+            non-root) nodes are removed; if the fraction exceeds their number
+            it is capped (with a warning).
+random_state : int | np.random.Generator, optional
+
+Returns
+-------
+same type as `x`
+            A copy with fewer nodes/points.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> d = navis.ml.drop_nodes(n, fraction=0.2, random_state=0)
+>>> d.n_nodes < n.n_nodes
+True
+
+### navis.ml.chunk_neuron(x, size, mode='partition', connected=True, k=None, sampling_factor=1, weight='weight', undersized='pad', pad_value=-1, random_state=None)
+
+*function*
+
+Break a neuron into evenly sized fragments.
+
+This is useful for batching neurons into fixed-size inputs for a neural network.
+
+Parameters
+----------
+x :         Skeleton | Mesh
+size :      int
+            Number of nodes (skeleton) / vertices (mesh) per fragment.
+mode :      "partition" | "cover" | "random" | "spaced"
+            - "partition": non-overlapping; the remainder that can't fill a
+              whole fragment is handled per `undersized`.
+            - "cover": overlapping; cover every node at least once.
+            - "random": fragments from random seeds (may overlap).
+            - "spaced": like "random" but seeds are evenly spread by
+              farthest-point sampling instead of drawn at random.
+connected : bool
+            If True (default) grow along the arbor by geodesic distance -
+            every fragment is connected. If False grow by Euclidean distance
+            (KD-tree over coordinates) - fragments are the `size` nearest
+            points in space and need not be connected. `weight` is ignored
+            when False.
+k :         int, optional
+            For ``mode="random"``/``"spaced"``: exact number of fragments.
+            Overrides `sampling_factor`. Ignored by "partition"/"cover".
+sampling_factor : float
+            For ``mode="random"``/``"spaced"`` when `k` is not given: how
+            many times over to sample the neuron. The fragment count is
+            ``ceil(sampling_factor * n_nodes / size)``, so 1 (default) is
+            roughly single coverage and e.g. 3 oversamples ~3x. Ignored by
+            "partition"/"cover".
+weight :    "weight" | None
+            Only for ``connected=True``: grow by physical geodesic distance
+            ("weight") or by hops (None). Ignored when ``connected=False``.
+            For ``random``/``spaced`` the count is pinned by `k`/
+            `sampling_factor`, so `weight` only changes *which* `size` nodes
+            land in a fragment. For ``partition``/``cover`` the count is
+            emergent (it depends on how the geodesic balls carve up the
+            arbor), so switching metric can change the number of fragments
+            too.
+undersized : "pad" | "keep" | "discard"
+            What to do with a fragment that can't reach `size` nodes (the
+            remainder in "partition"; a too-small connected component in
+            "cover"/"random"). Full-size fragments are never affected.
+            - "pad" (default): fill up to `size` with `pad_value`, so every
+              returned fragment has length `size` (stackable).
+            - "keep": return it at its natural length - the output list is
+              then ragged and `np.stack` won't work.
+            - "discard": drop it. In "cover"/"random" this means those nodes
+              go uncovered/unsampled.
+pad_value : int
+            Fill value used when ``undersized="pad"`` (default -1, a natural
+            mask token). Keep it negative (or otherwise outside ``[0,
+            n_nodes)``) so the ``chunk >= 0`` mask below can tell pad slots
+            from real indices; a non-negative in-range `pad_value` is itself
+            a valid index and would slip through that mask (use
+            ``chunk != pad_value`` instead).
+random_state : int | np.random.Generator, optional
+            Seed/generator for ``mode="random"``. For ``mode="spaced"`` it
+            only randomises the first seed (varies the even tiling); omit
+            for a fully deterministic tiling.
+
+Returns
+-------
+list of np.ndarray
+            One array of **positional indices** per fragment, each of
+            length `size` when ``undersized="pad"``. Indices address
+            `x.nodes` rows (skeleton) or `x.vertices` (mesh).
+
+            With ``undersized="pad"`` a fragment may contain `pad_value`
+            (default -1) in its unfilled slots. Do **not** index coordinates
+            with a padded chunk directly: a negative `pad_value` is a valid
+            (wrong) index and silently returns real rows. Mask first::
+
+                co = n.nodes[["x", "y", "z"]].values      # skeleton
+                co = m.vertices                            # mesh
+                chunk = chunks[0]
+                real = chunk[chunk >= 0]                   # drop pad slots
+                patch = co[real]                           # (<= size, 3)
+
+            Map back to node IDs (skeletons) with
+            ``n.nodes.node_id.values[real]``.
+
+See Also
+--------
+navis.ml.sample_points_uniform
+            Draw a uniform sample of points from a cloud (whole-neuron
+            subsampling) rather than tiling it into fixed-size fragments.
+            The complementary primitive for preparing ML inputs.
+navis.ml.normalize_neuron
+            Canonicalize a neuron's pose (center/orient/scale) - usually run
+            before chunking so fragments live in a normalized frame.
+
+Examples
+--------
+>>> import navis
+>>> from navis.ml import chunk_neuron
+>>> import numpy as np
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> parts = chunk_neuron(n, size=50, mode="partition")
+>>> np.stack(parts).shape[1]
+50
+>>> # Euclidean packing wastes at most `size - 1` nodes:
+>>> tight = chunk_neuron(n, size=50, mode="partition", connected=False,
+...                      undersized="discard")
+>>> n.n_nodes - sum(len(c) for c in tight) < 50
+True
+>>> # Evenly-spaced oversampling: ~2 passes over the neuron
+>>> over = chunk_neuron(n, size=50, mode="spaced", sampling_factor=2)
+>>> len(over) == int(np.ceil(2 * n.n_nodes / 50))
+True
+
+### navis.ml.sample_patches(x, *, n_points, density=None, spacing=None, mode='spaced', connected=True, foveate=None, reach=32, fovea=0, k=None, sampling_factor=1, undersized='keep', pad_value=-1, interpolate=None, weights=None, surface_mode='even', attributes=None, random_state=None)
+
+*function*
+
+Resample a neuron at a target density, then tile it into fixed-size patches.
+
+This is the one primitive that fixes **both** a per-patch point count *and* a
+physical resolution - the combination navis.ml.chunk_neuron cannot give
+you. `chunk_neuron` indexes the neuron's *existing* nodes/vertices, so a patch's
+density is whatever the reconstruction happened to have; and count-and-density
+are over-constrained on a fixed point set anyway. `sample_patches` instead
+**resamples** the neuron to a uniform cloud at the requested `density`/`spacing`
+(via navis.ml.sample_surface for meshes, navis.ml.sample_cable for
+skeletons) and then groups that cloud into spatial patches of `n_points` each.
+
+Because the cloud is uniform, `n_points` + `density` pin each patch's physical
+extent, and - the property that actually matters for a ball/k-NN point model -
+that extent is the same across patches and across neurons. As a *flat-surface*
+approximation the patch radius is ``~ sqrt(n_points / (pi * density))``; this is
+accurate where the surface is locally flat (e.g. a soma or a large mesh) but
+**under-estimates the Euclidean extent on thin cable/tubes**, where a patch is a
+long axial sleeve rather than a flat disk and can run several times longer than
+the formula suggests (the thinner the neurite, the larger the factor). Treat it
+as a scaling/dimensional guide, not the achieved radius; if you need the real
+extent, measure it straight off each patch's coordinates
+(e.g. ``g[["x", "y", "z"]]`` per ``chunk_id`` group).
+
+Like navis.ml.chunk_neuron, patches grow **along the neuron** by default
+(`connected=True`): each sample is tied to a structural element via its
+`source_id` (skeleton node / mesh vertex) and growth is geodesic on that native
+graph, so a patch follows one branch/surface region instead of a Euclidean ball
+that can straddle two branches passing close in space. Set `connected=False` for
+plain Euclidean (spatial-ball) patches.
+
+Parameters
+----------
+x :                 Skeleton | Mesh
+n_points :          int
+                    Points per patch (fixed count). Keyword-only.
+density :           float, optional
+                    Resample resolution: points per unit area (mesh) / length
+                    (skeleton). Exactly one of `density`/`spacing` is required.
+spacing :           float, optional
+                    Resample resolution as an inter-point distance instead.
+mode :              "spaced" | "partition" | "cover" | "random"
+                    How patches tile the cloud (as in navis.ml.chunk_neuron):
+                    "spaced" (default) and "random" scatter evenly-spread /
+                    random, possibly-overlapping patches - good for oversampling,
+                    but they do **not** guarantee full coverage (raise
+                    `sampling_factor`, or use "cover" for that). "cover" overlaps
+                    to cover every point at least once. "partition" tiles
+                    disjointly; with `connected=True`, carving connected patches
+                    strands leftover points into small fragments (drop them with
+                    `undersized="discard"` for clean full-size patches).
+connected :         bool
+                    If True (default) grow patches geodesically along the neuron
+                    (see above) so each is a single connected piece; if False
+                    grow Euclidean balls (the `n_points` nearest points in space),
+                    which pack tighter but can span nearby branches.
+
+                    N.B. with ``connected=True`` the patch *centres* are placed
+                    geodesically, i.e. in the same metric the growth uses, and
+                    honour `random_state`.
+foveate :           None | True | "scale-free" | float
+                    Spend the point budget unevenly: dense at the patch centre,
+                    thinning outwards, so one patch carries fine local detail
+                    *and* long-range context. `None`/`False` (default) is the
+                    uniform behaviour. ``True``/``"scale-free"`` places points
+                    geometrically in radial rank, which is a ``1 / r**D`` falloff
+                    for a locally `D`-dimensional cloud - equal points per octave
+                    of radius - self-calibrating per patch. A float instead
+                    applies a literal ``1 / r**foveate`` weighting (see
+                    `_radial_thin`); prefer the default unless you specifically
+                    need that physical density, because the measured `D` runs
+                    from ~1 on a thin neurite to ~2 on a soma *within one mesh*,
+                    so a fixed exponent splits the budget differently patch to
+                    patch. Requires ``mode="spaced"``/``"random"``: foveated
+                    patches deliberately overlap and cannot tile.
+reach :             int | None
+                    Only with `foveate`: grow ``reach * n_points`` candidates per
+                    patch before thinning, so this sets how far the periphery
+                    extends. `None` reaches over the whole connected component
+                    (expensive). Cost scales with `reach`, and it is the dominant
+                    cost of foveation - the thinning itself is free.
+fovea :             int
+                    Only with `foveate`: keep the innermost `fovea` candidates at
+                    full cloud density before the falloff starts, for a genuinely
+                    full-resolution core. 0 (default) still yields a small dense
+                    centre, because the falloff cannot ask for gaps narrower than
+                    the cloud (see `_spread`).
+k :                 int, optional
+                    For "random"/"spaced": exact number of patches (overrides
+                    `sampling_factor`).
+sampling_factor :   float
+                    For "random"/"spaced": how many times over to sample the
+                    cloud (patch count ``~ ceil(sampling_factor * N / n_points)``).
+undersized :        "keep" | "pad" | "discard"
+                    What to do with a patch that can't reach `n_points` (only the
+                    cloud being smaller than `n_points`, or the "partition"
+                    remainder). "keep" (default) leaves it short - natural in this
+                    long/tidy output; "pad" appends filler rows (coords/attrs
+                    ``NaN``, ``source_id`` = `pad_value`) so every patch has
+                    `n_points` rows; "discard" drops it.
+pad_value :         int
+                    `source_id` marker for padded rows when ``undersized="pad"``.
+interpolate :       None | True | str | list of str
+                    Skeletons only: node columns to interpolate/carry onto each
+                    sample (see navis.ml.sample_cable).
+weights :           None | str | array-like
+                    Skeletons only: per-node sampling weights (see
+                    navis.ml.sample_cable). Redistributes points; the count
+                    still comes from `density`/`spacing`.
+surface_mode :      "even" | "surface"
+                    Meshes only: the surface sampling mode (see
+                    navis.ml.sample_surface). `spacing` needs "even".
+attributes :        dict | pandas.DataFrame, optional
+                    Meshes only: per-vertex values to transfer onto samples.
+random_state :      int | np.random.Generator, optional
+                    Seeds both the resampling jitter and the patch seeding
+                    (split internally so they stay independent). Omit for a fresh
+                    tiling each call.
+
+Returns
+-------
+pandas.DataFrame
+                    Long/tidy form: the resampled cloud's columns (``x``, ``y``,
+                    ``z``, any transferred/interpolated columns, ``source_id``)
+                    plus a ``chunk_id`` column giving each row's patch. Overlapping
+                    patches (cover/random/spaced) **duplicate** a point's row once
+                    per patch it belongs to, so ``groupby("chunk_id")`` yields the
+                    patches. Points in no patch are simply absent. Rows within a
+                    patch are ordered seed-first, by increasing distance.
+
+                    With `foveate` there are two extra columns:
+
+                    - ``chunk_dist`` - the row's distance to its patch's seed
+                      (geodesic when ``connected=True``, else Euclidean). Foveated
+                      patches span orders of magnitude in radius, so feed this to
+                      the model as the radial coordinate rather than inferring
+                      scale from the coordinates.
+                    - ``chunk_focus`` - how "in focus" the row is: the fraction of
+                      the cloud kept around it, ``1.0`` where the patch is at full
+                      `density` (the fovea) and falling towards 0 out in the
+                      sparse periphery. Use it to weight points by how much
+                      resolution actually backs them, or threshold it
+                      (``chunk_focus == 1``) to recover just the crisp core.
+
+See Also
+--------
+navis.ml.chunk_neuron
+                    Tile a neuron's *existing* nodes/vertices into fixed-count
+                    fragments (no resampling, no density control).
+navis.ml.sample_surface / navis.ml.sample_cable
+                    The whole-neuron resamplers this builds on.
+
+Examples
+--------
+>>> import navis
+>>> m = navis.example_neurons(1, kind="mesh")
+>>> patches = navis.ml.sample_patches(m, n_points=64, density=1e-5, random_state=0)
+>>> "chunk_id" in patches.columns
+True
+>>> patches.groupby("chunk_id").size().unique().tolist()   # every patch full-size
+[64]
+>>> # stack a fixed-size batch tensor from the groups:
+>>> import numpy as np
+>>> batch = np.stack([g[["x", "y", "z"]].values
+...                   for _, g in patches.groupby("chunk_id")])
+>>> batch.shape[1:]
+(64, 3)
+>>> # foveated: same 64 points, but reaching much further out
+>>> fov = navis.ml.sample_patches(m, n_points=64, density=1e-5, mode="spaced",
+...                               foveate=True, reach=8, random_state=0)
+>>> fov.groupby("chunk_id").size().unique().tolist()   # still exactly 64
+[64]
+>>> reach = lambda d: np.mean([g.chunk_dist.max()
+...                            for _, g in d.groupby("chunk_id")])
+>>> extent = lambda d: np.mean([np.linalg.norm(
+...     g[["x", "y", "z"]].values - g[["x", "y", "z"]].values[0], axis=1).max()
+...     for _, g in d.groupby("chunk_id")])
+>>> bool(reach(fov) > 2 * extent(patches))             # far longer reach
+True
+
+### navis.ml.sample_cable(x, *, n_points=None, density=None, spacing=None, interpolate=None, weights=None, random_state=None)
+
+*function*
+
+Sample points at uniform arclength along a skeleton, carrying attributes.
+
+Skeleton nodes are rarely spaced evenly along the cable, so drawing nodes at
+random over-weights densely-noded regions. This instead samples points at
+uniform arclength along the *edges* - the skeleton analogue of area-weighted
+surface sampling (see navis.ml.sample_surface) - and interpolates node
+attributes onto each sample. Draws are **stratified** (one jittered sample per
+equal-measure bin), giving exactly even coverage rather than the clumping of
+i.i.d. draws.
+
+This is the "resample cable -> point cloud + features" primitive for feeding
+skeletons to a model: unlike navis.sample_skeleton it interpolates
+`radius`/other columns and records provenance, and unlike
+navis.ml.sample_points_uniform it samples *new* points along the cable
+rather than subsampling existing nodes.
+
+How many points to draw is set by **exactly one** of three mutually-exclusive
+knobs (the cable length ties count and spacing together):
+
+- **`n_points`** fixes the *count* - same number of points for every neuron
+  (spacing then varies with cable length). Use for fixed-size model inputs.
+- **`density`** fixes points *per unit cable length* (count = ``round(density *
+  length)``). Based on raw arclength; `weights` only redistribute the points.
+- **`spacing`** fixes the *mean* arclength between samples (count = ``round(
+  length / spacing)``; ``density = 1 / spacing``). Because draws are stratified
+  (not rejection-based) this is an average, not a hard minimum - for a strict
+  equal-spacing guarantee use navis.sample_skeleton with `spacing`.
+
+Unlike navis.ml.sample_surface, all three knobs here yield a deterministic
+count (the stratified sampler always fills exactly its bins).
+
+Parameters
+----------
+x :             Skeleton | NeuronList
+n_points :      int, optional
+                Fixed number of points to draw. Mutually exclusive with
+                `density`/`spacing` - give exactly one of the three.
+density :       float, optional
+                Target points per unit cable length; count = ``round(density *
+                length)``.
+spacing :       float, optional
+                Target mean arclength between samples; count = ``round(length /
+                spacing)``.
+interpolate :   None | True | str | list of str
+                Node columns to attach to each sample:
+
+                - **float** columns (e.g. `radius`) are linearly interpolated
+                  between the edge's two endpoints;
+                - **integer/categorical** columns (e.g. a label) are carried
+                  from the segment's source node (the distal/child end, which
+                  owns the segment).
+
+                `True` attaches every non-structural column. `None` (default)
+                attaches none - you still get `source_id` for provenance.
+weights :       None | str | (n_nodes,) array-like
+                Per-node weighting of the sampling density. Each edge's sampling
+                measure is ``length * mean(weight)`` over its endpoints, so:
+
+                - None (default): measure = length -> uniform along the cable;
+                - ``"radius"``: measure ~ length x radius -> denser on thick
+                  cable (a lateral-surface-area-like weighting);
+                - any column/array: your own measure.
+
+                Must be non-negative.
+random_state :  int | np.random.Generator, optional
+                Seed/generator for the stratified jitter. Omit for a fresh
+                random tiling each call; pass a seed for reproducibility.
+parallel :      bool
+                If True and input is NeuronList, distribute the
+                work across multiple processes. See
+                `navis.set_parallel_backend` for where it runs.
+n_cores :       int, optional
+                Numbers of cores to use if `parallel=True`.
+                Defaults to half the available cores.
+chunksize :     int, optional
+                Number of neurons to hand a worker at a time.
+                Defaults to letting the backend decide.
+backend :       str | ParallelBackend, optional
+                Override where this call runs. Defaults to
+                `navis.config.default_parallel_backend`.
+progress :      bool
+                Whether to show a progress bar. Overruled by
+                `navis.set_pbars`.
+omit_failures : bool
+                If True will omit failures instead of raising
+                an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+pandas.DataFrame
+                One row per sample with columns ``x``, ``y``, ``z``, then any
+                requested `interpolate` columns, then ``source_id`` (the
+                ``node_id`` of the segment's source/child node - use it to join
+                any other per-node attribute). A `NeuronList` returns a list of
+                such DataFrames.
+
+See Also
+--------
+navis.ml.sample_surface
+                The mesh analogue: area-weighted surface sampling with
+                per-vertex provenance.
+navis.sample_skeleton
+                Deterministic equal-spacing sampling (points only, no
+                attributes).
+navis.ml.sample_points_uniform
+                Uniformly subsample an existing point cloud.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind="skeleton")
+>>> pts = navis.ml.sample_cable(n, n_points=1000, interpolate="radius", random_state=0)
+>>> pts.shape
+(1000, 5)
+>>> list(pts.columns)
+['x', 'y', 'z', 'radius', 'source_id']
+
+### navis.ml.sample_surface(x, *, n_points=None, density=None, spacing=None, mode='even', attributes=None, random_state=None)
+
+*function*
+
+Sample points on a mesh surface, keeping each point's source vertex.
+
+Mesh vertex density tracks surface detail rather than the arbor, so meshes are
+best sampled by **surface area**. Each sample records the nearest source vertex,
+so per-vertex labels/attributes transfer to the sampled cloud - the mesh
+analogue of navis.ml.sample_cable.
+
+How many points to draw is set by **exactly one** of three mutually-exclusive
+knobs - a mesh's area ties count and density together, so you can only hold one
+constant:
+
+- **`n_points`** fixes the *count*: every mesh yields the same number of points,
+  so the achieved density varies with mesh size (a big neuron is sampled
+  sparsely, a small one densely). Use when a model needs fixed-size inputs.
+- **`density`** fixes points *per unit surface area* (count = ``round(density *
+  area)``, so the count varies with mesh size). Use when local neighbourhoods
+  (k-NN / ball queries) must span the same *physical* scale across neurons.
+- **`spacing`** fixes the minimum *inter-point distance* (mode="even" only).
+  Poisson-disk rejection thins the sample to honour it, so the count varies and
+  may fall a little below the internal target rather than diluting the spacing
+  guarantee by topping up. Related to density by ``density ~ 1 / spacing**2``.
+
+The achieved ``area``/``density``/``spacing`` are recorded on the returned
+frame's ``.attrs`` (measure any cloud with navis.ml.estimate_spacing).
+
+Parameters
+----------
+x :             Mesh | NeuronList
+n_points :      int, optional
+                Fixed number of points to draw. Mutually exclusive with
+                `density`/`spacing` - give exactly one of the three.
+density :       float, optional
+                Target points per unit surface area; count = ``round(density *
+                area)``. Requires a mesh with faces.
+spacing :       float, optional
+                Target minimum inter-point distance (mode="even" only), enforced
+                by Poisson-disk rejection. Requires a mesh with faces.
+mode :          "even" | "surface" | "vertex"
+                - "even" (default): area-weighted *even* (blue-noise) sampling
+                  via `trimesh`. With `n_points`/`density` it is topped up with
+                  plain area-weighted samples if it under-delivers (it does, by
+                  design); with `spacing` it is **not** topped up.
+                - "surface": plain area-weighted random sampling.
+                - "vertex": draw existing vertices (without replacement while
+                  enough remain). Not compatible with `spacing`.
+attributes :    dict | pandas.DataFrame, optional
+                Per-vertex values to transfer onto the samples (length =
+                number of vertices). Each becomes a column, taken from each
+                sample's source vertex. Intended for single meshes.
+random_state :  int | np.random.Generator, optional
+parallel :      bool
+                If True and input is NeuronList, distribute the
+                work across multiple processes. See
+                `navis.set_parallel_backend` for where it runs.
+n_cores :       int, optional
+                Numbers of cores to use if `parallel=True`.
+                Defaults to half the available cores.
+chunksize :     int, optional
+                Number of neurons to hand a worker at a time.
+                Defaults to letting the backend decide.
+backend :       str | ParallelBackend, optional
+                Override where this call runs. Defaults to
+                `navis.config.default_parallel_backend`.
+progress :      bool
+                Whether to show a progress bar. Overruled by
+                `navis.set_pbars`.
+omit_failures : bool
+                If True will omit failures instead of raising
+                an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+pandas.DataFrame
+                One row per sample with columns ``x``, ``y``, ``z``, any
+                transferred `attributes`, ``source_id`` (source vertex index -
+                join per-vertex data with it) and ``face`` (source face index,
+                ``-1`` in "vertex" mode). ``df.attrs`` carries the achieved
+                ``area``/``density``/``spacing``. A `NeuronList` returns a list
+                of such DataFrames.
+
+See Also
+--------
+navis.ml.sample_cable
+                The skeleton analogue: arclength-uniform sampling with
+                attribute interpolation.
+navis.ml.estimate_spacing
+                Measure the nearest-neighbour spacing (hence density) of an
+                existing cloud - the inverse of the `spacing`/`density` knobs.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> m = navis.example_neurons(1, kind="mesh")
+>>> pts = navis.ml.sample_surface(m, n_points=1000, random_state=0)
+>>> pts.shape
+(1000, 5)
+>>> list(pts.columns)
+['x', 'y', 'z', 'source_id', 'face']
+>>> # constant density instead of constant count (count now varies with area):
+>>> pts = navis.ml.sample_surface(m, density=1e-5, random_state=0)
+>>> len(pts)
+607
+>>> bool(pts.attrs["density"] > 0)
+True
+>>> # transfer a per-vertex label:
+>>> lab = np.zeros(len(m.vertices), dtype=int)
+>>> pts = navis.ml.sample_surface(m, n_points=1000, attributes={"label": lab}, random_state=0)
+>>> "label" in pts.columns
+True
+
+### navis.ml.sample_points_uniform(points, size, output='points', method='auto')
+
+*function*
+
+Draw a uniform sample from a point cloud.
+
+Two strategies are available:
+
+- ``"fps"`` (farthest-point sampling) iteratively picks the point that is
+  farthest from everything picked so far. This gives the most uniform
+  coverage but costs ``O(N * size)``.
+- ``"decimate"`` iteratively removes the point with the smallest distance to
+  its nearest (still-present) neighbour until ``size`` points remain. This is
+  cheap (``~O(N log N)``) and scales to large point clouds.
+
+Parameters
+----------
+points :    (N, 3 ) array
+            Point cloud to sample from.
+size :      int
+            Number of samples to draw.
+output :    "points" | "indices" | "mask", optional
+            If "points", returns the sampled points. If "indices", returns
+            the indices of the sampled points. If "mask", returns a boolean
+            mask of the sampled points.
+method :    "auto" | "fps" | "decimate", optional
+            Sampling strategy (see above). "auto" uses farthest-point
+            sampling while it is cheap and decimation otherwise.
+
+Returns
+-------
+See `output` parameter. Indices/points are returned in ascending index
+order regardless of the sampling method.
+
+See Also
+--------
+navis.ml.chunk_neuron
+            Break a neuron into fixed-size, spatially-coherent fragments
+            (tiling/oversampling) rather than drawing a single uniform
+            subsample. The complementary primitive for preparing ML inputs.
+navis.ml.normalize_neuron
+            Canonicalize a neuron's pose (center/orient/scale) - a common
+            preprocessing step before sampling points for a model.
+
+### navis.ml.estimate_spacing(points, aggregate='median')
+
+*function*
+
+Estimate the characteristic point spacing of a cloud.
+
+Measures, for every point, the distance to its nearest neighbour and returns a
+single representative value. This is the empirical inverse of the `spacing` knob
+in navis.ml.sample_surface: for a roughly even *surface* sample the areal
+density relates to the spacing by ``density ~ 1 / spacing**2``. Use it to audit
+an existing cloud or to pick a `spacing`/`density` for a whole dataset.
+
+Parameters
+----------
+points :        (N, 3) array
+                Point cloud to measure.
+aggregate :     "median" | "mean" | "min", optional
+                How to reduce the per-point nearest-neighbour distances.
+                "median" (default) is robust to a few very close pairs.
+
+Returns
+-------
+float
+                The aggregated nearest-neighbour distance (the characteristic
+                inter-point spacing).
+
+See Also
+--------
+navis.ml.sample_surface
+                Sample a mesh at a target `spacing`/`density`; this is the
+                inverse measurement.
+navis.ml.sample_points_uniform
+                Subsample a cloud to a target size.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> pts = np.stack(np.meshgrid(np.arange(10), np.arange(10), 0), -1).reshape(-1, 3)
+>>> float(navis.ml.estimate_spacing(pts.astype(float)))   # unit grid -> spacing 1
+1.0
