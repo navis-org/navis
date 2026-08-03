@@ -107,8 +107,11 @@ plugins:
   # links, the sitemap and the social cards point into e.g. `/navis/dev/` instead
   # of the (contentless) site root. Only does anything during a `mike deploy`.
   - mike:
-      # The material theme brings its own selector (see `extra.version` below).
-      version_selector: false
+      # Must stay true: the material theme treats `version_selector: false` as
+      # "this project doesn't want a version selector" and suppresses its own
+      # (see `extra.version` below), leaving no dropdown at all. mike doesn't
+      # ship a selector for the material theme, so nothing is injected twice.
+      version_selector: true
       # Tell search engines to index the stable docs rather than every version
       # of the same page.
       canonical_version: stable

@@ -192,7 +192,7 @@ jobs:
           if not re.search(r"^\s*- mike:\s*$", patched, flags=re.M):
               patched, n = re.subn(
                   r"^plugins:[ \t]*$",
-                  "plugins:\n  - mike:\n      version_selector: false\n"
+                  "plugins:\n  - mike:\n      version_selector: true\n"
                   "      canonical_version: stable",
                   patched,
                   count=1,
