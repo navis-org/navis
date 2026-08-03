@@ -114,6 +114,11 @@ CEL_BANDS = 3
 # skeleton band so the two interleave.
 MESH_ZORDER = 100
 
+# Z-order for the axis grid. Matplotlib would put it at 1.5, i.e. right in the
+# middle of the band skeletons use - so half of a neuron ends up behind it. This
+# is below volumes at 0, which are the backdrop everything else sits on top of.
+GRID_ZORDER = -1000
+
 
 def plot2d(
     x: Union[
@@ -1969,7 +1974,15 @@ def _set_view2d(ax, settings):
     ax.set_xlabel(settings.view[0].replace("-", ""))
     ax.set_ylabel(settings.view[1].replace("-", ""))
 
-    ax.grid()
+    # `True` rather than a bare `grid()`, which *toggles* and would switch the
+    # grid back off when plotting twice onto the same axes
+    ax.grid(True)
+    # The grid belongs behind the data, always - see `GRID_ZORDER`. `axisbelow`
+    # only reaches down to 0.5, so set the z-order ourselves; the flag is still
+    # worth setting so that `ax.get_axisbelow()` tells the truth.
+    ax.set_axisbelow(True)
+    ax.xaxis.set_zorder(GRID_ZORDER)
+    ax.yaxis.set_zorder(GRID_ZORDER)
 
 
 def _set_view3d(ax, settings):

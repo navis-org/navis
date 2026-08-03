@@ -26,6 +26,7 @@ from navis.plotting._common import (
 )
 from navis.plotting.colors import vertex_colors
 from navis.plotting.dd import (
+    GRID_ZORDER,
     MESH_SHADE_MODES,
     MESH_ZORDER,
     _collapse_colored_segments,
@@ -890,6 +891,32 @@ def test_plot2d_volume_is_one_path():
         assert len(artists) == 1
         assert artists[0].get_zorder() == 0
         assert 0 < _n_subpaths(artists[0]) < len(vol.faces)
+    finally:
+        plt.close(fig)
+
+
+def test_plot2d_grid_stays_behind_everything(two_skeletons, mesh):
+    """Matplotlib's default puts the grid at 1.5 - inside the skeleton band."""
+    vol = navis.example_volume("LH")
+    fig, ax = navis.plot2d(
+        [*two_skeletons, mesh, vol], method="2d", depth_sort=True, connectors=True
+    )
+    try:
+        grid = ax.xaxis.get_zorder()
+        assert grid == ax.yaxis.get_zorder() == GRID_ZORDER
+        drawn = [*ax.collections, *ax.patches, *ax.lines]
+        assert drawn  # or the comparison below is vacuous
+        assert all(a.get_zorder() > grid for a in drawn)
+    finally:
+        plt.close(fig)
+
+
+def test_plot2d_grid_survives_a_second_plot(skeleton):
+    """A bare `ax.grid()` toggles - plotting twice used to switch it back off."""
+    fig, ax = navis.plot2d(skeleton, method="2d")
+    try:
+        navis.plot2d(skeleton, method="2d", ax=ax)
+        assert all(ln.get_visible() for ln in ax.xaxis.get_gridlines())
     finally:
         plt.close(fig)
 
