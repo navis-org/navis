@@ -6,6 +6,21 @@ import numpy as np
 from pathlib import Path
 
 
+def _can_write_r():
+    """Check whether the installed `rdata` can write .rds/.rda files."""
+    import rdata
+
+    # Writing arrived in rdata 1.0, which requires Python >= 3.11. On 3.10 we
+    # install the last version that runs there, which can only read.
+    return hasattr(rdata, "unparser")
+
+
+needs_r_writer = pytest.mark.skipif(
+    not _can_write_r(),
+    reason="writing .rds/.rda requires rdata >= 1.0, i.e. Python >= 3.11",
+)
+
+
 @pytest.mark.parametrize(
     "filename", ["", "{neuron.id}.swc", "neurons.zip", "{neuron.id}.swc@neurons.zip"]
 )
@@ -111,6 +126,7 @@ def test_roundtrip_nrrd(voxel_nrrd_path):
     assert vneuron.units_xyz.units == vneuron2.units_xyz.units
 
 
+@needs_r_writer
 @pytest.mark.parametrize("suffix", [".rds", ".rda"])
 def test_r_data_roundtrip(suffix):
     """Write neurons to R data files and read them back in."""
@@ -140,6 +156,7 @@ def test_r_data_roundtrip(suffix):
             assert np.isclose(n.cable_length, n2.cable_length, rtol=1e-4)
 
 
+@needs_r_writer
 def test_r_data_types():
     """Check that all navis types survive a trip through an .rda file."""
     import pandas as pd
@@ -199,6 +216,7 @@ def test_r_data_types():
         ("mesh", "dps"),
     ],
 )
+@needs_r_writer
 def test_r_data_object_order(keys):
     """Objects must not depend on each other's R symbol definitions.
 
@@ -226,6 +244,7 @@ def test_r_data_object_order(keys):
     assert set(data) == set(keys)
 
 
+@needs_r_writer
 def test_r_data_write_edge_cases():
     """Corner cases that used to trip up the R writer."""
     nl = navis.example_neurons(2, kind="skeleton")
@@ -263,6 +282,59 @@ def test_r_data_write_edge_cases():
             navis.write_rda({"a": nl}, tempdir / "x.rda", name="b")
 
 
+def test_r_data_read_fixture():
+    """Read a pre-written .rda file.
+
+    Every other R test writes before it reads, so they all skip where `rdata`
+    is too old to write (Python 3.10). This one keeps the reading side covered
+    there - see `tests/fixtures/r_data/generate.py` for how the file is made.
+    """
+    filepath = Path(__file__).parent / "fixtures" / "r_data" / "objects.rda"
+
+    data = navis.read_rda(filepath, neurons_only=False, combine=False)
+
+    assert set(data) == {"neurons", "dps", "vol"}
+
+    neurons = data["neurons"]
+    assert isinstance(neurons, navis.NeuronList) and len(neurons) == 2
+    for n in neurons:
+        assert isinstance(n, navis.Skeleton)
+        assert n.n_nodes > 0
+        assert n.cable_length > 0
+        assert n.n_connectors > 0
+
+    dps = data["dps"]
+    assert isinstance(dps, navis.NeuronList) and len(dps) == 2
+    for dp in dps:
+        assert isinstance(dp, navis.Dotprops)
+        assert dp.points.shape[1] == 3
+        assert dp.vect.shape == dp.points.shape
+
+    vol = data["vol"]
+    assert isinstance(vol, navis.Volume)
+    assert vol.vertices.shape[1] == 3
+    assert vol.faces.shape[1] == 3
+
+
+@pytest.mark.skipif(
+    _can_write_r(), reason="only meaningful where `rdata` is too old to write"
+)
+def test_r_data_write_needs_new_rdata():
+    """Writing with an old `rdata` must fail with a message that helps."""
+    import sys
+
+    nl = navis.example_neurons(1, kind="skeleton")
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        with pytest.raises(ImportError, match=r"requires `rdata` >= 1\.0\.0"):
+            navis.write_rds(nl, Path(tempdir) / "neurons.rds")
+
+        if sys.version_info < (3, 11):
+            # Telling these users to upgrade `rdata` would send them in circles
+            with pytest.raises(ImportError, match=r"requires Python >= 3\.11"):
+                navis.write_rds(nl, Path(tempdir) / "neurons.rds")
+
+
 def _have_nat():
     """Check whether R and the `nat` package are available."""
     import shutil
@@ -283,6 +355,7 @@ def _have_nat():
         return False
 
 
+@needs_r_writer
 @pytest.mark.skipif(not _have_nat(), reason="requires R with the `nat` package")
 def test_r_data_readable_by_nat():
     """The whole point of writing .rds/.rda: check that nat groks the result."""
@@ -319,6 +392,7 @@ def test_r_data_readable_by_nat():
     assert proc.stdout.split() == expected, proc.stdout
 
 
+@needs_r_writer
 @pytest.mark.skipif(not _have_nat(), reason="requires R with the `nat` package")
 def test_r_data_nat_roundtrip():
     """navis -> nat -> navis on nat's own data, checked against nat itself."""

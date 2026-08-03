@@ -17,7 +17,12 @@ trimesh>=3.8
 fuzzywuzzy>=0.18
 molesq>=0.2.0
 sparse-cubes[skeleton]>=0.5.0
-rdata>=1.0  # 1.0 is the first version that can *write* .rds/.rda files
+# 1.0 is the first version that can *write* .rds/.rda files, but it requires
+# Python >=3.11. On 3.10 we take the newest version that still runs there:
+# reading .rds/.rda keeps working, writing raises a clear error (see
+# `navis/io/rda_io.py`). Drop the second line once we drop Python 3.10.
+rdata>=1.0; python_version >= "3.11"
+rdata>=0.11; python_version < "3.11"
 igraph!=0.10.0,!=0.10.1
 skeletor>=1.0.0
 # Required since 2.0: navis-fastcore is the engine for the graph, geodesic and

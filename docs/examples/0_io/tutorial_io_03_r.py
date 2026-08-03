@@ -27,6 +27,13 @@ installation, no `rpy2` and no running R session required. The serialisation is 
 # - [`navis.write_rds`][] writes a **single, unnamed** object
 # - [`navis.write_rda`][] writes **named** objects, like an R workspace
 #
+# !!! warning "Writing requires Python 3.11 or later"
+#
+#     `rdata` gained the ability to *write* R data files in version 1.0, which
+#     requires Python >= 3.11. On Python 3.10 {{ navis }} installs the last
+#     `rdata` that runs there: reading `.rds`/`.rda` works as documented below,
+#     but `write_rds`/`write_rda` will raise an `ImportError`.
+#
 # Let's start with a NeuronList:
 
 import navis
