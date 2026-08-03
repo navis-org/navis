@@ -1,0 +1,24 @@
+{
+  "images": [
+    {
+      "file": "neuprint_example.png",
+      "caption": "Loading neurons (skeletons or meshes) straight from neuPrint"
+    },
+    {
+      "file": "split_example.png",
+      "caption": "Easy axon-dendrite splits"
+    },
+    {
+      "file": "dot_layout.png",
+      "caption": "Neuron plotted as dendrogram using navis + graphviz"
+    },
+    {
+      "file": "b3d_screenshot.jpg",
+      "caption": "Importing neuron morphology into Blender using navis"
+    },
+    {
+      "file": "microns_skeleton.png",
+      "caption": "A neuron from the MICrONS dataset with automatically generated skeleton"
+    }
+  ]
+}
