@@ -45,7 +45,10 @@ jobs:
           pip install git+https://github.com/siavashk/pycpd@master
           pip install pyarrow
       - name: Install navis
-        run: pip install -e .[dev,all]
+        # `cloudvolume` is deliberately kept out of `[all]` (see `specialized`
+        # in setup.py) but the `patch_cloudvolume` doctest needs it, so ask for
+        # it explicitly rather than let that doctest go untested.
+        run: pip install -e .[dev,all,cloudvolume]
       - name: Report dependency versions
         run: |
           which blender

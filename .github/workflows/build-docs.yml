@@ -144,7 +144,9 @@ jobs:
           # `mike` is installed explicitly rather than via the `docs` extra because
           # we also build tags from before it was added to requirements.txt.
           python -m pip install mike
-          python -m pip install -e .[test-notebook,all,docs,flybrains,cloud-volume]
+          # The extra is `cloudvolume`; `cloud-volume` is the distribution it
+          # pulls in. Naming the latter here made pip skip it silently.
+          python -m pip install -e .[test-notebook,all,docs,flybrains,cloudvolume]
       # We build old tags with the *current* deployment setup, but their mkdocs.yml
       # predates it. Rather than editing history, layer our settings on top via
       # mkdocs' INHERIT mechanism (a recursive merge, so `extra.navis` and friends
