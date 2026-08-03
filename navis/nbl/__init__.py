@@ -16,7 +16,20 @@
 from .nblast_funcs import nblast, nblast_allbyall, nblast_smart, nblast_knn
 from .synblast_funcs import synblast
 from .ablast_funcs import nblast_align
-from .utils import (extract_matches, update_scores, dendrogram, make_clusters, compress_scores)
+from .utils import (
+    extract_matches,
+    update_scores,
+    dendrogram,
+    make_clusters,
+    compress_scores,
+    nblast_prime,
+)
 
-__all__ = ['nblast', 'nblast_allbyall', 'nblast_smart', 'nblast_knn',
-           'synblast', 'nblast_align']
+__all__ = [
+    "nblast",
+    "nblast_allbyall",
+    "nblast_smart",
+    "nblast_knn",
+    "synblast",
+    "nblast_align",
+]
