@@ -19,11 +19,33 @@ import networkx as nx
 from typing import Union, Sequence, Callable
 
 from .. import utils, config, core, graph
+from ..core import schema
 
 # Set up logging
 logger = config.get_logger(__name__)
 
-__all__ = sorted(["subset_neuron"])
+__all__ = sorted(["subset_neuron", "merge_subset"])
+
+
+def _skip_connectors(keep_disc_cn):
+    """Refs to leave alone when the caller asked to keep disconnected connectors."""
+    return ("_connectors",) if keep_disc_cn else ()
+
+
+def _snap_connectors(x, axis, keep_disc_cn):
+    """Make sure connectors say which element they sit on, before we renumber.
+
+    Meshes and dotprops locate connectors by index, and that index is only
+    computed on demand - so a neuron can reach here with connectors that have no
+    column tying them to a vertex/point at all. Snapping now is the last moment
+    the indices still mean what they say.
+    """
+    if keep_disc_cn or not x.has_connectors:
+        return
+
+    ref = next(r for r in axis.refs if r.attr == "_connectors")
+    if ref.column not in x.connectors.columns:
+        x.connectors[ref.column] = x.snap(x.connectors[["x", "y", "z"]].values)[0]
 
 
 @utils.map_neuronlist(desc="Subsetting", allow_parallel=True)
@@ -34,6 +56,7 @@ def subset_neuron(
     inplace: bool = False,
     keep_disc_cn: bool = False,
     prevent_fragments: bool = False,
+    track: bool = False,
 ) -> "core.NeuronObject":
     """Subset a neuron to a given set of nodes/vertices.
 
@@ -72,6 +95,11 @@ def subset_neuron(
                           `Dotprops`.
     inplace :             bool, optional
                           If False, a copy of the neuron is returned.
+    track :               bool, optional
+                          If True, record where each surviving element came
+                          from so that edits made to the subset can later be
+                          folded back with [`navis.merge_subset`][]. Costs an
+                          extra array the size of the subset.
 
     Returns
     -------
@@ -132,25 +160,121 @@ def subset_neuron(
             inplace=True,
             keep_disc_cn=keep_disc_cn,
             prevent_fragments=prevent_fragments,
+            track=track,
         )
         return x
 
+    # Capture the parent's identity *before* we mutate it - `x` is the neuron
+    # being subsetted, so after this there is nothing left to describe
+    parent = (x.id, x.core_md5) if track else None
+
     if isinstance(x, core.Skeleton):
-        x = _subset_treeneuron(
+        x, axis, survivors = _subset_treeneuron(
             x,
             subset=subset,
             keep_disc_cn=keep_disc_cn,
             prevent_fragments=prevent_fragments,
         )
     elif isinstance(x, core.Mesh):
-        x = _subset_meshneuron(
+        x, axis, survivors = _subset_meshneuron(
             x,
             subset=subset,
             keep_disc_cn=keep_disc_cn,
             prevent_fragments=prevent_fragments,
         )
     elif isinstance(x, core.Dotprops):
-        x = _subset_dotprops(x, subset=subset, keep_disc_cn=keep_disc_cn)
+        x, axis, survivors = _subset_dotprops(
+            x, subset=subset, keep_disc_cn=keep_disc_cn
+        )
+
+    if track:
+        schema.record_provenance(x, parent[0], parent[1], axis, survivors)
+
+    return x
+
+
+@utils.lock_neuron
+def merge_subset(
+    x: "core.NeuronObject",
+    subset: "core.NeuronObject",
+    inplace: bool = False,
+) -> "core.NeuronObject":
+    """Fold a tracked subset back into the neuron it was taken from.
+
+    Elements that were not part of the subset are kept as they are; elements
+    that were come back in whatever state the subset left them - edited, or
+    gone. This is what makes "work on part of a neuron, then put it back" a
+    single operation rather than a bespoke stitching job each time.
+
+    Parameters
+    ----------
+    x :         Skeleton | Mesh | Dotprops
+                The neuron `subset` was taken from.
+    subset :    Skeleton | Mesh | Dotprops
+                A subset produced by `subset_neuron(..., track=True)`, possibly
+                since edited.
+    inplace :   bool, optional
+                If False, a copy of `x` is returned.
+
+    Returns
+    -------
+    Skeleton | Mesh | Dotprops
+
+    Raises
+    ------
+    navis.core.schema.MergeError
+                If `subset` carries no provenance, came from a different neuron,
+                or `x` has been modified since the subset was taken. Refusing is
+                deliberate: there is no way to tell a safe merge from a wrong one
+                once the neuron it was mapped against has moved.
+
+    Examples
+    --------
+    Prune twigs on the axon only, then put the axon back
+
+    >>> import navis
+    >>> n = navis.example_neurons(1)
+    >>> _ = navis.split_axon_dendrite(n, label_only=True)
+    >>> axon = navis.subset_neuron(n, n.nodes.compartment == 'axon', track=True)
+    >>> axon = navis.prune_twigs(axon, 5000)
+    >>> merged = navis.merge_subset(n, axon)
+    >>> merged.n_nodes < n.n_nodes
+    True
+
+    See Also
+    --------
+    [`navis.subset_neuron`][]
+            Produces the subset in the first place.
+
+    """
+    utils.eval_param(
+        x, name="x", allowed_types=(core.Skeleton, core.Mesh, core.Dotprops)
+    )
+    utils.eval_param(
+        subset,
+        name="subset",
+        allowed_types=(core.Skeleton, core.Mesh, core.Dotprops),
+    )
+
+    prov = schema.check_provenance(x, subset)
+
+    if not inplace:
+        x = x.copy()
+
+    for axis_name, origin in prov.origin.items():
+        schema.merge_selection(
+            x,
+            subset,
+            schema.get_axis(x, axis_name),
+            np.asarray(origin),
+            np.asarray(prov.covered[axis_name]),
+        )
+
+    if isinstance(x, core.Skeleton):
+        # Roots, branch points and leaves have all potentially moved
+        graph.classify_nodes(x, inplace=True)
+
+    x._clear_temp_attr()
 
     return x
 
@@ -163,51 +287,23 @@ def _subset_dotprops(x, subset, keep_disc_cn):
             f'numpy.ndarray, not "{type(subset)}"'
         )
 
-    subset = utils.make_iterable(subset)
+    axis = schema.get_axis(x, "points")
+    keep = schema.resolve_selection(x, axis, subset)
+    _snap_connectors(x, axis, keep_disc_cn)
 
-    # Convert indices to mask
-    if subset.dtype == bool:
-        if subset.shape != (x.points.shape[0],):
-            raise ValueError("Boolean mask must be of same length as points.")
-        mask = subset
-    else:
-        mask = np.isin(np.arange(0, len(x.points)), subset)
-
-    # Filter connectors
-    if not keep_disc_cn and x.has_connectors:
-        if "point" not in x.connectors.columns:
-            x.connectors["point"] = x.snap(x.connectors[["x", "y", "z"]].values)[0]
-
-        if subset.dtype == bool:
-            subset = np.arange(0, len(x.points))[subset]
-
-        x._connectors = x.connectors[x.connectors.point.isin(subset)].copy()
-        x._connectors.reset_index(inplace=True, drop=True)
-
-        # Make old -> new indices map
-        new_ix = dict(zip(subset, np.arange(0, len(subset))))
-
-        x.connectors["point"] = x.connectors.point.map(new_ix)
-
-    # Mask vectors
-    # This will also trigger re-calculation which is necessary for two reasons:
-    # 1. Vectors will change if they have to be recalculated from
-    #    the downsampled dotprops.
-    # 2. There might not be enough points left after downsampling given the
-    #    original k.
+    # Vectors have to be materialised *before* we subset, for two reasons:
+    # 1. Recalculating them afterwards would use the subsetted points and give
+    #    different answers.
+    # 2. There might not be enough points left for the original `k`.
     if isinstance(x._vect, type(None)) and x.k:
         if x.n_points >= x.k:
             x.recalculate_tangents(k=x.k, inplace=True)
-    x._vect = x._vect[mask]
 
-    # Mask alphas if exists
-    if not isinstance(x._alpha, type(None)):
-        x._alpha = x._alpha[mask]
+    survivors = schema.apply_selection(
+        x, axis, keep, skip=_skip_connectors(keep_disc_cn)
+    )
 
-    # Finally mask points
-    x._points = x._points[mask]
-
-    return x
+    return x, axis, survivors
 
 
 def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
@@ -242,105 +338,74 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
         # Convert node IDs back to vertex IDs
         subset = np.arange(0, len(x.vertices))[np.isin(sk.vertex_map, subset)]
 
-    # Filter connectors
-    # (connectors are associated with vertices, not faces which is why
-    # our `subset` is always a list of vertex indices)
-    if not keep_disc_cn and x.has_connectors:
-        if "vertex_id" not in x.connectors.columns:
-            x.connectors["vertex_id"] = x.snap(x.connectors[["x", "y", "z"]].values)[0]
-
-        x._connectors = x.connectors[x.connectors.vertex_id.isin(subset)].copy()
-        x._connectors.reset_index(inplace=True, drop=True)
-
-        # Make old -> new indices map
-        new_ix = dict(zip(subset, np.arange(0, len(subset))))
-
-        x.connectors["vertex_id"] = x.connectors.vertex_id.map(new_ix)
-
-    # Extra edges are vertex indices and have to be remapped by hand. Note we
-    # drop them *before* touching the vertices: the `.vertices` setter would
-    # otherwise (rightly) warn about dropping them itself.
-    extra_edges = x.extra_edges
+    axis = schema.get_axis(x, "vertices")
+    _snap_connectors(x, axis, keep_disc_cn)
     n_old = len(x.vertices)
+
+    # Drop the extra edges *before* touching the vertices: the `.vertices`
+    # setter would otherwise (rightly) warn about dropping them itself. They go
+    # back in un-remapped below and are repaired along with everything else.
+    extra_edges = getattr(x, "_extra_edges", None)
     x._extra_edges = None
 
+    # `submesh` does the vertex/face subsetting itself - it resolves which faces
+    # survive and drops degenerate vertices, so only it knows which vertices
+    # *actually* made it through.
     if len(subset):
         x.vertices, x.faces, kept = submesh(x, vertex_index=subset, return_map=True)
     else:
         x.vertices, x.faces = np.empty((0, 3)), np.empty((0, 3))
         kept = np.array([], dtype=int)
 
-    if len(extra_edges):
-        # Keep only edges where *both* vertices survived, then translate the
-        # old indices into the new ones
-        old2new = np.full(n_old, -1, dtype=np.int64)
-        old2new[kept] = np.arange(len(kept))
-        remapped = old2new[extra_edges]
-        x.extra_edges = remapped[(remapped >= 0).all(axis=1)]
+    x._extra_edges = extra_edges
 
-    return x
+    # `submesh` did the data subsetting and knows which vertices really made it
+    # through; `_faces` it already remapped itself, hence skipped here.
+    survivors = schema.apply_selection(
+        x,
+        axis,
+        survivors=schema.Survivors.from_kept(n_old, kept),
+        skip=("_faces",) + _skip_connectors(keep_disc_cn),
+    )
+
+    return x, axis, survivors
 
 
 def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
     """Subset skeleton."""
+    # Everything else - node IDs, boolean masks, sets, DataFrames - is handled
+    # by `resolve_selection` off the axis' declared ID column
     if isinstance(subset, (nx.DiGraph, nx.Graph)):
-        subset = subset.nodes
-    elif isinstance(subset, pd.DataFrame):
-        subset = subset.node_id.values
-    elif utils.is_iterable(subset):
-        # This forces subset into numpy array (important for e.g. sets)
-        subset = utils.make_iterable(subset)
-    else:
+        subset = np.array(list(subset.nodes))
+    elif not isinstance(subset, pd.DataFrame) and not utils.is_iterable(subset):
         raise TypeError(
             "Can only subset to list, set, numpy.ndarray or"
             f'networkx.Graph, not "{type(subset)}"'
         )
 
+    axis = schema.get_axis(x, "nodes")
+    keep = schema.resolve_selection(x, axis, subset)
+
     if prevent_fragments:
-        subset, new_root = graph.connected_subgraph(x, subset)
+        # `connected_subgraph` speaks node IDs, so resolve, expand, re-resolve
+        subset, new_root = graph.connected_subgraph(
+            x, schema.axis_ids(x, axis)[keep]
+        )
+        keep = schema.resolve_selection(x, axis, subset)
     else:
         new_root = None  # type: ignore # new_root has already type from before
 
-    # Filter nodes
-    # Note that we are setting the nodes directly (here and later) thereby
-    # circumventing (or rather postponing) checks and safeguards.
-    if isinstance(subset, np.ndarray) and subset.dtype == bool:
-        # For boolean mask
-        x._nodes = x._nodes.loc[subset]
-    else:
-        # For sets of nodes
-        x._nodes = x.nodes[x.nodes.node_id.isin(subset)]
-
-    # Make sure that there are root nodes
-    # This is the fastest "pandorable" way: instead of overwriting the column,
-    # concatenate a new column to this DataFrame
-    x._nodes = pd.concat(
-        [
-            x.nodes.drop("parent_id", inplace=False, axis=1),  # type: ignore  # no stubs for concat
-            x.nodes[["parent_id"]].where(
-                x.nodes.parent_id.isin(x.nodes.node_id.values), other=-1, inplace=False
-            ),
-        ],
-        axis=1,
+    # Subset the node table, then repair everything pointing into it: parent IDs
+    # of nodes whose parent was dropped (they become roots), connectors, tags
+    # and the soma. Note this sets `_nodes` directly, circumventing (or rather
+    # postponing) the checks and safeguards of the `.nodes` setter.
+    survivors = schema.apply_selection(
+        x, axis, keep, skip=_skip_connectors(keep_disc_cn)
     )
 
     # Make sure any new roots or leafs are properly typed
     # We won't produce new slabs but roots, branches and leaves might change
     graph.classify_nodes(x, inplace=True)
-
-    # Filter connectors
-    if not keep_disc_cn and x.has_connectors:
-        x._connectors = x.connectors[x.connectors.node_id.isin(x.nodes.node_id)]
-        x._connectors.reset_index(inplace=True, drop=True)
-
-    if getattr(x, "tags", None) is not None:
-        # Filter tags
-        x.tags = {
-            t: [tn for tn in x.tags[t] if tn in x.nodes.node_id.values] for t in x.tags
-        }  # type: ignore  # Skeleton has no tags
-
-        # Remove empty tags
-        x.tags = {t: x.tags[t] for t in x.tags if x.tags[t]}  # type: ignore  # Skeleton has no tags
 
     # Fix graph representations (avoids having to recompute them)
     if "_graph_nx" in x.__dict__:
@@ -356,18 +421,10 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
         vs = x.igraph.vs[indices]
         x._igraph = x.igraph.subgraph(vs)
 
-    if hasattr(x, "_soma") and x._soma is not None:
-        # Check if soma is still in the neuron
-        if x._soma not in x.nodes.node_id.values:
-            x._soma = None
-
-    # Reset indices of data tables
-    x.nodes.reset_index(inplace=True, drop=True)
-
     if new_root:
         x.reroot(new_root, inplace=True)
 
-    return x
+    return x, axis, survivors
 
 
 def submesh(mesh, *, faces_index=None, vertex_index=None, return_map=False):

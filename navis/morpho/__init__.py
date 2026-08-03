@@ -24,7 +24,7 @@ from .manipulation import (prune_by_strahler, stitch_skeletons,
 from .heal import heal_mesh
 from .analyze import find_soma, find_soma_mesh, SomaEllipsoid
 from .angles import (branch_angles, path_angles, root_angles, soma_exit_angles)
-from .subset import subset_neuron
+from .subset import subset_neuron, merge_subset
 from .persistence import (persistence_points, persistence_vectors,
                           persistence_distances)
 from .fq import form_factor
@@ -39,7 +39,7 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_ce
            'heal_skeleton', 'heal_mesh', 'break_fragments', 'prune_twigs',
            'find_soma', 'find_soma_mesh', 'SomaEllipsoid',
            'prune_at_depth', 'cell_body_fiber', 'drop_fluff',
-           'subset_neuron', 'smooth_voxels', 'sholl_analysis',
+           'subset_neuron', 'merge_subset', 'smooth_voxels', 'sholl_analysis',
            'persistence_points', 'betweenness_centrality',
            'persistence_vectors', 'persistence_distances', 'combine_neurons',
            'segment_analysis', 'form_factor', 'ivscc_features', "thin_voxels",

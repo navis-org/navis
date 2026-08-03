@@ -26,6 +26,7 @@ from typing_extensions import Literal
 from .. import utils, config, core, sampling, graph, morpho
 
 from .base import BaseNeuron
+from .schema import Axis, Ref, axes
 
 try:
     import xxhash
@@ -107,8 +108,27 @@ class Dotprops(BaseNeuron):
     #: Temporary attributes that need clearing when neuron data changes
     TEMP_ATTR = ['_memory_usage']
 
-    #: Core data table(s) used to calculate hash
-    _CORE_DATA = ['points', 'vect']
+    #: Core data table(s) used to calculate hash.
+    #: N.B. `_vect` rather than `vect`: the public getter recalculates the
+    #: tangents when they are unset, and hashing must not have side effects.
+    CORE_DATA = ['points', '_vect']
+
+    #: Element axes: what is aligned to the points, and what references them.
+    #: See `navis/core/schema.py` - this drives `subset_neuron`.
+    AXES = axes(
+        Axis(
+            name='points',
+            # `_vect` and `_alpha` are one per point and may be None
+            data=('_points', '_vect', '_alpha'),
+            # The KD-tree is built from the points; `.points`' setter would
+            # have dropped it for us, but subsetting writes `_points` directly
+            invalidates=('_tree',),
+            refs=(
+                Ref('_connectors', kind='column', column='point'),
+                Ref('_soma', kind='scalar'),
+            ),
+        )
+    )
 
     def __init__(self,
                  points: np.ndarray,

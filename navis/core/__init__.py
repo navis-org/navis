@@ -20,6 +20,7 @@ from .voxel import Voxels
 from .neuronlist import NeuronList
 from .core_utils import make_dotprops, to_neuron_space, cast_neuron, NeuronProcessor
 from .pipeline import Pipeline, PipelineStepError
+from .masking import masked
 
 from .skeleton import TreeNeuron  # noqa: F401  pre-2.0 name, see navis/_deprecated.py
 from .mesh import MeshNeuron  # noqa: F401
@@ -31,4 +32,4 @@ NeuronObject = Union[NeuronList, Skeleton, BaseNeuron, Mesh]
 
 __all__ = ['Volume', 'Neuron', 'BaseNeuron', 'Skeleton', 'Mesh',
            'Dotprops', 'Voxels', 'NeuronList', 'make_dotprops',
-           'cast_neuron', 'Pipeline', 'PipelineStepError']
+           'cast_neuron', 'Pipeline', 'PipelineStepError', 'masked']

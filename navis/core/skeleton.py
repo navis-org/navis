@@ -33,6 +33,7 @@ from .. import graph, morpho, utils, config, core, sampling, intersection
 from .. import io  # type: ignore # double import
 
 from .base import BaseNeuron
+from .schema import Axis, Ref, axes
 from .core_utils import temp_property, add_units
 
 try:
@@ -140,6 +141,23 @@ class Skeleton(BaseNeuron):
 
     #: Core data table(s) used to calculate hash
     CORE_DATA = ['nodes:node_id,parent_id,x,y,z']
+
+    #: Element axes: what is aligned to the nodes, and what references them.
+    #: See `navis/core/schema.py` - this drives `subset_neuron`.
+    AXES = axes(
+        Axis(
+            name='nodes',
+            data=('_nodes',),
+            ids='node_id',
+            refs=(
+                # A node whose parent was dropped becomes a root
+                Ref('_nodes', kind='column', column='parent_id', null=-1),
+                Ref('_connectors', kind='column', column='node_id'),
+                Ref('tags', kind='id_lists'),
+                Ref('_soma', kind='scalar'),
+            ),
+        )
+    )
 
     def __init__(self,
                  x: Union[pd.DataFrame,

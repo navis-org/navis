@@ -26,9 +26,23 @@ import scipy.spatial
 
 from . import mmetrics, subset
 from .. import graph, utils, config, core
+from ..core import schema
 
 # Set up logging
 logger = config.get_logger(__name__)
+
+
+def _resolve_node_mask(x, mask):
+    """Resolve a user-supplied node mask to a boolean mask over the node table.
+
+    Accepts a boolean mask or a list of node IDs; IDs that aren't in the neuron
+    are dropped. Callers that need the IDs take `x.nodes.node_id.values[keep]` -
+    handing back IDs instead would only make each of them scan the table again
+    to get back here.
+    """
+    axis = schema.get_axis(x, "nodes")
+    return schema.resolve_selection(x, axis, mask)
+
 
 __all__ = sorted(
     [
@@ -257,41 +271,31 @@ def prune_by_strahler(
     if relocate_connectors:
         parent_dict = {tn.node_id: tn.parent_id for tn in neuron.nodes.itertuples()}
 
-    # Avoid setting the nodes as this potentiall triggers a regeneration
-    # of the graph which in turn will raise an error because some nodes might
-    # still have parents that don't exist anymore
-    neuron._nodes = neuron._nodes[
-        ~neuron._nodes.strahler_index.isin(to_prune)
-    ].reset_index(drop=True, inplace=False)
+    # Drop the pruned nodes and repair everything that pointed at them: parents
+    # that lost their target become roots, and connectors, tags and the soma are
+    # filtered. Note this goes via the schema rather than setting `.nodes`, which
+    # would trigger a graph regeneration while parents are still dangling.
+    axis = schema.get_axis(neuron, "nodes")
+    keep = ~neuron._nodes.strahler_index.isin(to_prune).values
+    schema.apply_selection(
+        neuron,
+        axis,
+        keep,
+        # Relocating handles the connectors itself, below
+        skip=("_connectors",) if relocate_connectors else (),
+    )
 
-    if neuron.has_connectors:
-        if not relocate_connectors:
-            neuron._connectors = neuron._connectors[
-                neuron._connectors.node_id.isin(neuron._nodes.node_id.values)
-            ].reset_index(drop=True, inplace=False)
-        else:
-            remaining_tns = set(neuron._nodes.node_id.values)
-            for cn in neuron._connectors[
-                ~neuron.connectors.node_id.isin(neuron._nodes.node_id.values)
-            ].itertuples():
-                this_tn = parent_dict[cn.node_id]
-                while True:
-                    if this_tn in remaining_tns:
-                        break
-                    this_tn = parent_dict[this_tn]
-                neuron._connectors.loc[cn.Index, "node_id"] = this_tn
-
-    # Reset indices of node and connector tables (important for igraph!)
-    neuron._nodes.reset_index(inplace=True, drop=True)
-
-    if neuron.has_connectors:
-        neuron._connectors.reset_index(inplace=True, drop=True)
-
-    # Theoretically we can end up with disconnected pieces, i.e. with more
-    # than 1 root node -> we have to fix the nodes that lost their parents
-    neuron._nodes.loc[
-        ~neuron._nodes.parent_id.isin(neuron._nodes.node_id.values), "parent_id"
-    ] = -1
+    if neuron.has_connectors and relocate_connectors:
+        remaining_tns = set(neuron._nodes.node_id.values)
+        for cn in neuron._connectors[
+            ~neuron.connectors.node_id.isin(neuron._nodes.node_id.values)
+        ].itertuples():
+            this_tn = parent_dict[cn.node_id]
+            while True:
+                if this_tn in remaining_tns:
+                    break
+                this_tn = parent_dict[this_tn]
+            neuron._connectors.loc[cn.Index, "node_id"] = this_tn
 
     # Remove temporary attributes
     neuron._clear_temp_attr()
@@ -423,21 +427,10 @@ def _prune_twigs_simple(
     if callable(mask):
         mask = mask(neuron)
 
-    if mask is not None:
-        mask = np.asarray(mask)
-
-        if mask.dtype == bool:
-            if len(mask) != neuron.n_nodes:
-                raise ValueError("Mask length must match number of nodes")
-            mask_nodes = neuron.nodes.node_id.values[mask]
-        elif mask.dtype in (int, np.int32, np.int64):
-            mask_nodes = mask
-        else:
-            raise TypeError(
-                f"Mask must be boolean or list of node IDs, got {mask.dtype}"
-            )
-    else:
-        mask_nodes = None
+    keep = None if mask is None else _resolve_node_mask(neuron, mask)
+    # Held for the recursion below, which runs against the *pruned* neuron and so
+    # cannot use a boolean mask over the table as it is now
+    mask_nodes = None if keep is None else neuron.nodes.node_id.values[keep]
 
     nodes_to_keep = utils.fastcore.prune_twigs(
         neuron.nodes.node_id.values,
@@ -448,11 +441,7 @@ def _prune_twigs_simple(
             neuron.nodes.parent_id.values,
             neuron.nodes[["x", "y", "z"]].values,
         ),
-        mask=(
-            neuron.nodes.node_id.isin(mask_nodes).values
-            if mask_nodes is not None
-            else None
-        ),
+        mask=keep,
     )
 
     if len(nodes_to_keep) < neuron.n_nodes:
@@ -528,17 +517,9 @@ def _prune_twigs_precise(
         mask = mask(neuron)
 
     if mask is not None:
-        if mask.dtype == bool:
-            if len(mask) != neuron.n_nodes:
-                raise ValueError("Mask length must match number of nodes")
-            mask_nodes = neuron.nodes.node_id.values[mask]
-        elif mask.dtype in (int, np.int32, np.int64):
-            mask_nodes = mask
-        else:
-            raise TypeError(
-                f"Mask must be boolean or list of node IDs, got {mask.dtype}"
-            )
-
+        # IDs rather than the mask itself: the neuron is subset further down, so
+        # a mask over the table as it is now would not survive
+        mask_nodes = neuron.nodes.node_id.values[_resolve_node_mask(neuron, mask)]
         candidates = np.intersect1d(candidates, mask_nodes)
 
     if not len(candidates):
@@ -2231,14 +2212,8 @@ def _stitch_mst(
     if max_dist is True or not max_dist:
         max_dist = np.inf
 
-    if not isinstance(mask, type(None)):
-        mask = np.asarray(mask)
-        if mask.dtype == bool:
-            if len(mask) != len(x.nodes):
-                raise ValueError(
-                    "Length of boolean mask must match number of nodes in the neuron"
-                )
-            mask = x.nodes.node_id.values[mask]
+    if mask is not None:
+        mask = _resolve_node_mask(x, mask)
 
     if use_radius and "radius" not in x.nodes.columns:
         raise ValueError(
@@ -2263,7 +2238,7 @@ def _stitch_mst(
         # fastcore takes `None` rather than infinity for "no limit"
         max_dist=None if not np.isfinite(max_dist) else float(max_dist),
         min_size=min_size,
-        mask=None if mask is None else np.isin(node_ids, mask),
+        mask=mask,
         radius=x.nodes.radius.values if use_radius else None,
         use_radius=use_radius,
     )

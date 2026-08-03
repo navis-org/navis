@@ -69,6 +69,9 @@ class [`BaseNeurons`][navis.BaseNeuron].
 | [`Neuron.convert_units()`][navis.BaseNeuron.convert_units] | {{ autosummary("navis.BaseNeuron.convert_units") }} |
 | [`Neuron.map_units()`][navis.BaseNeuron.map_units] | {{ autosummary("navis.BaseNeuron.map_units") }} |
 | [`Neuron.memory_usage()`][navis.BaseNeuron.memory_usage] | {{ autosummary("navis.BaseNeuron.memory_usage") }} |
+| [`Neuron.mask()`][navis.BaseNeuron.mask] | {{ autosummary("navis.BaseNeuron.mask") }} |
+| [`Neuron.unmask()`][navis.BaseNeuron.unmask] | {{ autosummary("navis.BaseNeuron.unmask") }} |
+| [`Neuron.apply_mask()`][navis.BaseNeuron.apply_mask] | {{ autosummary("navis.BaseNeuron.apply_mask") }} |
 
 In addition to methods, neurons also have properties. These properties common
 to all neurons:
@@ -400,6 +403,8 @@ Functions to edit morphology:
 | [`navis.split_into_fragments()`][navis.split_into_fragments] | {{ autosummary("navis.split_into_fragments") }} |
 | [`navis.stitch_skeletons()`][navis.stitch_skeletons] | {{ autosummary("navis.stitch_skeletons") }} |
 | [`navis.subset_neuron()`][navis.subset_neuron] | {{ autosummary("navis.subset_neuron") }} |
+| [`navis.merge_subset()`][navis.merge_subset] | {{ autosummary("navis.merge_subset") }} |
+| [`navis.masked()`][navis.masked] | {{ autosummary("navis.masked") }} |
 | [`navis.smooth_skeleton()`][navis.smooth_skeleton] | {{ autosummary("navis.smooth_skeleton") }} |
 | [`navis.smooth_mesh()`][navis.smooth_mesh] | {{ autosummary("navis.smooth_mesh") }} |
 | [`navis.smooth_voxels()`][navis.smooth_voxels] | {{ autosummary("navis.smooth_voxels") }} |

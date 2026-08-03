@@ -30,6 +30,7 @@ from typing import Union, Optional
 from .. import utils, config, meshes, conversion, graph
 from ..utils.subclasses import TrimeshPlus, validate_extra_edges
 from .base import BaseNeuron
+from .schema import Axis, Ref, axes
 from .neuronlist import NeuronList
 from .skeleton import Skeleton
 from .core_utils import temp_property, add_units
@@ -101,6 +102,31 @@ class Mesh(BaseNeuron):
 
     #: Core data table(s) used to calculate hash
     CORE_DATA = ['vertices', 'faces', 'extra_edges']
+
+    #: Element axes: what is aligned to the vertices, and what references them.
+    #: See `navis/core/schema.py` - this drives `subset_neuron`. The axis is
+    #: positional, so references store indices and have to be remapped, not just
+    #: filtered.
+    #: N.B. the skeleton's `vertex_map` is also aligned to `vertices` but is a
+    #: TEMP_ATTR and gets regenerated rather than maintained - it will move here
+    #: once meshes and their skeletons are kept in sync.
+    AXES = axes(
+        Axis(
+            name='vertices',
+            data=('_vertices',),
+            refs=(
+                # A face survives only if all three of its corners do
+                Ref('_faces', kind='index_array'),
+                Ref('_extra_edges', kind='index_array',
+                    write_attr='extra_edges'),
+                Ref('_connectors', kind='column', column='vertex_id'),
+            ),
+        )
+    )
+
+    #: The soma position is a coordinate, not a vertex index - it survives a
+    #: subset unchanged (and may end up outside the remaining geometry).
+    AXIS_INDEPENDENT = ('_soma_pos',)
 
     def __init__(self,
                  x,

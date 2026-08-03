@@ -259,6 +259,18 @@ class BaseNeuron(UnitObject):
     #: Core data table(s) used to calculate hash
     CORE_DATA = []
 
+    #: Element axes: which attributes are aligned to which axis, and what
+    #: references them. See `navis/core/schema.py`. Empty means this neuron
+    #: type cannot be subset element-wise.
+    AXES = {}
+
+    #: Data attributes that are deliberately *not* aligned to any axis, e.g. a
+    #: mesh's soma position (a coordinate, not a vertex index). Declaring them
+    #: keeps `test_schema_is_complete` honest: anything array-like that is
+    #: neither declared in an axis, nor temporary, nor listed here is a field
+    #: that would silently survive a subset unfiltered.
+    AXIS_INDEPENDENT = ()
+
     def __init__(self, **kwargs):
         # Set a random ID -> may be replaced later
         self.id = uuid.uuid4()
@@ -518,8 +530,11 @@ class BaseNeuron(UnitObject):
                 prop, cols = prop.split(":")
                 cols = cols.split(",")
 
-            if hasattr(self, prop):
-                data = getattr(self, prop)
+            data = getattr(self, prop, None)
+            # `None` is not hashable as an array (it would become a 0-d object
+            # array) and means "not set", which is itself part of the state we
+            # are describing - so skip it rather than blowing up
+            if data is not None:
                 if isinstance(data, pd.DataFrame):
                     if cols:
                         data = data[cols]
@@ -678,6 +693,123 @@ class BaseNeuron(UnitObject):
     def is_locked(self):
         """Test if neuron is locked."""
         return getattr(self, "_lock", 0) > 0
+
+    @property
+    def is_masked(self) -> bool:
+        """Test if neuron is currently restricted to part of itself.
+
+        See Also
+        --------
+        [`navis.BaseNeuron.mask`][]
+        """
+        return bool(getattr(self, "_mask_stack", None))
+
+    def _adopt(self, other: "BaseNeuron") -> "BaseNeuron":
+        """Take over another neuron's state, in place.
+
+        Used by unmasking to swap a neuron's contents wholesale while keeping
+        the object itself - the whole point of masking in place is that
+        references held elsewhere see the change.
+        """
+        if other is self:
+            return self
+
+        lock = self.__dict__.get("_lock")
+        self.__dict__.clear()
+        self.__dict__.update(other.__dict__)
+        if lock is not None:
+            self.__dict__["_lock"] = lock
+        return self
+
+    def mask(self, mask, inplace: bool = False, warn_cut: bool = True) -> "BaseNeuron":
+        """Restrict this neuron to part of itself.
+
+        The neuron *becomes* the masked region: every property and every navis
+        function sees only that part until it is unmasked. Masks nest - each
+        `mask()` can be undone by one `unmask()`.
+
+        Parameters
+        ----------
+        mask :      see [`navis.subset_neuron`][]
+                    Anything `subset_neuron` accepts, including a callable that
+                    takes this neuron and returns a selection.
+        inplace :   bool
+                    If False, mask a copy and return it, leaving this neuron
+                    untouched.
+        warn_cut :  bool
+                    Warn if the mask cuts across branches, leaving nodes that
+                    look like the ends of the arbour but are not. Silent for
+                    masks that keep whole subtrees, e.g. a compartment.
+
+        Returns
+        -------
+        Neuron
+                    The masked neuron.
+
+        See Also
+        --------
+        [`navis.masked`][]
+                    Context manager - prefer it where the mask has a natural
+                    scope, since it unmasks even if something raises.
+        [`navis.BaseNeuron.unmask`][]
+        [`navis.BaseNeuron.apply_mask`][]
+
+        """
+        from .masking import mask_neuron
+
+        return mask_neuron(self, mask, inplace=inplace, warn_cut=warn_cut)
+
+    def unmask(self, reset: bool = True, warn_cut: bool = True) -> "BaseNeuron":
+        """Undo the innermost mask, in place.
+
+        Parameters
+        ----------
+        reset :     bool
+                    If True, restore the neuron exactly as it was and discard
+                    anything done while masked. If False, fold edits made to the
+                    masked region back into the whole neuron.
+        warn_cut :  bool
+                    With `reset=False`, warn if folding the mask back left the
+                    neuron in more pieces than it was - usually a leaf-sensitive
+                    edit having eroded the mask boundary.
+
+        Returns
+        -------
+        self
+
+        Raises
+        ------
+        navis.core.masking.MaskingError
+                    If the neuron is not masked.
+        navis.core.schema.MergeError
+                    With `reset=False`, if the masked region was restructured by
+                    something that could not keep track of where its elements
+                    came from. Refusing beats folding them back wrongly.
+
+        """
+        from .masking import unmask_neuron
+
+        return unmask_neuron(self, reset=reset, warn_cut=warn_cut)
+
+    def apply_mask(self, inplace: bool = False) -> "BaseNeuron":
+        """Make the innermost mask permanent.
+
+        The masked region becomes the neuron; there is nothing left to go back
+        to.
+
+        Parameters
+        ----------
+        inplace :   bool
+                    If False, return a copy and leave this neuron masked.
+
+        Returns
+        -------
+        Neuron
+
+        """
+        from .masking import apply_mask_neuron
+
+        return apply_mask_neuron(self, inplace=inplace)
 
     @property
     def type(self) -> str:

@@ -30,6 +30,7 @@ import numpy as np
 
 from . import subset
 from .. import graph, utils, core
+from ..core import schema
 
 # N.B. `navis.graph.graph_utils` imports `morpho` at module level, so
 # `_mesh_component_labels` has to be reached through the `graph.graph_utils.`
@@ -146,7 +147,9 @@ def heal_mesh(
             keep &= sizes[labels] >= min_size
 
         if mask is not None:
-            keep &= _vertex_mask(x, mask)
+            keep &= schema.resolve_selection(
+                x, schema.get_axis(x, "vertices"), mask
+            )
 
         bridges = _bridge_fragments(x.vertices, labels, n_frags, keep, max_dist)
 
@@ -169,23 +172,6 @@ def heal_mesh(
         _ = subset.subset_neuron(x, labels == np.argmax(sizes), inplace=True)
 
     return x
-
-
-def _vertex_mask(x: "core.Mesh", mask: Sequence) -> np.ndarray:
-    """Turn `mask` (boolean mask or vertex indices) into a boolean mask."""
-    mask = np.asarray(mask)
-
-    if mask.dtype == bool:
-        if len(mask) != len(x.vertices):
-            raise ValueError(
-                "Length of boolean mask must match number of vertices in the "
-                f"mesh ({len(mask)} != {len(x.vertices)})"
-            )
-        return mask
-
-    out = np.zeros(len(x.vertices), dtype=bool)
-    out[mask.astype(np.int64, copy=False)] = True
-    return out
 
 
 def _bridge_fragments(
