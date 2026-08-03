@@ -136,7 +136,7 @@ jobs:
             libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
             libxcb-xinerama0 libxcb-xinput0 graphviz graphviz-dev \
             libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers \
-            libxcb-cursor0
+            libxcb-cursor0 xvfb
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
@@ -232,8 +232,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      # `xvfb-run` is invoked directly rather than through coactions/setup-xvfb:
+      # that action feeds its `run` input to xvfb-run one *line* at a time, with
+      # no shell in between. Anything that isn't a self-contained command - a
+      # `set -euo pipefail`, a variable assignment, a line continuation - either
+      # errors out or is silently dropped.
       - name: Build and deploy docs
-        uses: coactions/setup-xvfb@v1
         env:
           NEUPRINT_APPLICATION_CREDENTIALS: ${{ secrets.neuprint }}
           INSECT_BRAIN_DB_USER: ${{ secrets.insect_brain_db_user }}
@@ -246,18 +250,19 @@ jobs:
           DOCS_TITLE: ${{ steps.target.outputs.title }}
           DOCS_ALIAS: ${{ steps.target.outputs.alias }}
           DOCS_SET_DEFAULT: ${{ steps.target.outputs.set_default }}
-        with:
-          run: |
-            set -euo pipefail
-            python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
-            python -c "import os;from caveclient import CAVEclient;client=CAVEclient(server_address='https://global.brain-wire-test.org',datastack_name='h01_c3_flat',auth_token=os.getenv('BRAIN_WIRE_SECRET'));client.auth.save_token(os.getenv('BRAIN_WIRE_SECRET'),overwrite=True)"
-            args=("$DOCS_VERSION")
-            if [ -n "$DOCS_ALIAS" ]; then args+=("$DOCS_ALIAS"); fi
+        run: |
+          set -euo pipefail
+          python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
+          python -c "import os;from caveclient import CAVEclient;client=CAVEclient(server_address='https://global.brain-wire-test.org',datastack_name='h01_c3_flat',auth_token=os.getenv('BRAIN_WIRE_SECRET'));client.auth.save_token(os.getenv('BRAIN_WIRE_SECRET'),overwrite=True)"
+          args=("$DOCS_VERSION")
+          if [ -n "$DOCS_ALIAS" ]; then args+=("$DOCS_ALIAS"); fi
+          # Only the build needs a display - it runs the tutorials, which plot.
+          xvfb-run --auto-servernum \
             mike deploy --push --update-aliases -F mkdocs.mike.yml \
               --title "$DOCS_TITLE" "${args[@]}"
-            if [ "$DOCS_SET_DEFAULT" = "true" ]; then
-              mike set-default --push -F mkdocs.mike.yml "$DOCS_ALIAS"
-            fi
+          if [ "$DOCS_SET_DEFAULT" = "true" ]; then
+            mike set-default --push -F mkdocs.mike.yml "$DOCS_ALIAS"
+          fi
       # mike only maintains `versions.json` and a redirecting `index.html` at the
       # root of gh-pages. The 404 page is ours: it catches the pre-versioning URLs
       # (`/navis/api/`) that are all over papers, issues and search results and

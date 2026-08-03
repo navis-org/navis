@@ -43,7 +43,7 @@ jobs:
           libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
           libxcb-xinerama0 libxcb-xinput0 graphviz graphviz-dev \
           libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers \
-          libxcb-cursor0
+          libxcb-cursor0 xvfb
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -75,8 +75,11 @@ jobs:
         curl -fL --retry 5 --retry-all-errors --retry-delay 5 \
           --connect-timeout 30 --max-time 900 \
           -o $HOME/flybrain-data/JRC2018F_FAFB.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_FAFB.h5
+    # `xvfb-run` is invoked directly rather than through coactions/setup-xvfb:
+    # that action feeds its `run` input to xvfb-run one *line* at a time, with
+    # no shell in between, so anything that isn't a self-contained command is
+    # either an error or silently dropped.
     - name: Run tutorials
-      uses: coactions/setup-xvfb@v1
       env:
         NEUPRINT_APPLICATION_CREDENTIALS: ${{ secrets.neuprint }}
         INSECT_BRAIN_DB_USER: ${{ secrets.insect_brain_db_user }}
@@ -87,8 +90,10 @@ jobs:
         QT_QPA_PLATFORM: offscreen
         MPLBACKEND: agg
         NAVIS_SKIP_REMOTE: ${{ matrix.skip_remote }}
-      with:
-        run: |
-          python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
-          python -c "import os;from caveclient import CAVEclient;client=CAVEclient(server_address='https://global.brain-wire-test.org',datastack_name='h01_c3_flat',auth_token=os.getenv('BRAIN_WIRE_SECRET'));client.auth.save_token(os.getenv('BRAIN_WIRE_SECRET'),overwrite=True)"
-          python tests/test_tutorials.py ${{ matrix.args }}
+        # Unquoted below, so that the empty "core" case passes no argument at all.
+        TUTORIAL_ARGS: ${{ matrix.args }}
+      run: |
+        set -euo pipefail
+        python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
+        python -c "import os;from caveclient import CAVEclient;client=CAVEclient(server_address='https://global.brain-wire-test.org',datastack_name='h01_c3_flat',auth_token=os.getenv('BRAIN_WIRE_SECRET'));client.auth.save_token(os.getenv('BRAIN_WIRE_SECRET'),overwrite=True)"
+        xvfb-run --auto-servernum python tests/test_tutorials.py $TUTORIAL_ARGS

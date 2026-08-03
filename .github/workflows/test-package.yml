@@ -35,7 +35,7 @@ jobs:
           sudo apt-get install -y libdbus-1-3 libxkbcommon-x11-0 libxcb-icccm4 \
             libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
             libxcb-xinerama0 libxcb-xinput0 libxcb-xfixes0 graphviz graphviz-dev \
-            mesa-vulkan-drivers
+            mesa-vulkan-drivers xvfb
       - name: Install dependencies
         run: |
           pip install --upgrade pip
@@ -50,10 +50,14 @@ jobs:
         run: |
           which blender
           pip freeze -r requirements.txt
+      # `xvfb-run` is invoked directly rather than through coactions/setup-xvfb:
+      # that action feeds its `run` input to xvfb-run one *line* at a time, with
+      # no shell in between, so the `export`s that used to sit here each ran in
+      # their own throwaway process and never reached pytest. They are declared
+      # as step environment instead - which pytest.ini also sets, so the suite
+      # has in fact been running with them all along.
       - name: Test
-        uses: coactions/setup-xvfb@v1
-        with:
-          run: |
-            export NAVIS_HEADLESS=TRUE
-            export NAVIS_TEST_ENV=TRUE
-            pytest --verbose
+        env:
+          NAVIS_HEADLESS: "TRUE"
+          NAVIS_TEST_ENV: "TRUE"
+        run: xvfb-run --auto-servernum pytest --verbose
