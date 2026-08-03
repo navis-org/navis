@@ -2,9 +2,14 @@ site_name: navis
 site_description: Python library for analysis of neuroanatomical data.
 # strict: true
 
+# Note that the docs are versioned with `mike` (see .github/workflows/build-docs.yml),
+# so the actual site lives under e.g. `/navis/stable/` and `/navis/dev/`. `site_url`
+# is the base of that - `mike` appends the version itself.
+site_url: https://navis-org.github.io/navis/
+
 repo_name: navis-org/navis
 repo_url: https://github.com/navis-org/navis
-edit_uri: edit/main/docs/
+edit_uri: edit/master/docs/
 
 # watch:
 #   - src
@@ -98,6 +103,15 @@ markdown_extensions:
   - footnotes
 
 plugins:
+  # Rewrites `site_url` to include the version being deployed, so that canonical
+  # links, the sitemap and the social cards point into e.g. `/navis/dev/` instead
+  # of the (contentless) site root. Only does anything during a `mike deploy`.
+  - mike:
+      # The material theme brings its own selector (see `extra.version` below).
+      version_selector: false
+      # Tell search engines to index the stable docs rather than every version
+      # of the same page.
+      canonical_version: stable
   # the privacy plugin will bundle external assets (like Google Fonts)
   # this should make the website GDPR compliant
   - privacy:
@@ -180,6 +194,13 @@ plugins:
 extra:
   # Use {{ navis }} to insert a coloured "NAVis" in the text
   navis: <span style="color:rgb(250,175,3)">NAVis</span>
+  # Version selector (top right, next to the site name). `provider: mike` makes
+  # the theme read `versions.json` from the site root; `default` is the alias
+  # users land on and anything else (i.e. `dev`) gets an "you're not viewing the
+  # latest version" banner.
+  version:
+    provider: mike
+    default: stable
 
 extra_css:
  - stylesheets/extra.css

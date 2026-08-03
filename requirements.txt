@@ -108,3 +108,5 @@ mkdocs-literate-nav
 mkdocs-minify-plugin
 mkdocs-autorefs
 mkdocs-macros-plugin
+# `mike` deploys each version of the docs into its own subdirectory of gh-pages
+mike

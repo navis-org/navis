@@ -3,21 +3,128 @@ name: Docs
 permissions:
   contents: write
 
+# The docs are versioned with `mike`: every build goes into its own subdirectory
+# of the `gh-pages` branch and is listed in `versions.json`, which the theme's
+# version selector reads.
+#
+#   push to master  ->  /dev/     (development docs, always current with master)
+#   release         ->  /X.Y.Z/   + `stable` alias, which is what users land on
+#
+# `workflow_dispatch` is the escape hatch: it can (re-)build any ref under any
+# version name, which is how you backfill docs for a tag that was released
+# before this workflow existed.
 on:
   push:
     branches:
       - master
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to build (e.g. v1.12.0)"
+        required: true
+      version:
+        description: "Version name to deploy as (default: ref without a leading 'v')"
+        required: false
+      alias:
+        description: "Alias to (re-)point at this version, e.g. 'stable'. Leave empty for none."
+        required: false
+      set_default:
+        description: "Make the above alias the default users land on"
+        type: boolean
+        default: false
 
+# A single group for *all* docs deploys: they push to the same `gh-pages` branch
+# and would race each other otherwise. `cancel-in-progress: false` means a
+# release build can't be killed by someone pushing to master mid-build - GitHub
+# still collapses multiple *pending* runs down to the newest, so at worst one
+# extra build runs to completion.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: docs-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
+      - name: Work out what to build and deploy
+        id: target
+        # Everything is passed through the environment rather than interpolated
+        # into the script - a tag or input containing shell metacharacters would
+        # otherwise be executed here.
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_REF: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_ALIAS: ${{ inputs.alias }}
+          INPUT_SET_DEFAULT: ${{ inputs.set_default }}
+        run: |
+          set -euo pipefail
+          # v1.12.0 -> 1.12.0, but leave branch names ("verify_thing") alone.
+          strip_v() {
+            if [[ "$1" =~ ^v[0-9] ]]; then echo "${1#v}"; else echo "$1"; fi
+          }
+          case "$EVENT" in
+            push)
+              ref="$PUSH_REF"
+              version="dev"
+              title="dev (master)"
+              alias=""
+              set_default="false"
+              ;;
+            release)
+              ref="$RELEASE_TAG"
+              version="$(strip_v "$ref")"
+              title="$version"
+              # Pre-releases get their own version directory but must not become
+              # the version users land on by default.
+              if [ "$RELEASE_PRERELEASE" = "true" ]; then
+                alias=""
+                set_default="false"
+              else
+                alias="stable"
+                set_default="true"
+              fi
+              ;;
+            workflow_dispatch)
+              ref="$INPUT_REF"
+              version="${INPUT_VERSION:-$(strip_v "$ref")}"
+              title="$version"
+              alias="$INPUT_ALIAS"
+              set_default="$INPUT_SET_DEFAULT"
+              ;;
+            *)
+              echo "::error::unsupported event '$EVENT'"; exit 1 ;;
+          esac
+          if [ -z "$ref" ]; then echo "::error::could not determine a ref to build"; exit 1; fi
+          # The version and alias become directory names on gh-pages.
+          if ! [[ "$version" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::invalid version name '$version'"; exit 1
+          fi
+          if [ -n "$alias" ] && ! [[ "$alias" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::invalid alias '$alias'"; exit 1
+          fi
+          if [ "$set_default" = "true" ] && [ -z "$alias" ]; then
+            echo "::error::set_default requires an alias"; exit 1
+          fi
+          echo "Deploying ref '$ref' as version '$version' (alias: '${alias:-none}', default: $set_default)"
+          {
+            echo "ref=$ref"
+            echo "version=$version"
+            echo "title=$title"
+            echo "alias=$alias"
+            echo "set_default=$set_default"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.target.outputs.ref }}
+          # mike needs the gh-pages branch, not just the ref we're building
+          fetch-depth: 0
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
@@ -34,7 +141,67 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pathos joblib pygraphviz neuron cloud-volume k3d scikit-image open3d
+          # `mike` is installed explicitly rather than via the `docs` extra because
+          # we also build tags from before it was added to requirements.txt.
+          python -m pip install mike
           python -m pip install -e .[test-notebook,all,docs,flybrains,cloud-volume]
+      # We build old tags with the *current* deployment setup, but their mkdocs.yml
+      # predates it. Rather than editing history, layer our settings on top via
+      # mkdocs' INHERIT mechanism (a recursive merge, so `extra.navis` and friends
+      # survive). INHERIT can't touch the `plugins` list though - a list in the
+      # child replaces the parent's outright - so those two bits are patched into
+      # the file itself. Both patches are no-ops on master.
+      - name: Prepare versioned mkdocs config
+        run: |
+          set -euo pipefail
+          cat > mkdocs.mike.yml <<'YAML'
+          INHERIT: mkdocs.yml
+          site_url: https://navis-org.github.io/navis/
+          extra:
+            version:
+              provider: mike
+              default: stable
+          YAML
+          python - <<'PY'
+          import pathlib
+          import re
+
+          # A tutorial that fails because some third-party service is down must not
+          # take the whole deploy with it. On master this is already set; on older
+          # tags it is commented out or absent.
+          path = pathlib.Path("mkdocs.yml")
+          config = path.read_text()
+          patched = re.sub(
+              r"^(\s*)#\s*only_warn_on_example_error:.*$",
+              r"\1only_warn_on_example_error: true",
+              config,
+              flags=re.M,
+          )
+          if "only_warn_on_example_error: true" not in patched:
+              patched = re.sub(
+                  r"^(\s*)- gallery:[ \t]*$",
+                  r"\1- gallery:\n\1    only_warn_on_example_error: true",
+                  patched,
+                  flags=re.M,
+              )
+          if "only_warn_on_example_error: true" not in patched:
+              raise SystemExit("could not enable only_warn_on_example_error in mkdocs.yml")
+
+          # The mike plugin makes `site_url` version-aware, which the social cards
+          # and the sitemap depend on. Committed on master; absent on older tags.
+          if not re.search(r"^\s*- mike:\s*$", patched, flags=re.M):
+              patched, n = re.subn(
+                  r"^plugins:[ \t]*$",
+                  "plugins:\n  - mike:\n      version_selector: false\n"
+                  "      canonical_version: stable",
+                  patched,
+                  count=1,
+                  flags=re.M,
+              )
+              if n != 1:
+                  raise SystemExit("could not add the mike plugin to mkdocs.yml")
+          path.write_text(patched)
+          PY
       # Cache the (large, occasionally-unreachable) static downloads. On a hit
       # we skip the download steps entirely, removing them as a source of
       # flakiness. Bump the "v1" token below if the transform URLs change.
@@ -61,6 +228,10 @@ jobs:
           curl -fL --retry 5 --retry-all-errors --retry-delay 5 \
             --connect-timeout 30 --max-time 900 \
             -o $HOME/flybrain-data/JRC2018F_FAFB.h5 https://flyem.mrc-lmb.cam.ac.uk/flyconnectome/misc/JRC2018F_FAFB.h5
+      - name: Configure git for deployment
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Build and deploy docs
         uses: coactions/setup-xvfb@v1
         env:
@@ -71,8 +242,93 @@ jobs:
           BRAIN_WIRE_SECRET: ${{ secrets.brain_wire_secret }}
           NAVIS_PLOT3D_BACKEND: plotly
           QT_QPA_PLATFORM: offscreen
+          DOCS_VERSION: ${{ steps.target.outputs.version }}
+          DOCS_TITLE: ${{ steps.target.outputs.title }}
+          DOCS_ALIAS: ${{ steps.target.outputs.alias }}
+          DOCS_SET_DEFAULT: ${{ steps.target.outputs.set_default }}
         with:
           run: |
+            set -euo pipefail
             python -c "import os;from caveclient import CAVEclient;client=CAVEclient();client.auth.save_token(os.getenv('CAVE_SECRET'))"
             python -c "import os;from caveclient import CAVEclient;client=CAVEclient(server_address='https://global.brain-wire-test.org',datastack_name='h01_c3_flat',auth_token=os.getenv('BRAIN_WIRE_SECRET'));client.auth.save_token(os.getenv('BRAIN_WIRE_SECRET'),overwrite=True)"
-            mkdocs gh-deploy --force
+            args=("$DOCS_VERSION")
+            if [ -n "$DOCS_ALIAS" ]; then args+=("$DOCS_ALIAS"); fi
+            mike deploy --push --update-aliases -F mkdocs.mike.yml \
+              --title "$DOCS_TITLE" "${args[@]}"
+            if [ "$DOCS_SET_DEFAULT" = "true" ]; then
+              mike set-default --push -F mkdocs.mike.yml "$DOCS_ALIAS"
+            fi
+      # mike only maintains `versions.json` and a redirecting `index.html` at the
+      # root of gh-pages. The 404 page is ours: it catches the pre-versioning URLs
+      # (`/navis/api/`) that are all over papers, issues and search results and
+      # forwards them into the default version.
+      - name: Install root-level 404 redirect
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          worktree="$RUNNER_TEMP/gh-pages"
+          git worktree add --detach "$worktree" FETCH_HEAD
+          cat > "$worktree/404.html" <<'HTML'
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>navis - page not found</title>
+              <script>
+                // The docs are versioned, so every page lives under a version prefix
+                // (/navis/stable/..., /navis/dev/...). Links made before versioning -
+                // or by hand - point at the unprefixed path and land here. Forward
+                // them to the default version rather than showing a dead end.
+                (function () {
+                  var BASE = "/navis/";
+                  // Names that always denote a version directory, deployed or not.
+                  // Without this, /navis/stable/x before the first release deploy
+                  // would be rewritten to the nonsensical /navis/dev/stable/x.
+                  var RESERVED = { stable: true, latest: true, dev: true };
+                  var path = window.location.pathname;
+                  if (path.indexOf(BASE) !== 0) return;
+                  var rest = path.slice(BASE.length);
+                  var first = rest.split("/")[0];
+                  if (!first) return;
+                  fetch(BASE + "versions.json")
+                    .then(function (response) { return response.json(); })
+                    .then(function (versions) {
+                      var known = {};
+                      versions.forEach(function (entry) {
+                        known[entry.version] = true;
+                        (entry.aliases || []).forEach(function (a) { known[a] = true; });
+                      });
+                      // Already inside a version? Then the page really is missing.
+                      if (known[first] || RESERVED[first]) return;
+                      // Prefer `stable`, but fall back to whatever exists so that a
+                      // missing `stable` can't bounce us between 404s forever.
+                      var target = known["stable"] ? "stable" : (versions[0] || {}).version;
+                      if (!target || target === first) return;
+                      window.location.replace(
+                        BASE + target + "/" + rest +
+                        window.location.search + window.location.hash
+                      );
+                    })
+                    .catch(function () { /* leave the 404 as it is */ });
+                })();
+              </script>
+            </head>
+            <body>
+              <h1>Page not found</h1>
+              <p>
+                This page may have moved into a versioned path.
+                Try the <a href="/navis/stable/">current documentation</a>
+                or the <a href="/navis/dev/">development version</a>.
+              </p>
+            </body>
+          </html>
+          HTML
+          touch "$worktree/.nojekyll"
+          git -C "$worktree" add 404.html .nojekyll
+          if git -C "$worktree" diff --cached --quiet; then
+            echo "Root 404 redirect already up to date."
+          else
+            git -C "$worktree" commit -m "Update root 404 redirect"
+            git -C "$worktree" push origin HEAD:gh-pages
+          fi
+          git worktree remove --force "$worktree"
