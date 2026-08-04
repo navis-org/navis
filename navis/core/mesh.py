@@ -27,7 +27,7 @@ import trimesh as tm
 
 from typing import Union, Optional
 
-from .. import utils, config, meshes, conversion, graph
+from .. import utils, config, meshes, conversion, graph, morpho
 from ..utils.subclasses import TrimeshPlus, validate_extra_edges
 from .base import BaseNeuron
 from .schema import Axis, Ref, axes
@@ -582,6 +582,14 @@ class Mesh(BaseNeuron):
         """
         return conversion.mesh2skeleton(self, method=method, heal=heal,
                                         inv_dist=inv_dist, **kwargs)
+
+    def fill_holes(self, inplace=False):
+        """Triangulate the holes in this mesh.
+
+        See [`navis.fill_holes`][] for details.
+
+        """
+        return morpho.fill_holes(self, inplace=inplace)
 
     def validate(self, inplace=False):
         """Use trimesh to try and fix some common mesh issues.

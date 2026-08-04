@@ -14,6 +14,12 @@ scipy>=1.5
 tqdm>=4.45
 typing-extensions>=3.7.4
 trimesh>=3.8
+# Ear clipping for the caps navis puts on meshes it has cut open (see
+# `navis/morpho/caps.py`). Without it those caps fall back to triangle fans,
+# which are wonky on non-convex openings - so this is a soft requirement and
+# navis keeps working if it is missing. Candidate for folding into
+# navis-fastcore, at which point it can go again.
+mapbox_earcut>=1.0.2
 fuzzywuzzy>=0.18
 molesq>=0.2.0
 sparse-cubes[skeleton]>=0.5.0

@@ -480,6 +480,7 @@ def meshneuron_skeleton(
     node_props: list = [],
     reroot_soma: bool = False,
     heal: bool = False,
+    cap_holes: bool = False,
 ):
     """Decorate function such that Meshes are automatically skeletonized,
     the function is run on the skeleton and changes are propagated
@@ -512,6 +513,11 @@ def meshneuron_skeleton(
                 that soma.
     heal :      bool
                 Whether or not to heal the skeleton if the mesh is fragmented.
+    cap_holes : bool
+                For methods 'subset' and 'split': whether to triangulate the
+                openings the cut leaves in the mesh. Off by default because it
+                can double the cost of the subset; callers who want it can reach
+                for [`navis.fill_holes`][] afterwards.
 
     """
     assert isinstance(copy_properties, list)
@@ -617,7 +623,9 @@ def meshneuron_skeleton(
                 # See which vertices we need to keep
                 keep = np.isin(sk.vertex_map, res.nodes.node_id.values)
 
-                x = morpho.subset_neuron(x, keep, inplace=inplace)
+                x = morpho.subset_neuron(
+                    x, keep, inplace=inplace, cap_holes=cap_holes
+                )
 
                 for p in copy_properties:
                     setattr(x, p, getattr(sk, p, None))
@@ -627,7 +635,11 @@ def meshneuron_skeleton(
                     # See which vertices we need to keep
                     keep = np.isin(sk.vertex_map, n.nodes.node_id.values)
 
-                    meshes.append(morpho.subset_neuron(x, keep, inplace=False))
+                    meshes.append(
+                        morpho.subset_neuron(
+                            x, keep, inplace=False, cap_holes=cap_holes
+                        )
+                    )
 
                     for p in copy_properties:
                         setattr(meshes[-1], p, getattr(n, p, None))

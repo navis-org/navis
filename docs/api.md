@@ -387,6 +387,7 @@ Functions to edit morphology:
 | [`navis.break_fragments()`][navis.break_fragments] | {{ autosummary("navis.break_fragments") }} |
 | [`navis.despike_skeleton()`][navis.despike_skeleton] | {{ autosummary("navis.despike_skeleton") }} |
 | [`navis.drop_fluff()`][navis.drop_fluff] | {{ autosummary("navis.drop_fluff") }} |
+| [`navis.fill_holes()`][navis.fill_holes] | {{ autosummary("navis.fill_holes") }} |
 | [`navis.cell_body_fiber()`][navis.cell_body_fiber] | {{ autosummary("navis.cell_body_fiber") }} |
 | [`navis.combine_neurons()`][navis.combine_neurons] | {{ autosummary("navis.combine_neurons") }} |
 | [`navis.cut_skeleton()`][navis.cut_skeleton] | {{ autosummary("navis.cut_skeleton") }} |

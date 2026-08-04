@@ -20,6 +20,7 @@ from typing import Union, Sequence, Callable
 
 from .. import utils, config, core, graph
 from ..core import schema
+from . import caps
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -56,6 +57,7 @@ def subset_neuron(
     inplace: bool = False,
     keep_disc_cn: bool = False,
     prevent_fragments: bool = False,
+    cap_holes: bool = False,
     track: bool = False,
 ) -> "core.NeuronObject":
     """Subset a neuron to a given set of nodes/vertices.
@@ -93,6 +95,12 @@ def subset_neuron(
                           If True, will add nodes/vertices to `subset`
                           required to keep neuron from fragmenting. Ignored for
                           `Dotprops`.
+    cap_holes :           bool, optional
+                          `Meshes` only: if True, triangulate the openings the
+                          cut leaves behind instead of returning a mesh with
+                          holes in it. Only openings this call created are
+                          closed - any the mesh already had are left alone. No
+                          vertices are added, so all existing indices stand.
     inplace :             bool, optional
                           If False, a copy of the neuron is returned.
     track :               bool, optional
@@ -160,6 +168,7 @@ def subset_neuron(
             inplace=True,
             keep_disc_cn=keep_disc_cn,
             prevent_fragments=prevent_fragments,
+            cap_holes=cap_holes,
             track=track,
         )
         return x
@@ -181,6 +190,7 @@ def subset_neuron(
             subset=subset,
             keep_disc_cn=keep_disc_cn,
             prevent_fragments=prevent_fragments,
+            cap_holes=cap_holes,
         )
     elif isinstance(x, core.Dotprops):
         x, axis, survivors = _subset_dotprops(
@@ -306,7 +316,7 @@ def _subset_dotprops(x, subset, keep_disc_cn):
     return x, axis, survivors
 
 
-def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
+def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments, cap_holes=False):
     """Subset Mesh."""
     if not utils.is_iterable(subset):
         raise TypeError(
@@ -348,6 +358,15 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
     extra_edges = getattr(x, "_extra_edges", None)
     x._extra_edges = None
 
+    # Where the cut is about to open the mesh up has to be worked out while the
+    # original faces are still here. It is only the collar around the cut that
+    # gets looked at, so this is cheap - see `morpho.caps`.
+    exposed = None
+    if cap_holes and len(subset):
+        dropped = np.ones(n_old, dtype=bool)
+        dropped[subset] = False
+        exposed = caps.find_new_boundary(np.asarray(x.faces), dropped)
+
     # `submesh` does the vertex/face subsetting itself - it resolves which faces
     # survive and drops degenerate vertices, so only it knows which vertices
     # *actually* made it through.
@@ -367,6 +386,18 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments):
         survivors=schema.Survivors.from_kept(n_old, kept),
         skip=("_faces",) + _skip_connectors(keep_disc_cn),
     )
+
+    # Capping only ever *adds* faces, so it can happen last: every vertex index
+    # handed out above - including the provenance `survivors` - still stands.
+    if exposed is not None and len(exposed):
+        renumber = np.full(n_old, -1, dtype=np.int64)
+        renumber[kept] = np.arange(len(kept))
+        exposed = renumber[exposed]
+        exposed = exposed[(exposed >= 0).all(axis=1)]
+        if len(exposed):
+            new_faces = caps.cap_boundary(x.vertices, exposed)
+            if len(new_faces):
+                x.faces = np.vstack((x.faces, new_faces.astype(x.faces.dtype)))
 
     return x, axis, survivors
 
