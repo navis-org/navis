@@ -380,6 +380,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.break_fragments(x, labels_only=False, min_size=None)` - Break neuron into its connected components.
 - `navis.despike_skeleton(x, sigma=5, max_spike_length=1, inplace=False, reverse=False)` - Remove spikes in skeleton (e.g. from jumps in image data).
 - `navis.drop_fluff(x, keep_size=None, n_largest=None, epsilon=None, connectivity=26, inplace=False)` - Remove small disconnected pieces of "fluff".
+- `navis.fill_holes(x, inplace=False)` - Triangulate the holes in a mesh.
 - `navis.cell_body_fiber(x, method='betweenness', reroot_soma=True, heal=True, threshold=0.95, inverse=False, inplace=False)` - Prune neuron to its cell body fiber.
 - `navis.combine_neurons(*x)` - Combine multiple neurons into one.
 - `navis.cut_skeleton(x, where, ret='both')` - Split skeleton at given point and returns two new neurons.
@@ -395,7 +396,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.split_axon_dendrite_prop(x, use_weights='balance', alpha=1, max_iter=10000, tol=1, label_only=False, verbose=False)` - Split a neuron into axon and dendrite using label propagation.
 - `navis.split_into_fragments(x, n=2, min_size=None, reroot_soma=False)` - Split neuron into fragments.
 - `navis.stitch_skeletons(*x, method='ALL', master='SOMA', max_dist=None, min_size=None, use_radius=False)` - Stitch multiple skeletons together.
-- `navis.subset_neuron(x, subset, inplace=False, keep_disc_cn=False, prevent_fragments=False, track=False)` - Subset a neuron to a given set of nodes/vertices.
+- `navis.subset_neuron(x, subset, inplace=False, keep_disc_cn=False, prevent_fragments=False, cap_holes=False, track=False)` - Subset a neuron to a given set of nodes/vertices.
 - `navis.merge_subset(x, subset, inplace=False)` - Fold a tracked subset back into the neuron it was taken from.
 - `navis.masked(x, mask, reset=True, warn_cut=True)` - Work on part of a neuron, then put it back.
 - `navis.smooth_skeleton(x, window=5, to_smooth=['x', 'y', 'z'], inplace=False)` - Smooth skeleton(s) using rolling windows.

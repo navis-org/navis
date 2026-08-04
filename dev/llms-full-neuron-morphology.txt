@@ -1404,6 +1404,73 @@ Examples
 >>> clean2.n_vertices
 17298
 
+### navis.fill_holes(x, inplace=False)
+
+*function*
+
+Triangulate the holes in a mesh.
+
+Every opening is closed, whether the mesh came with it or something like
+navis.prune_twigs cut it. If you only want to close the latter, ask
+for it at the time of the cut instead - see
+navis.subset_neuron's `cap_holes` parameter, which is both cheaper
+and able to tell the two apart.
+
+Only faces are added, never vertices, so vertex indices - and with them
+connectors, `extra_edges` and any tracked provenance - are untouched.
+
+Parameters
+----------
+x :         Mesh | NeuronList
+inplace :   bool, optional
+            If False, will fill holes on and return a copy.
+parallel :  bool
+            If True and input is NeuronList, distribute the
+            work across multiple processes. See
+            `navis.set_parallel_backend` for where it runs.
+n_cores :   int, optional
+            Numbers of cores to use if `parallel=True`.
+            Defaults to half the available cores.
+chunksize : int, optional
+            Number of neurons to hand a worker at a time.
+            Defaults to letting the backend decide.
+backend :   str | ParallelBackend, optional
+            Override where this call runs. Defaults to
+            `navis.config.default_parallel_backend`.
+progress :  bool
+            Whether to show a progress bar. Overruled by
+            `navis.set_pbars`.
+omit_failures :bool
+               If True will omit failures instead of raising
+               an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+Mesh/List
+
+Examples
+--------
+>>> import navis
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> pruned = navis.prune_twigs(m, size='5 microns')
+>>> filled = navis.fill_holes(pruned)
+>>> # The twig stumps are closed, so the surface encloses less
+>>> filled.volume < pruned.volume
+True
+>>> # ... and no vertex moved or was added in the process
+>>> filled.n_vertices == pruned.n_vertices
+True
+
+See Also
+--------
+navis.subset_neuron
+            Its `cap_holes` closes only the openings the subset itself
+            made, and does not have to scan the whole mesh to find them.
+navis.heal_mesh
+            Reconnects disconnected *fragments*, which is a different kind
+            of hole entirely.
+
 ### navis.cell_body_fiber(x, method='betweenness', reroot_soma=True, heal=True, threshold=0.95, inverse=False, inplace=False)
 
 *function*
@@ -2531,7 +2598,7 @@ Stitching fragmented neurons:
 >>> fragments = navis.cut_skeleton(a, 100)
 >>> stitched = navis.stitch_skeletons(fragments, method='LEAFS')
 
-### navis.subset_neuron(x, subset, inplace=False, keep_disc_cn=False, prevent_fragments=False, track=False)
+### navis.subset_neuron(x, subset, inplace=False, keep_disc_cn=False, prevent_fragments=False, cap_holes=False, track=False)
 
 *function*
 
@@ -2570,6 +2637,12 @@ prevent_fragments :   bool, optional
                       If True, will add nodes/vertices to `subset`
                       required to keep neuron from fragmenting. Ignored for
                       `Dotprops`.
+cap_holes :           bool, optional
+                      `Meshes` only: if True, triangulate the openings the
+                      cut leaves behind instead of returning a mesh with
+                      holes in it. Only openings this call created are
+                      closed - any the mesh already had are left alone. No
+                      vertices are added, so all existing indices stand.
 inplace :             bool, optional
                       If False, a copy of the neuron is returned.
 track :               bool, optional
