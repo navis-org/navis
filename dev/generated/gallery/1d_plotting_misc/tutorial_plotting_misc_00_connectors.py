@@ -1,6 +1,7 @@
 """
 Connectors
 ==========
+<!-- difficulty: intermediate -->
 
 Show where a neuron talks to its partners.
 

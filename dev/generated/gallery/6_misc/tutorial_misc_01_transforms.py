@@ -1,6 +1,7 @@
 """
 Transformations
 ===============
+<!-- difficulty: intermediate -->
 
 Move neurons between brain templates and mirror them across the midline.
 

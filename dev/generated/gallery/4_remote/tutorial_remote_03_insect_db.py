@@ -1,6 +1,7 @@
 """
 Insect Brain DB
 ===============
+<!-- difficulty: beginner -->
 
 Fetch neurons and brain meshes from the Insect Brain Database.
 

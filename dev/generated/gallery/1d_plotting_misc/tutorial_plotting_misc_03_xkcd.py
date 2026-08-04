@@ -1,6 +1,7 @@
 """
 XKCD Style
 ==========
+<!-- difficulty: beginner -->
 
 Render neurons in the hand-drawn XKCD sketch style, just for fun.
 

@@ -1,6 +1,7 @@
 """
 Plotting Overview
 =================
+<!-- difficulty: beginner -->
 
 Which plotting mode and which backend to reach for, and how they compare.
 

@@ -1,6 +1,7 @@
 """
 Meshes
 ======
+<!-- difficulty: intermediate -->
 
 Shade, outline and stack mesh neurons.
 

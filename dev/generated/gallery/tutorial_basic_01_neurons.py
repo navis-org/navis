@@ -1,6 +1,7 @@
 """
 Neuron Types
 ============
+<!-- difficulty: beginner -->
 
 The four neuron types — skeletons, meshes, dotprops and voxels — and when to use each.
 

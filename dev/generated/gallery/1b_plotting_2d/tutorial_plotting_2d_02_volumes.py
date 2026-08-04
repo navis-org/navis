@@ -1,6 +1,7 @@
 """
 Volumes
 =======
+<!-- difficulty: intermediate -->
 
 Give a figure context without letting the neuropil steal it.
 

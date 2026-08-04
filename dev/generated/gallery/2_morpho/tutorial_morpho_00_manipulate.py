@@ -1,6 +1,7 @@
 """
 Manipulate Morphology
 =====================
+<!-- difficulty: beginner -->
 
 Prune, resample, smooth and reshape neuron morphology.
 

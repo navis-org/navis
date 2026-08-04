@@ -1,6 +1,7 @@
 """
 Skeletons
 =========
+<!-- difficulty: intermediate -->
 
 Explore skeletons in an interactive 3D viewer - then render what you set up into a figure.
 

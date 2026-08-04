@@ -1,6 +1,7 @@
 """
 NEURON simulator
 ================
+<!-- difficulty: advanced -->
 
 Run compartment-model simulations of neurons and networks via the NEURON simulator.
 

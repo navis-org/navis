@@ -1,6 +1,7 @@
 """
 Multiprocessing
 ===============
+<!-- difficulty: intermediate -->
 
 Speed up batch workloads with built-in parallel processing.
 

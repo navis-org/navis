@@ -1,6 +1,7 @@
 """
 Analyzing Neuron Morphology
 ===========================
+<!-- difficulty: intermediate -->
 
 Measure morphometrics — segment lengths, geodesic distances and branch angles.
 

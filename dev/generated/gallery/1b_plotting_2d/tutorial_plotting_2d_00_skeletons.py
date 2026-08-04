@@ -1,6 +1,7 @@
 """
 Skeletons
 =========
+<!-- difficulty: intermediate -->
 
 Fine-tune skeleton figures: radii, tapering, halos and depth sorting.
 

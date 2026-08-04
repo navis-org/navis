@@ -1,6 +1,7 @@
 """
 Visualize NEURON model
 ======================
+<!-- difficulty: advanced -->
 
 Visualize a NEURON compartment model in 3D.
 

@@ -1,6 +1,7 @@
 """
 Masking
 =======
+<!-- difficulty: intermediate -->
 
 Restrict analyses, plots and edits to part of a neuron - reversibly.
 
