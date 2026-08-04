@@ -1,6 +1,7 @@
 """
 R & the natverse
 ================
+<!-- difficulty: intermediate -->
 
 Exchange neurons with R's natverse by reading and writing `.rds`/`.rda` files.
 

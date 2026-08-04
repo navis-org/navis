@@ -1,6 +1,7 @@
 """
 Custom score matrices
 =====================
+<!-- difficulty: advanced -->
 
 Train a custom NBLAST scoring matrix from your own data.
 

@@ -1,6 +1,7 @@
 """
 The MICrONS Datasets
 ====================
+<!-- difficulty: intermediate -->
 
 Fetch and explore neurons from the MICrONS EM datasets.
 

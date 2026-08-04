@@ -1,6 +1,7 @@
 """
 Neuron Topology
 ===============
+<!-- difficulty: intermediate -->
 
 Plot neurons as abstract topology graphs using several layout algorithms.
 

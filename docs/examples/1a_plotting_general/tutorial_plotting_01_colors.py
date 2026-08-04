@@ -1,6 +1,7 @@
 """
 Coloring
 ========
+<!-- difficulty: beginner -->
 
 Control neuron colors, palettes, opacity and depth cues - in every backend.
 

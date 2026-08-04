@@ -1,6 +1,7 @@
 """
 Neuron "Barcodes"
 =================
+<!-- difficulty: intermediate -->
 
 Visualize a neuron's branching pattern as a topological "barcode".
 

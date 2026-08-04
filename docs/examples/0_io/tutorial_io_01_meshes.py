@@ -1,6 +1,7 @@
 """
 Meshes
 ======
+<!-- difficulty: beginner -->
 
 Load and save mesh neurons in OBJ, PLY, STL and other formats.
 

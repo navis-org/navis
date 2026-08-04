@@ -1,6 +1,7 @@
 """
 Axon-Dendrite Splits
 ====================
+<!-- difficulty: intermediate -->
 
 Split a neuron into axon and dendrite from synapse flow centrality.
 

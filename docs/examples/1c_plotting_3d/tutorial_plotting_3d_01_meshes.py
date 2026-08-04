@@ -1,6 +1,7 @@
 """
 Meshes
 ======
+<!-- difficulty: intermediate -->
 
 Light mesh neurons properly - which is what a real renderer is for.
 

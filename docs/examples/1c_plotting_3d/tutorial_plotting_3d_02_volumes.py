@@ -1,6 +1,7 @@
 """
 Volumes
 =======
+<!-- difficulty: intermediate -->
 
 Put a neuropil around your neurons without losing sight of them.
 

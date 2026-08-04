@@ -1,6 +1,7 @@
 """
 NBLAST using light-level data
 =============================
+<!-- difficulty: advanced -->
 
 Match light-level neurons against EM skeletons with NBLAST.
 

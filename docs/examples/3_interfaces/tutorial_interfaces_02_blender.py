@@ -1,6 +1,7 @@
-"""
+r"""
 Blender 3D
 ==========
+<!-- difficulty: intermediate -->
 
 Drive Blender 3D from NAVis for high-quality neuron renders.
 

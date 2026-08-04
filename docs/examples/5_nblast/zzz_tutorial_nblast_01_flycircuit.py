@@ -1,6 +1,7 @@
 """
 NBLAST against FlyCircuit
 =========================
+<!-- difficulty: advanced -->
 
 Match a query neuron against the entire FlyCircuit light-level dataset.
 

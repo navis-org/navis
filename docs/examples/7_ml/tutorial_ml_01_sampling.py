@@ -1,6 +1,7 @@
 """
 From Neurons to Model Inputs
 ============================
+<!-- difficulty: advanced -->
 
 Turn neurons into fixed-size model inputs: feature point clouds and batchable patches.
 

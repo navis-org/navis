@@ -18,11 +18,29 @@ here instead of leaving it to the macro engine.
 We rebuild the card metadata straight from the sources:
   * title   -> first line of the tutorial docstring
   * blurb   -> first paragraph of the docstring
+  * level   -> ``<!-- difficulty: beginner -->`` in the docstring (see below)
   * thumb   -> ``<section>/images/thumb/mkd_glr_<stem>_thumb.png`` (the plugin
                normalises every thumbnail - scraped, pinned or default - to this
                path, so we never have to parse ``_thumbnail_*`` directives)
   * url     -> ``<section>/<stem>`` (directory-URL, relative to the index page)
   * section -> the sub-folder + its ``README.md`` heading/intro
+
+Difficulty tags
+---------------
+Every tutorial declares its own level in its header, directly under the title::
+
+    Manipulate Morphology
+    =====================
+    <!-- difficulty: beginner -->
+
+    Prune, resample, smooth and reshape neuron morphology.
+
+One of ``beginner`` / ``intermediate`` / ``advanced``; a missing or unknown
+value logs a warning and simply renders no chip. An HTML comment is used so the
+marker is invisible wherever the docstring is rendered (the tutorial page, the
+exported notebook) while still sitting in the header where an author will find
+it. It goes *under* the ``===`` underline so it cannot end up in the paragraph
+`mkdocs_gallery` uses as the example's introduction.
 
 Prose (the landing header and each section heading/intro) stays sourced from the
 ``README.md`` files, so editing copy still happens there, not in this script.
@@ -99,8 +117,17 @@ STYLE = """
 .gallery-badge {
   font-size: .54rem; text-transform: uppercase; letter-spacing: .035em;
   padding: .1rem .38rem; border-radius: .25rem;
-  background: var(--md-accent-fg-color); color: var(--md-accent-bg-color);
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color--light);
 }
+/* Difficulty is the one chip that carries a colour - traffic-light order, with
+   the tints picked per palette so contrast holds in both light and dark. */
+.gallery-badge--beginner     { background: rgba(67,160,71,.16);  color: #2e7d32; }
+.gallery-badge--intermediate { background: rgba(251,140,0,.18);  color: #e65100; }
+.gallery-badge--advanced     { background: rgba(229,57,53,.16);  color: #c62828; }
+[data-md-color-scheme="slate"] .gallery-badge--beginner     { background: rgba(102,187,106,.22); color: #a5d6a7; }
+[data-md-color-scheme="slate"] .gallery-badge--intermediate { background: rgba(255,167,38,.22);  color: #ffcc80; }
+[data-md-color-scheme="slate"] .gallery-badge--advanced     { background: rgba(239,83,80,.22);   color: #ef9a9a; }
 </style>
 """.strip()
 
@@ -174,12 +201,39 @@ def _desc_html(intro: str, navis_span: str) -> str:
     return s.replace(token, navis_span)
 
 
+#: `<!-- difficulty: beginner -->` in a tutorial's docstring. See the module
+#: docstring for why it is an HTML comment and where it goes.
+DIFFICULTY_MARKER = re.compile(r"<!--\s*difficulty:\s*(?P<level>[\w-]+)\s*-->", re.I)
+
+#: Recognised levels, ascending. Anything else is dropped (with a warning).
+DIFFICULTIES = ("beginner", "intermediate", "advanced")
+
+
+def _difficulty(doc: str, path: Path) -> str | None:
+    m = DIFFICULTY_MARKER.search(doc)
+    if not m:
+        log.warning("%s: no `<!-- difficulty: ... -->` marker in the docstring", path.name)
+        return None
+    level = m.group("level").lower()
+    if level not in DIFFICULTIES:
+        log.warning(
+            "%s: unknown difficulty %r (expected one of %s)",
+            path.name, level, ", ".join(DIFFICULTIES),
+        )
+        return None
+    return level
+
+
 def _parse_tutorial(path: Path):
-    """Return (title, intro, tags) parsed from a tutorial's leading docstring."""
+    """Return (title, intro, difficulty, tags) from a tutorial's docstring."""
     text = path.read_text(encoding="utf-8")
     # Allow a string prefix (e.g. r""" ... """) before the docstring quotes.
     m = re.match(r'\s*[rRuUbBfF]?(?:"""|\'\'\')(.*?)(?:"""|\'\'\')', text, re.S)
     doc = m.group(1).strip("\n") if m else ""
+
+    difficulty = _difficulty(doc, path)
+    # Markers are metadata, not prose - drop them before reading title/intro.
+    doc = re.sub(r"<!--.*?-->", "", doc, flags=re.S).strip("\n")
     lines = doc.splitlines()
 
     title = lines[0].strip() if lines else path.stem
@@ -200,7 +254,7 @@ def _parse_tutorial(path: Path):
     tm = re.search(r"^#\s*gallery_tags:\s*(.+)$", text, re.M)
     tags = [t.strip() for t in tm.group(1).split(",") if t.strip()] if tm else []
 
-    return title, intro, tags
+    return title, intro, difficulty, tags
 
 
 def _list_tutorials(folder: Path):
@@ -213,22 +267,27 @@ def _list_tutorials(folder: Path):
 # --------------------------------------------------------------------------- #
 def _card(prefix: str, path: Path, gen_dir: Path, navis_span: str) -> str:
     stem = path.stem
-    title, intro, tags = _parse_tutorial(path)
+    title, intro, difficulty, tags = _parse_tutorial(path)
 
     thumb = f"{prefix}images/thumb/mkd_glr_{stem}_thumb.png"
     if not (gen_dir / thumb).exists():
         thumb = "../../_static/favicon.png"  # graceful fallback (rarely hit)
 
-    # Demo badge derived from structure: remote tutorials pull external data.
-    badge_labels = list(tags)
+    # Difficulty leads, then any `gallery_tags`, then badges derived from
+    # structure (remote tutorials pull their data from external services).
+    chips = []
+    if difficulty:
+        chips.append((difficulty, f" gallery-badge--{difficulty}"))
+    chips += [(t, "") for t in tags]
     if prefix.startswith("4_remote"):
-        badge_labels.append("remote data")
+        chips.append(("remote data", ""))
     badges = ""
-    if badge_labels:
-        chips = "".join(
-            f'<span class="gallery-badge">{html.escape(b)}</span>' for b in badge_labels
+    if chips:
+        rendered = "".join(
+            f'<span class="gallery-badge{cls}">{html.escape(label)}</span>'
+            for label, cls in chips
         )
-        badges = f'<span class="gallery-badges">{chips}</span>'
+        badges = f'<span class="gallery-badges">{rendered}</span>'
 
     return (
         f'<a class="gallery-card" href="{prefix}{stem}" title="{_tooltip(intro)}">'

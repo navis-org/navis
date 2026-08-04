@@ -1,6 +1,7 @@
 """
 Augmenting Neurons
 ==================
+<!-- difficulty: intermediate -->
 
 Augment neuron training sets with realistic perturbations for robust models.
 

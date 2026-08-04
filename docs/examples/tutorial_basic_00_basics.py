@@ -1,6 +1,7 @@
 """
 The Basics
 ==========
+<!-- difficulty: beginner -->
 
 Get a feel for NAVis: load a neuron, inspect it and run basic operations.
 

@@ -1,6 +1,7 @@
 """
 Cortical Neurons
 ================
+<!-- difficulty: advanced -->
 
 Recreate a published figure of cortical GABAergic neurons arranged by soma depth.
 

@@ -1,6 +1,7 @@
 """
 Label Propagation
 =================
+<!-- difficulty: intermediate -->
 
 Spread a sparse set of labels across a neuron using its topology.
 

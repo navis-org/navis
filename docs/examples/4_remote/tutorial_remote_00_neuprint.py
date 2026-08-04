@@ -1,6 +1,7 @@
 """
 neuPrint
 ========
+<!-- difficulty: intermediate -->
 
 Query and fetch neurons and connectivity from a neuPrint server.
 

@@ -1,6 +1,7 @@
 r"""
 NBLAST
 ======
+<!-- difficulty: intermediate -->
 
 Compare neuron morphology with NBLAST — the concepts and a first run.
 

@@ -1,6 +1,7 @@
 """
 H01 Dataset
 ===========
+<!-- difficulty: intermediate -->
 
 Explore the H01 human cortex EM dataset.
 

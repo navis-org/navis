@@ -1,6 +1,7 @@
 """
 Normalizing Neurons
 ===================
+<!-- difficulty: intermediate -->
 
 Bring neurons into a canonical pose for machine-learning models.
 

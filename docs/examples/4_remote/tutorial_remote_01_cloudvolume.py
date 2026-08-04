@@ -1,6 +1,7 @@
 """
 Neuroglancer & CloudVolume
 ==========================
+<!-- difficulty: intermediate -->
 
 Pull neurons and meshes from Neuroglancer sources via CloudVolume.
 

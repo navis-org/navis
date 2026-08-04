@@ -1,6 +1,7 @@
 """
 Skeletons from light-level data
 ===============================
+<!-- difficulty: advanced -->
 
 Extract skeletons from confocal microscopy image stacks.
 

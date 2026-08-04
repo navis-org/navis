@@ -1,6 +1,7 @@
 """
 Pickling
 ========
+<!-- difficulty: beginner -->
 
 Quickly cache and reload neurons with Python's pickle module.
 

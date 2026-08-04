@@ -1,6 +1,7 @@
 """
 Skeletons
 =========
+<!-- difficulty: beginner -->
 
 Load and save skeletons from SWC and other formats, or build them from scratch.
 

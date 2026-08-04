@@ -1,6 +1,7 @@
 """
 Dotprops
 ========
+<!-- difficulty: beginner -->
 
 Create dotprops — point-and-vector representations — from skeletons, meshes or raw points.
 

@@ -1,6 +1,7 @@
 """
 Brain Image Library
 ===================
+<!-- difficulty: beginner -->
 
 Fetch neurons from the Brain Image Library (BIL).
 

@@ -1,6 +1,7 @@
 """
 Lists of Neurons
 ================
+<!-- difficulty: beginner -->
 
 Work with many neurons at once using NeuronLists: indexing, filtering and batch operations.
 
