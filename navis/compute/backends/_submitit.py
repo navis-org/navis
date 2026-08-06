@@ -88,6 +88,9 @@ class SubmititBackend(ParallelBackend):
 
     isolated = True
     pickles_by_value = True     # cloudpickle
+    # What a job may use is the scheduler's business - `cpus_per_task` on the
+    # executor, not the `n_cores` a caller passed on the submitting machine.
+    shares_machine = False
     # submitit records a failed job as a *string* - the worker traceback - and
     # `job.result()` always raises `FailedJobError`, whatever went wrong. The
     # dispatcher works around it so callers still see their own exception.
@@ -129,7 +132,7 @@ class SubmititBackend(ParallelBackend):
             reasons.append(NO_EXECUTOR)
         return reasons
 
-    def map(self, func, payloads, *, n_workers):
+    def map(self, func, payloads, *, n_workers, threads=None):
         import submitit
 
         executor = self.executor

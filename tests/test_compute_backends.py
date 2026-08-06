@@ -8,6 +8,7 @@ deterministically, which is impossible with a real pool.
 """
 
 import concurrent.futures as cf
+import dataclasses
 import functools
 import subprocess
 import sys
@@ -47,14 +48,17 @@ class DummyBackend(ParallelBackend):
     priority = 999
     auto_select = False
 
-    def __init__(self, *, isolated=True, reverse=False, marshals=True):
+    def __init__(self, *, isolated=True, reverse=False, marshals=True,
+                 shares_machine=True):
         self.isolated = isolated
         self.reverse = reverse
         self.marshals_exceptions = marshals
+        self.shares_machine = shares_machine
         self.calls = []
 
-    def map(self, func, payloads, *, n_workers):
-        self.calls.append({'payloads': list(payloads), 'n_workers': n_workers})
+    def map(self, func, payloads, *, n_workers, threads=None):
+        self.calls.append({'payloads': list(payloads), 'n_workers': n_workers,
+                           'threads': threads})
         results = [func(p) for p in payloads]
         # Completion order is explicitly not input order
         yield from (reversed(results) if self.reverse else results)
@@ -450,6 +454,18 @@ def test_worker_context_only_when_isolated(tasks):
     assert shared.calls[0]['payloads'][0].context is None
 
 
+def as_worker(ctx):
+    """Make `ctx` look like it arrived from somewhere else.
+
+    A context only does its worker set-up when it finds itself in a process
+    other than the one it was snapshotted in (`WorkerContext.is_foreign`) -
+    some of that set-up cannot be undone, and applying it to the caller's own
+    session would be far worse than the copy a mis-declared backend costs. A
+    test running both halves in one process has to say which half it is.
+    """
+    return dataclasses.replace(ctx, origin_pid=-1)
+
+
 def test_worker_context_roundtrips_config():
     """A spawned worker re-imports navis; the context is what carries state.
 
@@ -460,7 +476,7 @@ def test_worker_context_roundtrips_config():
     before = config.warn_caching
     try:
         config.warn_caching = not before
-        ctx = dispatch.WorkerContext.snapshot()
+        ctx = as_worker(dispatch.WorkerContext.snapshot())
         config.warn_caching = before
         ctx.apply()
         assert config.warn_caching is (not before)
@@ -481,7 +497,7 @@ def test_worker_hides_progress_bars():
         # The parent wants bars - the snapshot has to be taken from that state
         config.pbar_hide = False
         chunk = dispatch.Chunk(
-            index=0, context=dispatch.WorkerContext.snapshot(),
+            index=0, context=as_worker(dispatch.WorkerContext.snapshot()),
             catch=False, want_traceback=False,
             tasks=[(lambda _: seen.append(config.pbar_hide), (1,), {})])
 

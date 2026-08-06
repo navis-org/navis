@@ -213,7 +213,7 @@ def read_nmx(
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
-                        `os.cpu_count() // 2`).
+                        half the available cores).
     precision :         int [8, 16, 32, 64] | None
                         Precision for data. Defaults to 32 bit integers/floats.
                         If `None` will let pandas infer data types - this
@@ -286,7 +286,7 @@ def read_nml(
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
-                        `os.cpu_count() // 2`).
+                        half the available cores).
     precision :         int [8, 16, 32, 64] | None
                         Precision for data. Defaults to 32 bit integers/floats.
                         If `None` will let pandas infer data types - this

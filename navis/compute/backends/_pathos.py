@@ -43,7 +43,7 @@ class PathosBackend(ParallelBackend):
     isolated = True
     pickles_by_value = True
 
-    def map(self, func, payloads, *, n_workers):
+    def map(self, func, payloads, *, n_workers, threads=None):
         # Note we use the private `_ProcessPool` rather than `ProcessingPool`
         # because the latter ignores `chunksize`, see
         # https://stackoverflow.com/questions/55611806/how-to-set-chunk-size-when-using-pathos-processingpools-map

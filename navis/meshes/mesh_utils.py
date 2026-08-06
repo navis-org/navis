@@ -11,7 +11,6 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import os
 
 import multiprocessing as mp
 import numpy as np
@@ -29,7 +28,7 @@ except ModuleNotFoundError:
     skimage = None
 
 from .. import core, config, intersection, graph, morpho
-from ..compute.dispatch import init_pool_worker
+from ..compute.dispatch import default_n_workers, worker_initializer
 
 
 logger = config.get_logger(__name__)
@@ -307,7 +306,7 @@ def pointlabels_to_meshes(
     drop_fluff=True,
     volume=None,
     output="meshes",
-    n_cores=os.cpu_count() // 2,
+    n_cores=None,
     progress=True,
 ):
     """Generate non-overlapping meshes from a labelled point cloud.
@@ -349,9 +348,10 @@ def pointlabels_to_meshes(
     volume :    Volume | Trimesh, optional
                 Provide a mesh to contrain the sampled voxels to inside this
                 volume.
-    n_cores :   int
+    n_cores :   int, optional
                 Number of cores to use for parallel processing. Each unique
-                label will be processed on a separate core.
+                label will be processed on a separate core. Defaults to half
+                the available cores.
 
 
     Returns
@@ -423,7 +423,8 @@ def pointlabels_to_meshes(
 
         # For each point get the point density function for each KDE
         combinations = [(kde[l], [voxels[["x", "y", "z"]].values.T], {}) for l in kde]
-        with mp.Pool(n_cores, initializer=init_pool_worker) as pool:
+        n_cores = n_cores or default_n_workers()
+        with mp.Pool(n_cores, initializer=worker_initializer(n_cores)) as pool:
             results = list(
                 tqdm(
                     pool.imap(_worker_wrapper, combinations, chunksize=1),

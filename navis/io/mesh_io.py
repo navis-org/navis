@@ -149,7 +149,7 @@ def read_mesh(
                         Spawning and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the number of
-                        cores (otherwise defaults to `os.cpu_count() - 2`).
+                        cores (otherwise defaults to half the available cores).
     output :            "neuron" | "volume" | "trimesh"
                         Determines function's output - see `Returns`.
     errors :            "raise" | "log" | "ignore"

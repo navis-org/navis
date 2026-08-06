@@ -56,7 +56,7 @@ class SerialBackend(ParallelBackend):
         # is then going to run one piece after another anyway.
         return 1
 
-    def map(self, func, payloads, *, n_workers):
+    def map(self, func, payloads, *, n_workers, threads=None):
         for payload in payloads:
             yield func(payload)
 
@@ -75,7 +75,7 @@ class ThreadBackend(ExecutorBackend):
     isolated = False
     pickles_by_value = True     # nothing is serialised at all
 
-    def get_executor(self, n_workers):
+    def get_executor(self, n_workers, threads=None):
         return cf.ThreadPoolExecutor(max_workers=n_workers)
 
 
@@ -88,14 +88,19 @@ _POOL_TIMER = None
 _POOL_LOCK = threading.RLock()
 
 
-def _get_pool(n_workers):
+def _get_pool(n_workers, threads=None):
     """Return a (possibly reused) process pool."""
     global _POOL, _POOL_KEY, _POOL_TIMER
 
     ctx = non_forking_context(mp)
     # The pid is part of the key so a forked child never inherits - and then
     # deadlocks on - its parent's pool.
-    key = (n_workers, ctx.get_start_method(), os.getpid())
+    #
+    # `threads` is in here because a worker's thread pools are built once and
+    # cannot be resized afterwards. A worker started under a cap of 7 stays at
+    # 7 however politely we ask it later, so a call wanting a different cap
+    # needs different workers - otherwise it silently runs at the old one.
+    key = (n_workers, threads, ctx.get_start_method(), os.getpid())
 
     with _POOL_LOCK:
         if _POOL_TIMER is not None:
@@ -158,16 +163,17 @@ class ProcessBackend(ExecutorBackend):
     isolated = True
     pickles_by_value = False
 
-    def get_executor(self, n_workers):
-        return _get_pool(n_workers)
+    def get_executor(self, n_workers, threads=None):
+        return _get_pool(n_workers, threads)
 
     def release_executor(self, executor):
         # Pool is shared and outlives this call - just start the idle timer
         _idle_pool()
 
-    def map(self, func, payloads, *, n_workers):
+    def map(self, func, payloads, *, n_workers, threads=None):
         try:
-            yield from super().map(func, payloads, n_workers=n_workers)
+            yield from super().map(func, payloads, n_workers=n_workers,
+                                   threads=threads)
         except BrokenProcessPool:
             # A dead worker (OOM kill, segfault) poisons the whole executor -
             # drop it so the next call gets a fresh one.

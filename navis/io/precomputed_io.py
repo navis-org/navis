@@ -290,7 +290,7 @@ def read_precomputed(
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
                         number of cores (otherwise defaults to
-                        `os.cpu_count() // 2`).
+                        half the available cores).
     errors :            "raise" | "log" | "ignore"
                         If "log" or "ignore", errors will not be raised and the
                         mesh will be skipped. Can result in empty output.

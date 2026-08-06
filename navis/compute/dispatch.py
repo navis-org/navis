@@ -36,21 +36,106 @@ from typing import (Any, Callable, Iterator, List, NamedTuple, Optional,
                     Sequence, Tuple)
 
 from .. import config
+from .threads import limit_native_threads
 
 logger = config.get_logger(__name__)
 
-__all__ = ['map_tasks', 'imap_tasks', 'default_n_workers', 'FailedRun',
-           'init_pool_worker']
+__all__ = ['map_tasks', 'imap_tasks', 'cpu_count', 'default_n_workers',
+           'resolve_thread_cap', 'FailedRun', 'init_pool_worker',
+           'worker_initializer']
+
+
+def cpu_count() -> int:
+    """Number of CPUs this *process* may use.
+
+    Not the same question as `os.cpu_count()`, which reports the machine. Under
+    SLURM's `--cpus-per-task`, `taskset`, or anything else that pins a process
+    to a subset of the cores, the two differ - and they differ on exactly the
+    machines where claiming cores we don't have hurts most.
+
+    `os.process_cpu_count()` (3.13+) is the modern spelling: it honours the
+    affinity mask *and* the `PYTHON_CPU_COUNT` environment variable, which
+    doubles as a free user-facing override. Below 3.13 we ask for the affinity
+    mask directly where the platform has one (Linux does, macOS and Windows do
+    not) and fall back to the machine's core count.
+
+    Never zero: `os.cpu_count()` returns None on platforms that can't tell us,
+    which would otherwise produce a `TypeError` in the arithmetic downstream.
+
+    Note this does *not* see a cgroup CPU quota - a container limited to two
+    CPUs on a 64-core host still reports 64 here, because it really can run on
+    any of them, just not for very long.
+    """
+    # `getattr` rather than a version check: both of these are optional parts of
+    # the `os` module, present or not according to the platform.
+    if hasattr(os, 'process_cpu_count'):
+        if n := os.process_cpu_count():
+            return n
+
+    if hasattr(os, 'sched_getaffinity'):
+        try:
+            if n := len(os.sched_getaffinity(0)):
+                return n
+        except OSError:  # pragma: no cover
+            pass
+
+    return os.cpu_count() or 1
 
 
 def default_n_workers() -> int:
     """Number of workers to use when the caller didn't say.
 
-    `navis.config.default_n_workers` if set, else half the available cores.
-    Never zero: `os.cpu_count()` returns None on platforms that can't tell us,
-    which would otherwise produce a `TypeError`.
+    `navis.config.default_n_workers` if set, else half the cores this process
+    is allowed to use (see :func:`cpu_count`). Half rather than all because a
+    worker is a whole navis interpreter, and because the machine generally has
+    something else to do.
     """
-    return config.default_n_workers or max(1, (os.cpu_count() or 1) // 2)
+    return config.default_n_workers or max(1, cpu_count() // 2)
+
+
+def resolve_thread_cap(backend, n_workers: Optional[int],
+                       requested=None) -> Optional[int]:
+    """How many threads each worker of `backend` may use. None means "no cap".
+
+    navis spreads work over processes and navis-fastcore spreads it over
+    threads; without this the two multiply. See `navis/compute/threads.py`.
+
+    Parameters
+    ----------
+    backend :   ParallelBackend, optional
+                `None` for a pool navis started itself, which is always local.
+    n_workers : int, optional
+                How many workers the caller asked for.
+    requested : int | "auto" | None
+                What to apply. `None` falls back to
+                `navis.config.inner_max_num_threads`; the same values are
+                accepted here so an internal caller can pin a value that suits
+                its own work (NBLAST wants one thread per worker whatever the
+                machine looks like).
+
+    """
+    if requested is None:
+        requested = config.inner_max_num_threads
+
+    # An explicit number applies wherever workers are their own process. Even
+    # on a cluster: somebody who names one has said something we cannot derive.
+    if requested != 'auto':
+        return int(requested) if requested else None
+
+    # Which leaves "auto", where the arithmetic is `this machine / this many
+    # workers` - true only where the workers really are on this machine.
+    if backend is not None:
+        if not backend.shares_machine:
+            return None
+        # What the caller asked for is a *hint*; `worker_count` is the hook that
+        # turns it into the number that will actually run - and getting this
+        # wrong is the whole bug, since a pool of 32 sized against a hint of 8
+        # would hand out four times the threads it has cores for. Asked after
+        # the `shares_machine` check, because a remote backend answers it by
+        # going and asking its scheduler.
+        n_workers = backend.worker_count(n_workers) or n_workers
+
+    return max(1, cpu_count() // max(1, n_workers or default_n_workers()))
 
 
 # --------------------------------------------------------------------------- #
@@ -75,27 +160,60 @@ class WorkerContext:
     """Parent state that a worker in a fresh interpreter cannot see."""
 
     log_level: int
+    #: How many threads this worker may use for native parallelism. Decided in
+    #: the parent, because only the parent knows how many siblings it has.
+    threads: Optional[int] = None
+    #: Who took this snapshot, so a worker can tell that it really is one.
+    #: See :meth:`is_foreign`.
+    origin_pid: int = 0
     settings: Tuple[Tuple[str, Any], ...] = ()
     hooks: Tuple[Callable[[], None], ...] = ()
 
     @classmethod
-    def snapshot(cls) -> 'WorkerContext':
+    def snapshot(cls, threads: Optional[int] = None) -> 'WorkerContext':
         # `hasattr` so this survives a setting being renamed or dropped
         return cls(
             log_level=config.logger.getEffectiveLevel(),
+            threads=threads,
+            origin_pid=os.getpid(),
             settings=tuple((k, getattr(config, k)) for k in config.WORKER_SETTINGS
                            if hasattr(config, k)),
             hooks=tuple(worker_init_hooks),
         )
 
+    def is_foreign(self) -> bool:
+        """Whether we are somewhere other than where this was taken.
+
+        A context only travels where `backend.isolated` said workers get their
+        own address space - but that is a *claim*, and one an in-tree backend
+        already qualifies at runtime (submitit's `DebugExecutor` runs the job
+        inline). Everything set up for a worker is set up for a *fresh
+        interpreter*, and some of it cannot be undone: capping a thread pool is
+        permanent for the process, and `_unshare_pbar_lock` swaps out tqdm's
+        cross-process lock. Doing either to the caller's own session, silently
+        and for the rest of it, is a much worse outcome than the needless copy
+        that getting `isolated` wrong otherwise costs. So check, don't trust.
+        """
+        return os.getpid() != self.origin_pid
+
     def apply(self) -> None:
         """Re-establish the parent's state. Runs inside the worker."""
+        # Nothing here is ours to do in the process the snapshot came from: the
+        # config would be set to the values it already holds, and the rest is
+        # worker set-up that the caller must not be subjected to.
+        if not self.is_foreign():
+            return
+
         # Only if it differs: `setLevel` invalidates the logging module's level
         # cache for *every* logger, and this runs once per chunk.
         if config.logger.getEffectiveLevel() != self.log_level:
             config.logger.setLevel(self.log_level)
         for key, value in self.settings:
             setattr(config, key, value)
+        # Before the hooks, and before any task: thread pools are built once,
+        # lazily, and this can size one that does not exist yet but cannot
+        # resize one that does.
+        limit_native_threads(self.threads)
         for hook in self.hooks:
             hook()
 
@@ -213,7 +331,7 @@ def _unshare_pbar_lock() -> None:
         config.tqdm_class.set_lock(RLock())
 
 
-def init_pool_worker(initializer=None, *initargs) -> None:
+def init_pool_worker(initializer=None, *initargs, threads=None) -> None:
     """Set a freshly started worker up. Pass as a pool `initializer`.
 
     For the `multiprocessing.Pool`s navis starts outside this module - the
@@ -225,10 +343,30 @@ def init_pool_worker(initializer=None, *initargs) -> None:
 
         mp.Pool(n, initializer=init_pool_worker,
                 initargs=(_ftp_pool_init, server, port, path))
+
+    Prefer :func:`worker_initializer`, which fills in `threads` for you.
     """
     _unshare_pbar_lock()
+    limit_native_threads(threads)
     if initializer is not None:
         initializer(*initargs)
+
+
+def worker_initializer(n_workers: int, threads=None):
+    """A pool `initializer` that also caps its worker's native threads.
+
+    For pools navis starts outside the backend machinery, which would otherwise
+    each hand their worker the whole machine - see `navis/compute/threads.py`
+    for why that costs rather than pays::
+
+        mp.Pool(n, initializer=worker_initializer(n))
+
+    Returns a `functools.partial`, which pickles by reference as long as what
+    it wraps does. Sizing follows the same policy as `parallel=True` - these
+    pools are always local, which is what `backend=None` says.
+    """
+    cap = resolve_thread_cap(None, n_workers, requested=threads)
+    return functools.partial(init_pool_worker, threads=cap)
 
 
 def run_chunk(chunk: Chunk):
@@ -237,10 +375,11 @@ def run_chunk(chunk: Chunk):
     Module level so it pickles by reference - a closure or lambda here would
     force every backend to serialise by value.
     """
-    # A context means the worker is somewhere else, so both of these are ours
-    # to set up; in-process, they would clobber the parent's own.
+    # A context that came from another process means the worker is somewhere
+    # else, so all of this is ours to set up; in-process it would clobber the
+    # caller's own - see `WorkerContext.is_foreign`.
     hidden = None
-    if chunk.context is not None:
+    if chunk.context is not None and chunk.context.is_foreign():
         _unshare_pbar_lock()
         chunk.context.apply()
         # The one piece of parent state a worker must not inherit. Every worker
@@ -360,7 +499,7 @@ def _serialisation_hint(exc, backend) -> Optional[str]:
 # --------------------------------------------------------------------------- #
 # The dispatcher
 # --------------------------------------------------------------------------- #
-def _iter_completed(backend, payloads, n_workers) -> Iterator:
+def _iter_completed(backend, payloads, n_workers, threads=None) -> Iterator:
     """Yield `(chunk index, results)` as units of work come back.
 
     A thin wrapper whose only job is to translate a pickling failure into
@@ -368,7 +507,8 @@ def _iter_completed(backend, payloads, n_workers) -> Iterator:
     loop body, which is free to re-raise an exception a worker sent home.
     """
     try:
-        yield from backend.map(run_chunk, payloads, n_workers=n_workers)
+        yield from backend.map(run_chunk, payloads, n_workers=n_workers,
+                               threads=threads)
     except BaseException as e:
         hint = _serialisation_hint(e, backend)
         if hint is None:
@@ -384,6 +524,7 @@ def imap_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
                omit_failures: bool = False,
                desc: Optional[str] = None,
                disable: bool = False,
+               threads=None,
                size_hint: Optional[Callable[[], float]] = None) -> Iterator:
     """Run `tasks` on `backend`, yielding `(index, result)` as they land.
 
@@ -410,8 +551,16 @@ def imap_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
                      f'units of up to {cs}.')
 
     # Only ship the context where it's needed: applying it in-process would
-    # clobber the parent's own config.
-    context = WorkerContext.snapshot() if backend.isolated else None
+    # clobber the parent's own config - and, for the thread cap, would hobble
+    # the calling process for the rest of the session. That is also why an
+    # in-process backend gets no cap at all: rayon's pool is per *process*, so
+    # N threads submitting into one pool is not oversubscription; N processes
+    # each building their own is. One branch, so neither half can drift into
+    # capping something that runs here.
+    context = cap = None
+    if backend.isolated:
+        cap = resolve_thread_cap(backend, n_workers, requested=threads)
+        context = WorkerContext.snapshot(cap)
 
     # A transport that can't carry an exception home intact (submitit turns
     # every one of them into a generic "job failed") would otherwise make the
@@ -425,7 +574,8 @@ def imap_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
 
     with config.tqdm(total=len(tasks), desc=desc, disable=disable,
                      leave=config.pbar_leave) as pbar:
-        for index, results in _iter_completed(backend, payloads, n_workers):
+        for index, results in _iter_completed(backend, payloads, n_workers,
+                                              threads=cap):
             pbar.update(len(chunks[index]))
             for offset, (task, result) in enumerate(zip(chunks[index], results)):
                 if isinstance(result, _FailedTask):
@@ -444,6 +594,7 @@ def map_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
               omit_failures: bool = False,
               desc: Optional[str] = None,
               disable: bool = False,
+              threads=None,
               size_hint: Optional[Callable[[], float]] = None) -> list:
     """Run `tasks` on `backend` and return the results in *input* order.
 
@@ -463,6 +614,11 @@ def map_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
                     Progress bar description.
     disable :       bool
                     Whether to hide the progress bar.
+    threads :       int | "auto", optional
+                    How many threads each worker may use for its own native
+                    parallelism. `None` follows
+                    `navis.config.inner_max_num_threads`; pass a number to pin
+                    one that suits this particular work.
     size_hint :     callable, optional
                     Returns the estimated size of one task in bytes. Only
                     called if the backend's chunking policy needs it.
@@ -479,6 +635,7 @@ def map_tasks(tasks: Sequence[Tuple[Callable, Sequence, dict]],
     for index, result in imap_tasks(tasks, backend=backend, n_workers=n_workers,
                                     chunksize=chunksize, desc=desc,
                                     disable=disable, size_hint=size_hint,
+                                    threads=threads,
                                     omit_failures=omit_failures):
         out[index] = result
     return out

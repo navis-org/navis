@@ -29,6 +29,7 @@ from typing_extensions import Literal
 from navis.nbl.smat import Lookup2d, smat_fcwb, _nblast_v1_scoring
 
 from .. import utils, config
+from ..compute.dispatch import cpu_count, default_n_workers
 from ..core import NeuronList, Dotprops, make_dotprops
 from .base import Blaster, NestedIndices
 from .backends import resolve_backend
@@ -53,10 +54,6 @@ JOB_MAX_TIME_SECONDS = 60 * 30
 # *counts* don't mean equal block *times*) at the cost of shipping a little more
 # neuron data. See `partition_grid`.
 MIN_BLOCKS_PER_CORE = 2
-
-# This controls how many threads we allow pykdtree to use during multi-core
-# NBLAST
-OMP_NUM_THREADS_LIMIT = 1
 
 # Scores that combine the query->target and target->query directions into a
 # single value, so the result is one matrix the same shape as query x target.
@@ -245,7 +242,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  limit_dist: Optional[Union[Literal['auto'], int, float]] = 'auto',
                  approx_nn: bool = False,
                  precision: Union[int, str, np.dtype] = 64,
-                 n_cores: int = os.cpu_count() // 2,
+                 n_cores: Optional[int] = None,
                  progress: bool = True,
                  backend: Optional[str] = None,
                  smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
@@ -332,7 +329,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     sufficient.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    `os.cpu_count() // 2`.
+                    half the available cores.
     progress :      bool
                     Whether to show progress bars.
     backend :       str, optional
@@ -398,6 +395,8 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
     query_dps = NeuronList(query)
     target_dps = NeuronList(target)
 
+    n_cores = n_cores or default_n_workers()
+
     # Run NBLAST preflight checks
     nblast_preflight(query_dps, target_dps, n_cores,
                      req_unique_ids=True,
@@ -437,7 +436,7 @@ def nblast(query: Union[Dotprops, NeuronList],
            limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
            approx_nn: bool = False,
            precision: Union[int, str, np.dtype] = 64,
-           n_cores: int = os.cpu_count() // 2,
+           n_cores: Optional[int] = None,
            progress: bool = True,
            backend: Optional[str] = None,
            smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
@@ -506,7 +505,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                     Impact depends on the use case - testing highly recommended!
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    `os.cpu_count() // 2`.
+                    half the available cores.
     precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                     Precision for scores. Defaults to 64 bit (double) floats.
                     This is useful to reduce the memory footprint for very large
@@ -571,6 +570,8 @@ def nblast(query: Union[Dotprops, NeuronList],
     query_dps = NeuronList(query)
     target_dps = NeuronList(target)
 
+    n_cores = n_cores or default_n_workers()
+
     # Run NBLAST preflight checks
     nblast_preflight(query_dps, target_dps, n_cores,
                      req_unique_ids=True,
@@ -607,7 +608,7 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
                smat: Optional[Union[str, pd.DataFrame]] = 'auto',
                limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
                precision: Union[int, str, np.dtype] = 64,
-               n_cores: int = os.cpu_count() // 2,
+               n_cores: Optional[int] = None,
                progress: bool = True,
                backend: Optional[str] = None,
                voxel: float = 20.0,
@@ -772,6 +773,8 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
     query_dps = NeuronList(query)
     target_dps = NeuronList(target) if target is not None else None
 
+    n_cores = n_cores or default_n_workers()
+
     nblast_preflight(query_dps,
                      target_dps if target_dps is not None else query_dps,
                      n_cores,
@@ -811,7 +814,7 @@ def nblast_allbyall(x: NeuronList,
                     limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
                     approx_nn: bool = False,
                     precision: Union[int, str, np.dtype] = 64,
-                    n_cores: int = os.cpu_count() // 2,
+                    n_cores: Optional[int] = None,
                     progress: bool = True,
                     backend: Optional[str] = None,
                     smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
@@ -827,7 +830,7 @@ def nblast_allbyall(x: NeuronList,
                     similar sampling resolutions.
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    `os.cpu_count() // 2`.
+                    half the available cores.
     use_alpha :     bool, optional
                     Emphasizes neurons' straight parts (backbone) over parts
                     that have lots of branches.
@@ -917,6 +920,8 @@ def nblast_allbyall(x: NeuronList,
     dps = NeuronList(x)
 
     # Run NBLAST preflight checks
+    n_cores = n_cores or default_n_workers()
+
     # Note that we are passing the same dotprops twice to avoid having to
     # change the function's signature. Should have little to no overhead.
     nblast_preflight(dps, dps, n_cores,
@@ -1302,7 +1307,7 @@ def nblast_preflight(query, target, n_cores, batch_size=None,
         raise TypeError('`n_cores` must be an integer > 0')
 
     n_cores = int(n_cores)
-    if n_cores > os.cpu_count():
+    if n_cores > cpu_count():
         logger.warning('`n_cores` should not larger than the number of '
                        'available cores')
 
@@ -1321,65 +1326,3 @@ def eval_limit_dist(x):
         return
 
     raise ValueError(f'`limit_dist` must be None, "auto" or float, got {x}' )
-
-
-def check_pykdtree_flag():
-    """Check if pykdtree is used and if the OMP_NUM_THREADS flag is set.
-
-    The issue is that on Linux pykdtree uses threads by default which causes
-    issues when we're also using multiple cores (= multiple layers of concurrency).
-    """
-    # This is only relevant for Linux (unless someone compiled pykdtree
-    # themselves using a compiler that supports openmp)
-    from sys import platform
-    if platform not in ("linux", "linux2"):
-        return
-
-    # See if pykdtree is present
-    try:
-        import pykdtree
-    except ModuleNotFoundError:
-        # If not present, just return
-        return
-
-    import os
-    if os.environ.get('OMP_NUM_THREADS', None) != "1":
-        msg = ('`OMP_NUM_THREADS` environment variable not set to 1. This may '
-               'result in multiple layers of concurrency which in turn will '
-               'slow down NBLAST when using multiple cores. '
-               'See also https://github.com/navis-org/navis/issues/49')
-        logger.warning(msg)
-
-
-def set_omp_flag(limits=1):
-    """Set OMP_NUM_THREADS flag to given value.
-
-    This is to avoid pykdtree causing multiple layers of concurrency which
-    will over-subcribe and slow down NBLAST on multi-core systems.
-
-    Use as context manager!
-    """
-    class OMPSetter:
-        def __init__(self, num_threads):
-            assert isinstance(num_threads, (int, type(None)))
-            self.num_threads = num_threads
-
-        def __enter__(self):
-            if self.num_threads is None:
-                return
-            # Track old value (if there is one)
-            self.old_value = os.environ.get('OMP_NUM_THREADS', None)
-            # Set flag
-            os.environ['OMP_NUM_THREADS'] = str(self.num_threads)
-
-        def __exit__(self, *args, **kwargs):
-            if self.num_threads is None:
-                return
-
-            # Reset flag
-            if self.old_value:
-                os.environ['OMP_NUM_THREADS'] = str(self.old_value)
-            else:
-                os.environ.pop('OMP_NUM_THREADS', None)
-
-    return OMPSetter(limits)

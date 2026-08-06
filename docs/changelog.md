@@ -147,6 +147,91 @@ pip install git+https://github.com/navis-org/navis@master
 
 ##### Improvements
 
+- **`parallel=True` no longer fights with the threads underneath it.** {{ navis }} spreads work over processes; [navis-fastcore](https://github.com/schlegelp/fastcore-rs) (and the BLAS/OpenMP pools under numpy) spread it over threads, and by default each takes every core it can see. Nothing told a worker process that it was one of twenty, so the two multiplied - `n_cores=20` on a 224-core node meant 20 x 224 = 4480 threads over 224 cores. Healing 40 skeletons of 200k nodes that way measured **slower than not parallelising at all** (6.71 s vs 5.10 s) while burning 2.3x the CPU; one thread per worker did it in 3.60 s at a sixth of the CPU.
+
+    Each worker is now told what it may use. The default divides the machine up rather than handing all of it to everyone - `cpu_count() // n_cores` threads apiece - and the new `inner_max_num_threads` overrides it (the name is joblib's, for the parameter that does the same job there):
+
+    ```python
+    # work with little internal parallelism to spread over more than one thread
+    with navis.set_parallel_backend(inner_max_num_threads=1):
+        navis.heal_skeleton(nl, parallel=True, n_cores=20)
+    ```
+
+    Cluster backends are left alone: `cpu_count() // n_cores` is arithmetic about the submitting machine and says nothing about the node a SLURM job lands on. Pass an explicit value if you want one there.
+
+- **NBLAST no longer pins its workers to a single thread.** It used to force `OMP_NUM_THREADS=1` in every worker, from a time when nothing else capped native threading and pykdtree's OpenMP would otherwise claim every core in every one of them. Dividing the machine (above) already prevents that, so the pin was leaving NBLAST at a fraction of the cores it had been asked for - 3 of 14 at `n_cores=3`, against 12 now. Scores are unchanged. Applies to [`navis.nblast`][] and relatives on the `builtin` backend, and to [`navis.nblast_align`][].
+
+- **new: [`navis.set_num_threads`][]**, which caps fastcore and BLAS in the *current* process. For the other direction from the above - when you are the one running the pool and {{ navis }} is the thing inside it, where {{ navis }} cannot help itself:
+
+    ```python
+    def work(neuron):
+        navis.set_num_threads(1)      # or once, in the pool's `initializer`
+        return navis.heal_skeleton(neuron)
+
+    with mp.Pool(20) as pool:
+        healed = pool.map(work, neurons)
+    ```
+
+- **`n_cores` defaults now follow the cores this *process* may use**, via `os.process_cpu_count()` (or the affinity mask below Python 3.13) rather than `os.cpu_count()`. The two differ under SLURM's `--cpus-per-task`, `taskset` and anything else that pins a process to a subset of the machine - i.e. on exactly the machines where claiming cores you do not have hurts most. The NBLAST family's `n_cores` also picks up [`navis.set_parallel_backend`][]`(n_workers=...)`, which it previously ignored: its default was baked in at import time.
+
+- **a [`Mesh`][navis.Mesh] now keeps its skeleton through a subset or a mask instead of throwing it away.** The vertex-to-node map is declared as a *link* in the schema (`navis/core/schema.py`) - one array aligned to the mesh's vertices whose values name skeleton nodes - so a selection carries it the same way it carries anything else, and subsets the skeleton to the nodes that still have vertices:
+
+    ```python
+    >>> nodes = mesh.skeleton.nodes.node_id.values
+    >>> with navis.masked(mesh, lambda x: x.vertices[:, 0] > 0):
+    ...     np.isin(mesh.skeleton.nodes.node_id, nodes).all()   # same nodes
+    np.True_
+    ```
+
+    Previously the skeleton was a plain cache, dropped by any change to the vertices and re-derived from whatever was left - so it cost a full re-skeletonization (~10x the subset itself on the example neuron) and came back with **different node IDs**. Anything computed on a masked mesh's skeleton therefore could not be traced back to the whole neuron. Functions that route through the skeleton ([`navis.prune_twigs`][], [`navis.prune_by_strahler`][], [`navis.split_axon_dendrite`][], ...) get this for free.
+
+    A skeleton is kept only while {{ navis }} can vouch for it: it is regenerated after any change to the vertices that did not go through the schema (assigning `.vertices`, transforming the neuron, [`navis.merge_subset`][]), and after any change to the skeleton that alters which nodes exist. Moving or rerooting the skeleton does *not* invalidate it, since links store node IDs. A skeleton attached by hand (`mesh.skeleton = ...`) behaves as before - there is no correspondence to carry, so it is dropped when the mesh changes.
+
+    Links compose: [`Neuron.get_mapping(source, target)`][navis.BaseNeuron.get_mapping] walks the link graph, so a correspondence nobody declared directly is still available. Deliberately one-way - a vertex has one node but a node has many vertices - so use [`Neuron.select_across`][navis.BaseNeuron.select_across] to go the other way.
+
+- **connectors are now elements in their own right**, on the same footing as nodes and vertices: they have an axis of their own and reach the thing they sit on through a link rather than a bare reference. Three things follow.
+
+    Anything you align to them is carried with them, `get_mapping` composes across them - `connectors → vertices → nodes` resolves on a mesh without anyone declaring the shortcut - and one shared declaration (`schema.CONNECTOR_AXIS` / `schema.connector_link`) now serves every neuron type instead of three near-copies. Your connector table is left exactly as you handed it over: the axis identifies connectors by position, so {{ navis }} has no reason to write an id column into it.
+
+- **new [`Neuron.attach`][navis.BaseNeuron.attach] and [`Neuron.attach_link`][navis.BaseNeuron.attach_link] carry your own data through selections.** Anything attached is subset, filtered and re-indexed by [`subset_neuron`][navis.subset_neuron], [`masked`][navis.masked] and everything built on them, exactly as the neuron's own tables are:
+
+    ```python
+    >>> n.attach('compartment', labels, axis='vertices')  # one per vertex
+    >>> with navis.masked(n, lambda x: x.vertices[:, 0] > 0):
+    ...     n.compartment                                 # masked to match
+    ```
+
+    `attach` also takes data that brings its own elements (`n.attach('mito', table, ids='mito_id')` declares an axis), and `attach_link` says which elements of another axis that data names - so a mitochondria table can follow the nodes it sits on, and be dropped when they are:
+
+    ```python
+    >>> n.attach('mito', table, ids='mito_id')
+    >>> n.attach_link('nodes', 'mito', column='node_id',
+    ...               source='mito', target_axis='nodes', cascade='keep')
+    ```
+
+    [`Neuron.attached()`][navis.BaseNeuron.attached] lists what a neuron carries beyond its type - attached data is otherwise a plain attribute that nothing in the summary mentions - and [`NeuronList.attached()`][navis.NeuronList.attached] summarises it over a list, counting how many neurons carry each entry:
+
+    ```python
+    >>> n.attached()
+               name     kind   axis names      shape
+    0     embedding  aligned  nodes        (4465, 8)
+    1          mito     axis   mito          (30, 2)
+    2   nodes->mito     link  nodes  mito    (4465,)
+    ```
+
+    Both write per-neuron the same declaration the neuron classes write per-class (`navis/core/schema.py`); `.connectors` is now itself a thin wrapper over `attach`. Note that assigning to an axis is not the same as selecting it - replacing `.connectors` wholesale drops anything aligned to the old connectors, with a warning, since nothing can say where they went. See the new [attaching data tutorial](../generated/gallery/tutorial_basic_04_attach), which also covers what no file format persists.
+
+    Functions that **rebuild** the elements rather than select from them ([`navis.resample_skeleton`][], [`navis.downsample_neuron`][], [`navis.stitch_skeletons`][], [`navis.simplify_mesh`][], ...) drop attached data with a warning rather than leaving it at the old length. Two `on_rebuild` policies opt out of that where a rebuild can say enough:
+
+    ```python
+    >>> n.attach('score', values, axis='nodes', on_rebuild='carry')
+    >>> navis.downsample_neuron(n, 10).score        # thinning keeps the nodes it keeps
+    >>> navis.resample_skeleton(n, 1000).score      # ... re-sampling does not: dropped
+    AttributeError
+    ```
+
+    `attach_link(..., on_rebuild='snap')` is the same choice for something whose values *name* elements: it does not need a value invented for it, only somewhere to point, so it follows the rebuild to the nearest node of the same branch. That is what connectors, tags and the soma have always done through `resample_skeleton` and `downsample_neuron`, and it is now the generic path rather than three hand-written blocks - so anything you attach can ask for it too.
+
 - **new [`navis.fill_holes`][] closes the holes in a [`Mesh`][navis.Mesh]** - the openings it was cut with, and any it came with. Cutting a mesh (via [`navis.prune_twigs`][], [`navis.prune_by_strahler`][], [`navis.subset_neuron`][], ...) drops every face that loses a corner, which used to leave each severed twig standing open. `fill_holes` triangulates those cross-sections shut:
 
     ```python

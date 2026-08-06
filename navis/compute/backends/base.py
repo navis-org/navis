@@ -70,6 +70,13 @@ class ParallelBackend(ABC):
                     Whether the backend can send functions that cannot be
                     imported by name - lambdas, closures, notebook-defined
                     functions. `pickle` cannot; `dill` and `cloudpickle` can.
+    shares_machine : bool
+                    Whether workers compete with each other for *this*
+                    machine's cores. True for a local pool, and what lets navis
+                    work out how many threads each worker may use. False for a
+                    scheduler: `n_cores` describes the machine you are sitting
+                    at and says nothing about the node a job lands on, so
+                    navis leaves the thread budget to whatever allocated it.
     chunks_per_worker : int | None
                     How many units of work to aim for per worker. `None` (the
                     default) means "don't bundle": one task per unit, which is
@@ -94,6 +101,7 @@ class ParallelBackend(ABC):
     concurrent: bool = True
     isolated: bool = True
     pickles_by_value: bool = False
+    shares_machine: bool = True
     marshals_exceptions: bool = True
 
     chunks_per_worker: Optional[int] = None
@@ -210,7 +218,7 @@ class ParallelBackend(ABC):
 
     @abstractmethod
     def map(self, func: Callable, payloads: Sequence, *,
-            n_workers: int) -> Iterator:
+            n_workers: int, threads: Optional[int] = None) -> Iterator:
         """Call `func` on each payload, yielding results as they complete.
 
         Implementations must yield - not return a list - so progress bars can
@@ -219,6 +227,13 @@ class ParallelBackend(ABC):
 
         `n_workers` is a hint. A backend wrapping a user-configured executor is
         free to ignore it.
+
+        `threads` is how many threads each worker will be told it may use, and
+        is *also* applied by the payload itself - a backend needs it only if it
+        keeps workers alive between calls, because a thread pool cannot be
+        resized once built. Such a backend must treat it as part of the
+        identity of its worker pool: reusing workers started under a different
+        cap silently runs the work at the old one.
         """
 
     def shutdown(self) -> None:
@@ -234,15 +249,21 @@ class ExecutorBackend(ParallelBackend):
     """
 
     @abstractmethod
-    def get_executor(self, n_workers: int) -> cf.Executor:
-        """Return the executor to submit to."""
+    def get_executor(self, n_workers: int,
+                     threads: Optional[int] = None) -> cf.Executor:
+        """Return the executor to submit to.
+
+        `threads` is the per-worker thread cap the work will run under. Only
+        of interest to an executor that outlives the call - see
+        :meth:`ParallelBackend.map`.
+        """
 
     def release_executor(self, executor: cf.Executor) -> None:
         """Called when a `map` finishes. No-op if the executor is reused."""
         executor.shutdown()
 
-    def map(self, func, payloads, *, n_workers):
-        executor = self.get_executor(n_workers)
+    def map(self, func, payloads, *, n_workers, threads=None):
+        executor = self.get_executor(n_workers, threads)
         futures = [executor.submit(func, p) for p in payloads]
         try:
             for f in cf.as_completed(futures):
@@ -273,7 +294,17 @@ class WrappedExecutorBackend(ExecutorBackend):
             setattr(self, key, value)
         apply_overrides(self, **overrides)
 
-    def get_executor(self, n_workers):
+    def worker_count(self, hint):
+        """Ask the executor how wide it is, rather than guessing from `n_cores`.
+
+        The user built this pool, so its size is a fact rather than a hint -
+        and one navis has to have, because it sizes the per-worker thread
+        budget. A `ProcessPoolExecutor(max_workers=32)` told `n_cores=8` would
+        otherwise hand each of its 32 workers eight cores' worth of threads.
+        """
+        return getattr(self.executor, '_max_workers', None) or hint
+
+    def get_executor(self, n_workers, threads=None):
         return self.executor
 
     def release_executor(self, executor):
@@ -375,7 +406,8 @@ def non_forking_context(mp):
 #: keyword that silently leaves the inferred value in place - and so that
 #: everything the protocol documents as a capability can actually be stated.
 _CAPABILITIES = {'isolated': bool, 'pickles_by_value': bool,
-                 'marshals_exceptions': bool, 'chunks_per_worker': int}
+                 'shares_machine': bool, 'marshals_exceptions': bool,
+                 'chunks_per_worker': int}
 
 
 def apply_overrides(backend, **overrides):
@@ -399,18 +431,22 @@ def _infer_capabilities(executor) -> dict:
     in-place operation, which at worst costs a copy.
     """
     if isinstance(executor, cf.ThreadPoolExecutor):
-        return dict(isolated=False, pickles_by_value=True)
+        return dict(isolated=False, pickles_by_value=True, shares_machine=True)
     if isinstance(executor, cf.ProcessPoolExecutor):
-        return dict(isolated=True, pickles_by_value=False)
+        return dict(isolated=True, pickles_by_value=False, shares_machine=True)
 
     mod = type(executor).__module__ or ''
     if mod.startswith('joblib') or 'loky' in mod:
-        return dict(isolated=True, pickles_by_value=True)
+        return dict(isolated=True, pickles_by_value=True, shares_machine=True)
 
     logger.debug(f'Unrecognised executor {type(executor).__name__}; assuming '
                  'it shares memory with the parent. Pass `isolated=True` to '
                  '`navis.set_parallel_backend` if it does not.')
-    return dict(isolated=False, pickles_by_value=False)
+    # `shares_machine=False` for the same reason as `isolated=False`: guess the
+    # value whose cost is a missed optimisation rather than a wrong answer. An
+    # executor we don't recognise may well be a cluster, and capping *those*
+    # workers to a slice of this laptop's cores would be a real loss.
+    return dict(isolated=False, pickles_by_value=False, shares_machine=False)
 
 
 # --------------------------------------------------------------------------- #
@@ -590,14 +626,19 @@ class _BackendSetter:
     `with navis.set_parallel_backend(client.get_executor()): ...`.
     """
 
-    def __init__(self, backend, n_workers):
+    def __init__(self, backend, n_workers, inner_max_num_threads):
         self.previous = config.default_parallel_backend
         self.previous_n_workers = config.default_n_workers
+        self.previous_threads = config.inner_max_num_threads
 
         if backend is not None:
             config.default_parallel_backend = backend
         if n_workers is not None:
             config.default_n_workers = int(n_workers)
+        if inner_max_num_threads is not None:
+            config.inner_max_num_threads = (
+                inner_max_num_threads if inner_max_num_threads == 'auto'
+                else int(inner_max_num_threads))
 
     def __enter__(self):
         return self
@@ -609,11 +650,13 @@ class _BackendSetter:
     def restore(self):
         config.default_parallel_backend = self.previous
         config.default_n_workers = self.previous_n_workers
+        config.inner_max_num_threads = self.previous_threads
 
 
-def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
+def set_parallel_backend(backend=None, *, n_workers=None,
+                         inner_max_num_threads=None, isolated=None,
                          pickles_by_value=None, chunks_per_worker=None,
-                         marshals_exceptions=None):
+                         shares_machine=None, marshals_exceptions=None):
     """Set where `parallel=True` runs its work.
 
     Parameters
@@ -632,6 +675,20 @@ def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
                 parameters of its own.
     n_workers : int, optional
                 Default number of workers. `None` leaves it unchanged.
+    inner_max_num_threads : int | "auto", optional
+                How many threads each worker may use for its *own* native
+                parallelism - navis-fastcore's thread pool, and the BLAS/OpenMP
+                pools under numpy. navis spreads work over processes and those
+                libraries spread it over threads; left alone both take the
+                whole machine, and the two multiply.
+
+                `"auto"` (the default) divides the machine up:
+                `cpu_count() // n_cores` threads apiece. Pass a number to
+                override that, or `0` to cap nothing at all. `None` - the
+                default *here* - leaves the setting as it is.
+
+                Only applies to workers on this machine; what a cluster worker
+                may use was decided by whatever allocated it.
     isolated :  bool, optional
                 Only for a bare executor: whether its workers have their own
                 address space. Inferred where we recognise the executor,
@@ -645,6 +702,13 @@ def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
                 right on one machine and wasteful across a network - recognised
                 remote executors are bundled automatically, so this is for
                 tuning that or for an executor we don't recognise.
+    shares_machine : bool, optional
+                Only for a bare executor: whether its workers compete with each
+                other for this machine's cores, which is what lets navis divide
+                the thread budget between them. Inferred for the stdlib pools
+                and loky; assumed False for an executor we don't recognise,
+                since capping a cluster's workers to a slice of this machine
+                would be a real loss.
     marshals_exceptions : bool, optional
                 Only for a bare executor: whether an exception raised in a
                 worker arrives here as itself. Set False for a transport that
@@ -656,6 +720,12 @@ def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
     -------
     A restorer that can be used as a context manager to scope the change.
 
+    See Also
+    --------
+    [`navis.set_num_threads`][]
+                Cap the threads used by *this* process - for when you are the
+                one running the pool and navis is inside it.
+
     Examples
     --------
     >>> import navis
@@ -666,9 +736,16 @@ def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
     ...     nl = navis.example_neurons(2)
     >>> _ = navis.set_parallel_backend('auto')
 
+    Give each worker a single thread, for work that has little internal
+    parallelism to spread over more:
+
+    >>> with navis.set_parallel_backend(n_workers=2, inner_max_num_threads=1):
+    ...     nl = navis.example_neurons(2)
+
     """
     overrides = dict(isolated=isolated, pickles_by_value=pickles_by_value,
                      chunks_per_worker=chunks_per_worker,
+                     shares_machine=shares_machine,
                      marshals_exceptions=marshals_exceptions)
 
     # The capability flags describe a specific executor, so they only mean
@@ -689,4 +766,4 @@ def set_parallel_backend(backend=None, *, n_workers=None, isolated=None,
             raise ValueError(f"Parallel backend '{be.name}' cannot be used as "
                              f"it stands: {'; '.join(reasons)}")
 
-    return _BackendSetter(backend, n_workers)
+    return _BackendSetter(backend, n_workers, inner_max_num_threads)

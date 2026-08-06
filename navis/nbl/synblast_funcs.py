@@ -25,6 +25,7 @@ from typing import Union, Optional
 from typing_extensions import Literal
 
 from .. import config, utils
+from ..compute.dispatch import default_n_workers
 from ..core import NeuronList, BaseNeuron
 
 from .base import Blaster, NestedIndices
@@ -236,7 +237,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
                            Literal['max']] = 'forward',
              normalized: bool = True,
              smat: Optional[Union[str, pd.DataFrame]] = 'auto',
-             n_cores: int = os.cpu_count() // 2,
+             n_cores: Optional[int] = None,
              progress: bool = True,
              backend: Optional[str] = None) -> pd.DataFrame:
     """Synapsed-based variant of NBLAST.
@@ -270,7 +271,7 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
 
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    `os.cpu_count() // 2`.
+                    half the available cores.
     normalized :    bool, optional
                     Whether to return normalized SynBLAST scores.
     smat :          str | pd.DataFrame, optional
@@ -322,6 +323,8 @@ def synblast(query: Union['BaseNeuron', 'NeuronList'],
     # Make sure we're working on NeuronList
     query = NeuronList(query)
     target = NeuronList(target)
+
+    n_cores = n_cores or default_n_workers()
 
     # Run pre-flight checks
     nblast_preflight(query, target, n_cores,

@@ -35,7 +35,7 @@ from urllib.parse import urlparse, unquote
 from typing import List, Union, Iterable, Dict, Optional, Any, IO
 
 from .. import config, utils, core
-from ..compute.dispatch import init_pool_worker
+from ..compute.dispatch import default_n_workers, worker_initializer
 
 try:
     import zlib
@@ -1464,12 +1464,12 @@ def parallel_read(read_fn, objs, parallel="auto") -> List["core.NeuronList"]:
 
     # Do not swap this as `isinstance(True, int)` returns `True`
     if isinstance(parallel, (bool, str)):
-        # N.B. `os.cpu_count()` can return None
-        n_cores = max(1, (os.cpu_count() or 1) // 2)
+        n_cores = default_n_workers()
     else:
         n_cores = int(parallel)
 
-    with mp.Pool(processes=n_cores, initializer=init_pool_worker) as pool:
+    with mp.Pool(processes=n_cores,
+                 initializer=worker_initializer(n_cores)) as pool:
         return list(prog(pool.imap(read_fn, objs)))
 
 
@@ -1571,11 +1571,12 @@ def parallel_read_archive(
     if parallel:
         # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
-            n_cores = max(1, (os.cpu_count() or 1) // 2)
+            n_cores = default_n_workers()
         else:
             n_cores = int(parallel)
 
-        with mp.Pool(processes=n_cores, initializer=init_pool_worker) as pool:
+        with mp.Pool(processes=n_cores,
+                     initializer=worker_initializer(n_cores)) as pool:
             results = pool.imap(read_fn, to_read)
             neurons = list(prog(results))
     else:
@@ -1711,7 +1712,7 @@ def parallel_read_ftp(
     if parallel:
         # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
-            n_cores = max(1, (os.cpu_count() or 1) // 2)
+            n_cores = default_n_workers()
         else:
             n_cores = int(parallel)
 
@@ -1719,7 +1720,7 @@ def parallel_read_ftp(
         # Instead, we need to initialize a new FTP connection in each process via a global variable
         with mp.Pool(
             processes=n_cores,
-            initializer=init_pool_worker,
+            initializer=worker_initializer(n_cores),
             initargs=(_ftp_pool_init, server, port, path),
         ) as pool:
             results = pool.imap(partial(read_fn, ftp="GLOBAL"), to_read)

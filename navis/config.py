@@ -153,6 +153,22 @@ default_parallel_backend = "auto"
 # cores". Set via `navis.set_parallel_backend(n_workers=...)`.
 default_n_workers = None
 
+# How many threads each `parallel=True` worker may use for its *own* native
+# parallelism - navis-fastcore's rayon pool, and the BLAS/OpenMP pools under
+# numpy. navis spreads work over processes and those libraries spread it over
+# threads; left to themselves both claim the whole machine, and the two
+# multiply.
+#   "auto" (default) gives each worker `cpu_count() // n_cores` threads, i.e.
+#   divides the machine up rather than handing all of it to each worker. An int
+#   sets it explicitly. None caps nothing.
+# The name is joblib's, for the parameter that does the same job there.
+# Only applies where workers are separate processes *on this machine*: a
+# cluster worker's budget is set by whatever allocated it (see
+# `ParallelBackend.shares_machine`). Set via
+# `navis.set_parallel_backend(inner_max_num_threads=...)`; to cap the current
+# process - e.g. inside a pool of your own - use `navis.set_num_threads()`.
+inner_max_num_threads = "auto"
+
 # Settings carried into worker processes. A forked worker inherits these for
 # free, but a spawned one re-imports navis and would otherwise silently revert
 # to the defaults - so anything a user can change and would expect to still
@@ -170,6 +186,7 @@ WORKER_SETTINGS = (
     "warn_caching",
     "add_units",
     "default_n_workers",
+    "inner_max_num_threads",
     "default_nblast_backend",
     "default_transform_backend",
     "elastix_invertible",

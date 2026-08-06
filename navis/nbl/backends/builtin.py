@@ -42,7 +42,7 @@ from .base import NblastBackend
 logger = config.get_logger(__name__)
 
 
-def _run_job(blaster, omp_limit=None):
+def _run_job(blaster):
     """Execute a single block's work. Runs in the worker.
 
     This is a module-level function (rather than a closure/lambda) so it is
@@ -50,21 +50,18 @@ def _run_job(blaster, omp_limit=None):
     serialise with plain `pickle`. The block's parameters travel on the
     (picklable) blaster instance itself.
 
-    `omp_limit` caps pykdtree's own threading so it doesn't compete with the
-    parallelism that put us in this worker. It has to be applied *here*: the
-    only environment a worker on another machine inherits is its own.
+    Capping the worker's own threading - pykdtree's above all, which would
+    otherwise compete with the parallelism that put us here - is the
+    dispatcher's job (`navis/compute/threads.py`), not this function's.
     """
-    from ..nblast_funcs import set_omp_flag
-
-    with set_omp_flag(limits=omp_limit):
-        op = blaster._op
-        if op == 'multi_query_target':
-            return blaster.multi_query_target(blaster.queries, blaster.targets,
-                                              scores=blaster._scores)
-        elif op == 'pair_query_target':
-            return blaster.pair_query_target(blaster.pairs,
-                                             scores=blaster._scores)
-        raise ValueError(f"Unknown block operation '{op}'")
+    op = blaster._op
+    if op == 'multi_query_target':
+        return blaster.multi_query_target(blaster.queries, blaster.targets,
+                                          scores=blaster._scores)
+    elif op == 'pair_query_target':
+        return blaster.pair_query_target(blaster.pairs,
+                                         scores=blaster._scores)
+    raise ValueError(f"Unknown block operation '{op}'")
 
 
 def _empty_scores(query_ids, target_ids, dtype, scores='forward'):
@@ -144,7 +141,6 @@ class BuiltinBackend(NblastBackend):
         already the unit the partitioner sized for a transport.
         """
         from ...compute import imap_tasks
-        from ..nblast_funcs import OMP_NUM_THREADS_LIMIT
 
         # A lone block is not worth a round trip, whatever the backend
         if not (backend.concurrent and len(jobs) > 1):
@@ -152,18 +148,10 @@ class BuiltinBackend(NblastBackend):
                 yield this, _run_job(this)
             return
 
-        # Avoid multiple layers of concurrency (see pykdtree/OMP notes). Note
-        # this is applied in the worker, never here: `OMP_NUM_THREADS` is part
-        # of the environment joblib builds its workers from, so flipping it in
-        # this process makes loky consider its pool stale and rebuild it - on
-        # the way in *and* on the way out, i.e. twice per NBLAST. An in-process
-        # backend needs nothing set: it is already running in our environment.
-        omp_limit = OMP_NUM_THREADS_LIMIT if backend.isolated else None
-
         for this in jobs:
             this.progress = False   # no per-block progress bars
 
-        tasks = [(_run_job, (this, omp_limit), {}) for this in jobs]
+        tasks = [(_run_job, (this,), {}) for this in jobs]
 
         # We drop the "N / N_total" bit from the progress bar because it's
         # not helpful here. Hence our own bar rather than the dispatcher's.
@@ -171,6 +159,13 @@ class BuiltinBackend(NblastBackend):
         with config.tqdm(total=len(jobs), desc=desc, bar_format=fmt,
                          smoothing=0, disable=not progress,
                          leave=False) as pbar:
+            # No `threads=`: the default budget - the machine divided between
+            # the workers - is the right one here. NBLAST used to pin one
+            # thread per worker, from a time when nothing capped native
+            # threading at all and pykdtree's OpenMP would otherwise claim
+            # every core in every worker. Dividing the machine already prevents
+            # that, and pinning on top of it left NBLAST running at a fraction
+            # of the cores it had asked for.
             for index, res in imap_tasks(tasks, backend=backend, chunksize=1,
                                          n_workers=n_cores, disable=True):
                 pbar.update()

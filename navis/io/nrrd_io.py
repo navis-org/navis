@@ -283,7 +283,7 @@ def read_nrrd(
                         Spawning and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the number of
-                        cores (otherwise defaults to `os.cpu_count() - 2`).
+                        cores (otherwise defaults to half the available cores).
     fmt :               str
                         Formatter to specify how filenames are parsed into neuron
                         attributes. Some illustrative examples:

@@ -58,6 +58,11 @@ class DaskBackend(ParallelBackend):
 
     isolated = True
     pickles_by_value = True     # cloudpickle
+    # A dask worker's core budget is set when the cluster is built
+    # (`LocalCluster(threads_per_worker=...)`, `--nthreads`, the SLURM
+    # allocation behind `SLURMCluster`) - not by the `n_cores` a caller passed
+    # on their laptop. Leave it alone.
+    shares_machine = False
     # Every unit is a scheduler round trip plus a transfer, so bundle. Eight
     # per worker still leaves plenty of room to even out stragglers.
     chunks_per_worker = 8
@@ -131,7 +136,7 @@ class DaskBackend(ParallelBackend):
             logger.debug(f'Could not read the dask cluster size ({e}).')
             return hint
 
-    def map(self, func, payloads, *, n_workers):
+    def map(self, func, payloads, *, n_workers, threads=None):
         import distributed
 
         client = self.get_client()

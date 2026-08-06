@@ -14,7 +14,6 @@
 
 """Module contains functions implementing alignNBLAST."""
 
-import os
 import operator
 
 import numpy as np
@@ -27,10 +26,11 @@ from typing_extensions import Literal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from .. import config, utils, core
+from ..compute.dispatch import default_n_workers, worker_initializer
 from ..transforms.align import align_rigid, align_deform, align_pca, _align_rigid_deform
 
 from .base import Blaster, NestedIndices
-from .nblast_funcs import (nblast_preflight,find_optimal_partition, set_omp_flag)
+from .nblast_funcs import nblast_preflight, find_optimal_partition
 from .smat import Lookup2d, _nblast_v1_scoring
 
 logger = config.logger
@@ -273,7 +273,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                  limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
                  approx_nn: bool = False,
                  precision: Union[int, str, np.dtype] = 64,
-                 n_cores: int = os.cpu_count() // 2,
+                 n_cores: Optional[int] = None,
                  progress: bool = True,
                  dotprop_kwargs: Optional[Dict] = dict(),
                  align_kwargs: Optional[Dict] = dict(),
@@ -356,7 +356,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     Impact depends on the use case - testing highly recommended!
     n_cores :       int, optional
                     Max number of cores to use for nblasting. Default is
-                    `os.cpu_count() // 2`. This should ideally be an even
+                    half the available cores. This should ideally be an even
                     number as that allows optimally splitting queries onto
                     individual processes. Also note that due to multiple layers
                     of concurrency using all available cores might not be the
@@ -440,6 +440,8 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
     else:
         align_func = align_method
 
+    n_cores = n_cores or default_n_workers()
+
     # Run NBLAST preflight checks
     nblast_preflight(query, target, n_cores,
                      req_dotprops=False,
@@ -461,91 +463,92 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
     else:
         n_rows = n_cols = 1
 
-    # This makes sure we don't run into multiple layers of concurrency
-    # Note that it doesn't do anything for the parent process (which is great
-    # if we end up not actually using multiple cores)
-    with set_omp_flag(limits=1):
-        # Initialize a pool of workers
-        # Note that we're forcing "spawn" instead of "fork" (default on linux)!
-        # This is to reduce the memory footprint since "fork" appears to inherit all
-        # variables (including all neurons) while "spawn" appears to get only
-        # what's required to run the job?
-        with ProcessPoolExecutor(max_workers=n_cores,
-                                 mp_context=mp.get_context('spawn')) as pool:
-            with config.tqdm(desc='Preparing',
-                             total=n_rows * n_cols,
-                             leave=False,
-                             disable=not progress) as pbar:
-                futures = {}
-                nblasters = []
-                for qix in np.array_split(np.arange(len(query)), n_rows):
-                    for tix in np.array_split(np.arange(len(target)), n_cols):
-                        # Initialize NBlaster
-                        this = NBlasterAlign(align_func=align_func,
-                                             two_way_align=two_way_align,
-                                             sample_align=sample_align,
-                                             use_alpha=use_alpha,
-                                             normalized=normalized,
-                                             smat=smat,
-                                             limit_dist=limit_dist,
-                                             dtype=precision,
-                                             approx_nn=approx_nn,
-                                             progress=progress,
-                                             align_kwargs=align_kwargs,
-                                             dotprop_kwargs=dotprop_kwargs,
-                                             smat_kwargs=smat_kwargs)
+    # Initialize a pool of workers. `worker_initializer` divides the machine's
+    # threads between them, in the worker - setting `OMP_NUM_THREADS` here, in
+    # the parent, would also make joblib consider its own pool stale and
+    # rebuild it (see `navis/compute/threads.py`).
+    #
+    # Note that we're forcing "spawn" instead of "fork" (default on linux)!
+    # This is to reduce the memory footprint since "fork" appears to inherit all
+    # variables (including all neurons) while "spawn" appears to get only
+    # what's required to run the job?
+    with ProcessPoolExecutor(max_workers=n_cores,
+                             mp_context=mp.get_context('spawn'),
+                             initializer=worker_initializer(n_cores)) as pool:
+        with config.tqdm(desc='Preparing',
+                         total=n_rows * n_cols,
+                         leave=False,
+                         disable=not progress) as pbar:
+            futures = {}
+            nblasters = []
+            for qix in np.array_split(np.arange(len(query)), n_rows):
+                for tix in np.array_split(np.arange(len(target)), n_cols):
+                    # Initialize NBlaster
+                    this = NBlasterAlign(align_func=align_func,
+                                         two_way_align=two_way_align,
+                                         sample_align=sample_align,
+                                         use_alpha=use_alpha,
+                                         normalized=normalized,
+                                         smat=smat,
+                                         limit_dist=limit_dist,
+                                         dtype=precision,
+                                         approx_nn=approx_nn,
+                                         progress=progress,
+                                         align_kwargs=align_kwargs,
+                                         dotprop_kwargs=dotprop_kwargs,
+                                         smat_kwargs=smat_kwargs)
 
-                        # Add queries and targets
-                        for i, ix in enumerate(qix):
-                            this.append(query[ix])
-                        for i, ix in enumerate(tix):
-                            this.append(target[ix])
+                    # Add queries and targets
+                    for i, ix in enumerate(qix):
+                        this.append(query[ix])
+                    for i, ix in enumerate(tix):
+                        this.append(target[ix])
 
-                        # Keep track of indices of queries and targets
-                        this.queries = np.arange(len(qix))
-                        this.targets = np.arange(len(tix)) + len(qix)
-                        this.queries_ix = qix  # this facilitates filling in the big matrix later
-                        this.targets_ix = tix  # this facilitates filling in the big matrix later
-                        this.pbar_position = len(nblasters) if not utils.is_jupyter() else None
+                    # Keep track of indices of queries and targets
+                    this.queries = np.arange(len(qix))
+                    this.targets = np.arange(len(tix)) + len(qix)
+                    this.queries_ix = qix  # this facilitates filling in the big matrix later
+                    this.targets_ix = tix  # this facilitates filling in the big matrix later
+                    this.pbar_position = len(nblasters) if not utils.is_jupyter() else None
 
-                        nblasters.append(this)
-                        pbar.update()
+                    nblasters.append(this)
+                    pbar.update()
 
-                        # If multiple cores requested, submit job to the pool right away
-                        if n_cores and n_cores > 1 and (n_cols > 1 or n_rows > 1):
-                            this.progress=False  # no progress bar for individual NBLASTERs
-                            futures[pool.submit(this.multi_query_target,
-                                                q_idx=this.queries,
-                                                t_idx=this.targets,
-                                                scores=scores)] = this
+                    # If multiple cores requested, submit job to the pool right away
+                    if n_cores and n_cores > 1 and (n_cols > 1 or n_rows > 1):
+                        this.progress=False  # no progress bar for individual NBLASTERs
+                        futures[pool.submit(this.multi_query_target,
+                                            q_idx=this.queries,
+                                            t_idx=this.targets,
+                                            scores=scores)] = this
+
+        # Collect results
+        if futures and len(futures) > 1:
+            # Prepare empty score matrix
+            scores = pd.DataFrame(np.empty((len(query), len(target)),
+                                           dtype=this.dtype),
+                                  index=query.id, columns=target.id)
+            scores.index.name = 'query'
+            scores.columns.name = 'target'
 
             # Collect results
-            if futures and len(futures) > 1:
-                # Prepare empty score matrix
-                scores = pd.DataFrame(np.empty((len(query), len(target)),
-                                               dtype=this.dtype),
-                                      index=query.id, columns=target.id)
-                scores.index.name = 'query'
-                scores.columns.name = 'target'
-
-                # Collect results
-                # We're dropping the "N / N_total" bit from the progress bar because
-                # it's not helpful here
-                fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]')
-                for f in config.tqdm(as_completed(futures),
-                                     desc='NBLASTing',
-                                     bar_format=fmt,
-                                     total=len(futures),
-                                     smoothing=0,
-                                     disable=not progress,
-                                     leave=False):
-                    res = f.result()
-                    this = futures[f]
-                    # Fill-in big score matrix
-                    scores.iloc[this.queries_ix, this.targets_ix] = res.values
-            else:
-                scores = this.multi_query_target(this.queries,
-                                                 this.targets,
-                                                 scores=scores)
+            # We're dropping the "N / N_total" bit from the progress bar because
+            # it's not helpful here
+            fmt = ('{desc}: {percentage:3.0f}%|{bar}| [{elapsed}<{remaining}]')
+            for f in config.tqdm(as_completed(futures),
+                                 desc='NBLASTing',
+                                 bar_format=fmt,
+                                 total=len(futures),
+                                 smoothing=0,
+                                 disable=not progress,
+                                 leave=False):
+                res = f.result()
+                this = futures[f]
+                # Fill-in big score matrix
+                scores.iloc[this.queries_ix, this.targets_ix] = res.values
+        else:
+            scores = this.multi_query_target(this.queries,
+                                             this.targets,
+                                             scores=scores)
 
     return scores

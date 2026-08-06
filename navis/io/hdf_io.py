@@ -25,7 +25,7 @@ from abc import ABC, abstractmethod
 from typing import Union, Iterable, Dict, Optional, Any
 
 from .. import config, utils, core
-from ..compute.dispatch import init_pool_worker
+from ..compute.dispatch import cpu_count, worker_initializer
 
 
 class BaseH5Reader(ABC):
@@ -747,8 +747,8 @@ def read_h5(filepath: str,
                         Spawning and joining processes causes overhead and is
                         considerably slower for imports of small numbers of
                         neurons. Integer will be interpreted as the
-                        number of cores (otherwise defaults to
-                        `os.cpu_count() - 2`).
+                        number of cores (otherwise defaults to two fewer than
+                        the available cores).
     on_error :          "stop" | "warn" | "ignore"
                         What to do if a neuron can not be parsed: "stop" and
                         raise an exception, "warn" and keep going or silently
@@ -859,7 +859,7 @@ def read_h5(filepath: str,
     else:
         # Do not swap this as `isinstance(True, int)` returns `True`
         if isinstance(parallel, (bool, str)):
-            n_cores = max(1, (os.cpu_count() or 2) - 2)
+            n_cores = max(1, cpu_count() - 2)
         else:
             n_cores = int(parallel)
 
@@ -877,7 +877,8 @@ def read_h5(filepath: str,
         # spawned processes without being any faster - reading and returning
         # one neuron at a time seems to be the most efficient way
         reader = READERS[info['format_spec']]
-        with mp.Pool(processes=n_cores, initializer=init_pool_worker) as pool:
+        with mp.Pool(processes=n_cores,
+                     initializer=worker_initializer(n_cores)) as pool:
             futures = pool.imap(_h5_reader_worker, [dict(reader=reader,
                                                          filepath=filepath,
                                                          read=read,

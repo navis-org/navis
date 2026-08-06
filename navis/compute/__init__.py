@@ -31,8 +31,10 @@ has to grow a `slurm_partition` keyword::
 
 import atexit
 
-from .dispatch import (map_tasks, imap_tasks, default_n_workers, FailedRun,
-                       worker_init_hooks, picklable_by_reference)
+from .threads import set_num_threads, limit_native_threads
+from .dispatch import (map_tasks, imap_tasks, cpu_count, default_n_workers,
+                       resolve_thread_cap, FailedRun, worker_init_hooks,
+                       picklable_by_reference)
 from .backends import (ParallelBackend, ExecutorBackend, register_backend,
                        get_backend, list_backends, available_backends,
                        resolve_backend, set_parallel_backend)
@@ -53,7 +55,7 @@ atexit.register(shutdown)
 
 
 #: Names exported to the top-level `navis` namespace.
-__all__ = ['set_parallel_backend', 'list_parallel_backends']
+__all__ = ['set_parallel_backend', 'list_parallel_backends', 'set_num_threads']
 
 
 def list_parallel_backends() -> list:

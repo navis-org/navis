@@ -307,7 +307,7 @@ def read_swc(
                          - "auto" (default): will use parallel processing if
                             more than 200 SWCs are imported.
                           - Integers will be interpreted as the number of
-                            processes to use. Defaults to `os.cpu_count() // 2`.
+                            processes to use. Defaults to half the available cores.
                           - False will use a single process.
                         Ignored for tar archives. Please note that spawning
                         processes incurs an overhead and might not be faster

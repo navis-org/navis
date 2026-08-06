@@ -11,8 +11,6 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import os
-
 import numpy as np
 import pandas as pd
 import scipy.spatial as ssp
@@ -26,6 +24,7 @@ from typing_extensions import Literal
 from concurrent.futures import ProcessPoolExecutor
 
 from .. import config, core, utils
+from ..compute.dispatch import default_n_workers, worker_initializer
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -43,7 +42,7 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
                                           Literal['cosine'],
                                           ] = 'vertex_normalized',
                             threshold: Optional[int] = None,
-                            n_cores: int = max(1, os.cpu_count() // 2),
+                            n_cores: Optional[int] = None,
                             **kwargs) -> pd.DataFrame:
     r"""Calculate connectivity similarity.
 
@@ -90,7 +89,7 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
                         detailed explanation.
     threshold :         int, optional
                         Connections weaker than this will be set to zero.
-    n_cores :           int
+    n_cores :           int, optional
                         Number of parallel processes to use. Defaults to half
                         the available cores.
     **kwargs
@@ -118,6 +117,8 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
 
     score_func = FUNC_MAP[metric.lower()]
 
+    n_cores = n_cores or default_n_workers()
+
     if isinstance(adjacency, np.ndarray):
         adjacency = pd.DataFrame(adjacency)
     elif not isinstance(adjacency, pd.DataFrame):
@@ -141,7 +142,8 @@ def connectivity_similarity(adjacency: Union[pd.DataFrame, np.ndarray],
     # unfortunately not evaluate this lazily. This is a "bug" in the standard
     # library that might get fixed at some point.
     if n_cores > 1:
-        with ProcessPoolExecutor(max_workers=n_cores) as e:
+        with ProcessPoolExecutor(max_workers=n_cores,
+                                 initializer=worker_initializer(n_cores)) as e:
             futures = e.map(_distributor, comb, chunksize=50000)
 
             matching_indices = [n for n in config.tqdm(futures,
@@ -311,7 +313,7 @@ def synapse_similarity(x: 'core.NeuronList',
                        omega: Union[float, int],
                        mu_score: bool = True,
                        restrict_cn: Optional[List[str]] = None,
-                       n_cores: int = max(1, os.cpu_count() // 2)
+                       n_cores: Optional[int] = None
                        ) -> pd.DataFrame:
     r"""Cluster neurons based on their synapse placement.
 
@@ -358,7 +360,7 @@ def synapse_similarity(x: 'core.NeuronList',
                         If None, will use all connector types. Use either
                         single integer or list. E.g. `restrict_cn=[0, 1]`
                         to use only pre- and postsynapses.
-    n_cores :           int
+    n_cores :           int, optional
                         Number of parallel processes to use. Defaults to half
                         the available cores.
 
@@ -378,6 +380,8 @@ def synapse_similarity(x: 'core.NeuronList',
     >>> scores = navis.synapse_similarity(nl, omega=5000/8, sigma=2000/8)
 
     """
+    n_cores = n_cores or default_n_workers()
+
     if not isinstance(x, core.NeuronList):
         raise TypeError(f'Expected Neuronlist got {type(x)}')
 
@@ -391,7 +395,8 @@ def synapse_similarity(x: 'core.NeuronList',
     combinations = [(nA.connectors, nB.connectors, sigma, omega, restrict_cn)
                     for nA in x for nB in x]
 
-    with ProcessPoolExecutor(max_workers=n_cores) as e:
+    with ProcessPoolExecutor(max_workers=n_cores,
+                             initializer=worker_initializer(n_cores)) as e:
         futures = e.map(_unpack_synapse_helper, combinations, chunksize=1000)
 
         scores = [n for n in config.tqdm(futures, total=len(combinations),

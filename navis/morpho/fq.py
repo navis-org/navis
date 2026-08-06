@@ -14,7 +14,6 @@
 
 """ This module contains functions to analyse neuron's form factors."""
 
-import os
 import scipy
 
 import pandas as pd
@@ -26,7 +25,7 @@ from typing import Union, Optional, Sequence, List, Dict, overload
 from typing_extensions import Literal
 
 from .. import config, core, utils
-from ..compute.dispatch import init_pool_worker
+from ..compute.dispatch import worker_initializer, default_n_workers
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -39,7 +38,7 @@ def form_factor(x: Union['core.Skeleton', 'core.Mesh'],
                 stop: int = 3,
                 num: int = 601,
                 parallel: bool = False,
-                n_cores: int = os.cpu_count() // 2,
+                n_cores: Optional[int] = None,
                 progress=True):
     """Calculate form factor for given neuron.
 
@@ -64,12 +63,12 @@ def form_factor(x: Union['core.Skeleton', 'core.Mesh'],
                 be `np.logspace(start, stop, num)`.
     parallel :  bool
                 Whether to use multiple cores when `x` is a NeuronList.
-    n_cores :   bool
+    n_cores :   int, optional
                 Number of cores to use when `x` is a NeuronList and
-                `parallel=True`. Even on a single core this function makes
-                heavy use of numpy which itself uses multiple threads - it is
-                therefore not advisable to use all your cores as this would
-                create a bottleneck.
+                `parallel=True`. Defaults to half the available cores. Even on
+                a single core this function makes heavy use of numpy which
+                itself uses multiple threads - it is therefore not advisable to
+                use all your cores as this would create a bottleneck.
     progress :  bool
                 Whether to show a progress bar.
 
@@ -126,8 +125,9 @@ def form_factor(x: Union['core.Skeleton', 'core.Mesh'],
                                     start=start, stop=stop, num=num)
 
         if parallel:
+            n_cores = n_cores or default_n_workers()
             with mp.Pool(processes=n_cores,
-                         initializer=init_pool_worker) as pool:
+                         initializer=worker_initializer(n_cores)) as pool:
                 results = pool.imap(_calc_form_factor, x)
                 Fq = list(pbar(results))
         else:

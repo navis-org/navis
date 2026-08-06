@@ -656,6 +656,7 @@ Various utility functions.
 | [`navis.set_loggers()`][navis.set_loggers] | {{ autosummary("navis.set_loggers") }} |
 | [`navis.set_parallel_backend()`][navis.set_parallel_backend] | {{ autosummary("navis.set_parallel_backend") }} |
 | [`navis.list_parallel_backends()`][navis.list_parallel_backends] | {{ autosummary("navis.list_parallel_backends") }} |
+| [`navis.set_num_threads()`][navis.set_num_threads] | {{ autosummary("navis.set_num_threads") }} |
 | [`navis.set_default_connector_colors()`][navis.set_default_connector_colors] | {{ autosummary("navis.set_default_connector_colors") }} |
 | [`navis.config.remove_log_handlers()`][navis.config.remove_log_handlers] | {{ autosummary("navis.config.remove_log_handlers") }} |
 | [`navis.patch_cloudvolume()`][navis.patch_cloudvolume] | {{ autosummary("navis.patch_cloudvolume") }} |
