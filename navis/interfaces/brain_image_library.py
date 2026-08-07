@@ -28,7 +28,6 @@ Globus instead (see the download docs linked above).
 
 import os
 import re
-import requests
 
 import numpy as np
 import pandas as pd
@@ -39,11 +38,11 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 from urllib.parse import unquote, urljoin
-from urllib3.util import Retry
 
 from ..core import NeuronList
 from ..io import read_swc
 from .. import utils, config
+from .base import fetch_parallel, get_session, register_cache
 
 __all__ = [
     "search",
@@ -64,9 +63,6 @@ DOWNLOAD_URL = "https://download.brainimagelibrary.org"
 # All BIL directories are of the form "/bil/data/<c1c2>/<c3c4>/<submission id>"
 BIL_PREFIX = "/bil/data/"
 
-HEADERS = requests.utils.default_headers()
-HEADERS.update({"User-Agent": "github.com/navis-org/navis"})
-
 TIMEOUT = 60
 
 # Guardrails. These are module-level so that power users can adjust them.
@@ -84,25 +80,6 @@ _HELP_GLOBUS = (
 
 class BILError(Exception):
     """Raised when the Brain Image Library API returns an error."""
-
-
-def _make_session() -> requests.Session:
-    """Session with retries. BIL is a public service - be a good citizen."""
-    s = requests.Session()
-    s.headers.update(HEADERS)
-    retry = Retry(
-        total=3,
-        backoff_factor=0.5,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET", "POST"],
-    )
-    s.mount("https://", requests.adapters.HTTPAdapter(max_retries=retry, pool_maxsize=16))
-    return s
-
-
-# Note: creating a session does not open any connections, so importing this
-# module stays free of side effects (and works offline).
-session = _make_session()
 
 
 #############################################
@@ -171,7 +148,7 @@ def _get_json(url: str) -> dict:
     BIL signals *both* "no results" and "invalid field" with a HTTP 404 and a
     JSON body, so we must inspect the message rather than the status code.
     """
-    r = session.get(url, timeout=TIMEOUT)
+    r = get_session().get(url, timeout=TIMEOUT)
 
     try:
         data = r.json()
@@ -231,6 +208,11 @@ def query(division: str, element: str, value: str) -> List[str]:
     """
     url = utils.make_url(BASEURL, "query", *str(division).split("/"), **{element: value})
     return list(_get_json(url).get("bildids", []))
+
+
+def _run_query(job) -> List[str]:
+    """Run one `(division, element, value)` job. See `search`."""
+    return query(*job)
 
 
 def search(
@@ -305,19 +287,23 @@ def search(
         for value in utils.make_iterable(values)
     ]
 
+    # A search that silently dropped one of its terms would return too *many*
+    # datasets (the intersection over fewer constraints), so any failure here
+    # has to be fatal regardless of what strict mode says.
+    results = fetch_parallel(
+        _run_query,
+        jobs,
+        labels=[f"{el}={val}" for _, el, val in jobs],
+        errors="raise",
+        parallel=parallel,
+        max_threads=max_threads,
+        desc="Querying",
+    )
+
     # OR within a field, AND across fields
     per_field: Dict[str, set] = {f: set() for f in filters}
-    with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
-        futures = {executor.submit(query, div, el, val): el for div, el, val in jobs}
-        with config.tqdm(
-            desc="Querying",
-            total=len(futures),
-            leave=config.pbar_leave,
-            disable=len(futures) == 1 or config.pbar_hide,
-        ) as pbar:
-            for f in as_completed(futures):
-                pbar.update(1)
-                per_field[futures[f]] |= set(f.result())
+    for (_, el, _), hits in zip(jobs, results):
+        per_field[el] |= set(hits)
 
     ids = sorted(set.intersection(*per_field.values()))
 
@@ -348,8 +334,13 @@ def search(
 _META_CACHE: Dict[str, dict] = {}
 
 
+@register_cache
 def clear_metadata_cache() -> None:
-    """Clear the in-process metadata cache."""
+    """Clear the in-process metadata cache.
+
+    Also cleared by [`navis.interfaces.clear_cache`][], along with every other
+    interface cache.
+    """
     _META_CACHE.clear()
 
 
@@ -462,7 +453,7 @@ def _retrieve(bildids: List[str], parallel: bool, max_threads: int, chunk_size: 
     chunks = [missing[i:i + chunk_size] for i in range(0, len(missing), chunk_size)]
 
     def _post(chunk):
-        r = session.post(
+        r = get_session().post(
             utils.make_url(BASEURL, "retrieve"), json={"bildids": chunk}, timeout=TIMEOUT
         )
         try:
@@ -472,31 +463,30 @@ def _retrieve(bildids: List[str], parallel: bool, max_threads: int, chunk_size: 
             raise BILError(f"BIL API returned a non-JSON response: {r.text[:200]}")
         return data
 
-    with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
-        futures = {executor.submit(_post, c): c for c in chunks}
-        with config.tqdm(
-            desc="Fetching metadata",
-            total=len(futures),
-            leave=config.pbar_leave,
-            disable=len(futures) == 1 or config.pbar_hide,
-        ) as pbar:
-            for f in as_completed(futures):
-                pbar.update(1)
-                data = f.result()
+    responses = fetch_parallel(
+        _post,
+        chunks,
+        labels=[f"{len(c)} IDs starting at {c[0]}" for c in chunks],
+        errors="raise",
+        parallel=parallel,
+        max_threads=max_threads,
+        desc="Fetching metadata",
+    )
 
-                for bildid, ok in (data.get("status") or {}).items():
-                    if not ok:
-                        logger.warning(f"No metadata found for '{bildid}'.")
+    for data in responses:
+        for bildid, ok in (data.get("status") or {}).items():
+            if not ok:
+                logger.warning(f"No metadata found for '{bildid}'.")
 
-                # IMPORTANT: the order of `retjson` does NOT match the order of
-                # the request - we must key records by their own ID.
-                for rec in data.get("retjson") or []:
-                    assets = rec.get("Assets") or []
-                    bildid = assets[0].get("bildid") if assets else None
-                    if not bildid:
-                        logger.warning("Skipping a record without an identifiable ID.")
-                        continue
-                    _META_CACHE[bildid] = rec
+        # IMPORTANT: the order of `retjson` does NOT match the order of
+        # the request - we must key records by their own ID.
+        for rec in data.get("retjson") or []:
+            assets = rec.get("Assets") or []
+            bildid = assets[0].get("bildid") if assets else None
+            if not bildid:
+                logger.warning("Skipping a record without an identifiable ID.")
+                continue
+            _META_CACHE[bildid] = rec
 
 
 def _extract_ids(x) -> List[str]:
@@ -766,7 +756,7 @@ def _parse_autoindex(html: str, base_url: str) -> List[dict]:
 
 
 def _fetch_listing(url: str) -> str:
-    r = session.get(url, timeout=TIMEOUT)
+    r = get_session().get(url, timeout=TIMEOUT)
     r.raise_for_status()
     return r.text
 
@@ -1012,7 +1002,7 @@ def _download_file(url: str, filepath: Path, pbar=None, chunk_size: int = 1024**
     # `skip_existing` would happily hand back forever.
     tmp = filepath.with_name(filepath.name + ".part")
 
-    with session.get(url, stream=True, timeout=TIMEOUT) as r:
+    with get_session().get(url, stream=True, timeout=TIMEOUT) as r:
         r.raise_for_status()
         with open(tmp, "wb") as f:
             for block in r.iter_content(chunk_size=chunk_size):
@@ -1022,6 +1012,12 @@ def _download_file(url: str, filepath: Path, pbar=None, chunk_size: int = 1024**
 
     os.replace(tmp, filepath)
     return filepath
+
+
+def _download_job(job, pbar=None) -> Path:
+    """Download one `(url, target, size)` job. See `download_files`."""
+    url, target, _ = job
+    return _download_file(url, target, pbar)
 
 
 def download_files(
@@ -1126,15 +1122,19 @@ def download_files(
             leave=config.pbar_leave,
             disable=config.pbar_hide,
         ) as pbar:
-            with ThreadPoolExecutor(
-                max_workers=1 if not parallel else max_threads
-            ) as executor:
-                futures = {
-                    executor.submit(_download_file, url, target, pbar): url
-                    for url, target, _ in todo
-                }
-                for f in as_completed(futures):
-                    f.result()  # raise any exception
+            # A half-downloaded set of files on disk is a trap, so failures are
+            # fatal here whatever strict mode says. `progress=False` because the
+            # bar above counts bytes, not files.
+            fetch_parallel(
+                _download_job,
+                todo,
+                labels=[url for url, _, _ in todo],
+                errors="raise",
+                parallel=parallel,
+                max_threads=max_threads,
+                progress=False,
+                pbar=pbar,
+            )
 
     return files
 

@@ -14,29 +14,12 @@
 
 from ..core import Mesh, NeuronList
 from .. import config, utils
+from .base import cached, fetch_parallel, optional_import
 import pandas as pd
 import numpy as np
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import lru_cache
-from textwrap import dedent
-
-err_msg = dedent("""
-      Failed to import `caveclient` library. Please install using pip:
-
-            pip install caveclient -U
-
-      """)
-
-try:
-    from caveclient import CAVEclient
-    import cloudvolume as cv
-except ImportError:
-    config.logger.error(err_msg)
-    CAVEclient = None
-    cv = None
-except BaseException:
-    raise
+caveclient = optional_import("caveclient")
+cv = optional_import("cloudvolume")
 
 
 logger = config.get_logger(__name__)
@@ -44,7 +27,7 @@ dataset = None
 SILENCE_FIND_MAT_VERSION = False
 
 
-@lru_cache(None)
+@cached
 def get_cave_client(datastack="cortex65", server_address=None):
     """Get caveclient for given datastack.
 
@@ -57,13 +40,10 @@ def get_cave_client(datastack="cortex65", server_address=None):
                     most recent version).
 
     """
-    if not CAVEclient:
-        raise ImportError(err_msg)
-
-    return CAVEclient(datastack, server_address)
+    return caveclient.CAVEclient(datastack, server_address)
 
 
-@lru_cache(None)
+@cached
 def _get_cloudvol(url, cache=True):
     """Get (cached) CloudVolume for given segmentation.
 
@@ -72,14 +52,11 @@ def _get_cloudvol(url, cache=True):
     url :     str
 
     """
-    if not cv:
-        raise ImportError(err_msg)
-
     return cv.CloudVolume(
         url, cache=cache, use_https=True, parallel=10, progress=False, fill_missing=True
     )
 
-@lru_cache(None)
+@cached
 def _cloudvol_from_cv(client, **kwargs):
     """Get and cache CloudVolume from CAVEclient.
 
@@ -156,6 +133,7 @@ def fetch_neurons(
     parallel,
     max_threads,
     materialization="auto",
+    errors=None,
     **kwargs,
 ):
     """Fetch neuron meshes.
@@ -185,6 +163,9 @@ def fetch_neurons(
                     (if applicable). If "auto" (default) will try to find the most
                     recent version that contains the given root IDs. If an
                     integer is provided will use that version.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if an individual neuron fails to fetch. Defaults
+                    to "log", or to "raise" under `navis.config.strict`.
     **kwargs
                     Keyword arguments are passed through to the initialization
                     of the ``navis.Meshes``.
@@ -207,55 +188,21 @@ def fetch_neurons(
         logger.warning(f"Failed to fetch somas via nucleus segmentation(){e})")
         soma_pos = {}
 
-    nl = []
-    if max_threads > 1 and parallel:
-        with ThreadPoolExecutor(max_workers=max_threads) as executor:
-            futures = {}
-            for id in x:
-                f = executor.submit(
-                    _fetch_single_neuron,
-                    id,
-                    vol=vol,
-                    lod=lod,
-                    client=client,
-                    with_synapses=with_synapses,
-                    materialization=materialization,
-                    **kwargs,
-                )
-                futures[f] = id
+    nl = fetch_parallel(
+        _fetch_single_neuron,
+        x,
+        errors=errors,
+        parallel=parallel,
+        max_threads=max_threads,
+        vol=vol,
+        lod=lod,
+        client=client,
+        with_synapses=with_synapses,
+        materialization=materialization,
+        **kwargs,
+    )
 
-            with config.tqdm(
-                desc="Fetching",
-                total=len(x),
-                leave=config.pbar_leave,
-                disable=len(x) == 1 or config.pbar_hide,
-            ) as pbar:
-                for f in as_completed(futures):
-                    id = futures[f]
-                    pbar.update(1)
-                    try:
-                        nl.append(f.result())
-                    except Exception as exc:
-                        print(f"{id} generated an exception:", exc)
-    else:
-        for id in config.tqdm(
-            x,
-            desc="Fetching",
-            leave=config.pbar_leave,
-            disable=len(x) == 1 or config.pbar_hide,
-        ):
-            n = _fetch_single_neuron(
-                id,
-                vol=vol,
-                lod=lod,
-                client=client,
-                with_synapses=with_synapses,
-                materialization=materialization,
-                **kwargs,
-            )
-            nl.append(n)
-
-    nl = NeuronList(nl)
+    nl = NeuronList([n for n in nl if n is not None])
 
     for n in nl:
         if n.id in soma_pos:
@@ -495,7 +442,7 @@ def roots_to_mat(
 
         if all(is_valid):
             if verbose and not SILENCE_FIND_MAT_VERSION:
-                print(f"Using materialization version {version}.")
+                logger.info(f"Using materialization version {version}.")
             return version
 
     # If no single materialized version can be found, see if we can get
@@ -504,13 +451,13 @@ def roots_to_mat(
     latest_valid[(latest_valid == 0) & is_latest] = -1  # track "live" as -1
     if all(is_latest) and dataset != "public":  # public does not have live
         if verbose:
-            print("Using live materialization")
+            logger.info("Using live materialization")
         return "live"
 
     if allow_multiple and any(latest_valid != 0):
         if all(latest_valid != 0):
             if verbose and not SILENCE_FIND_MAT_VERSION:
-                print(
+                logger.info(
                     f"Found root IDs spread across {len(np.unique(latest_valid))} "
                     "materialization versions."
                 )
@@ -524,7 +471,7 @@ def roots_to_mat(
 
         if not raise_missing:
             if verbose and not SILENCE_FIND_MAT_VERSION:
-                print(msg)
+                logger.info(msg)
             return latest_valid
         else:
             raise MaterializationMatchError(msg)

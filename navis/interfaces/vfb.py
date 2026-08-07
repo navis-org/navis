@@ -13,33 +13,51 @@
 
 """Interface with VirtualFlyBrain.org using the vfb_connect library."""
 
-from textwrap import dedent
-
-try:
-    from vfb_connect.cross_server_tools import VfbConnect
-    vc = VfbConnect(neo_endpoint='http://pdb.v4.virtualflybrain.org', neo_credentials=('neo4j', 'vfb'))
-except ModuleNotFoundError:
-    msg = dedent("""
-          vfb_connect library not found. Please install using pip:
-
-                pip install vfb_connect
-
-          """)
-    raise ModuleNotFoundError(msg)
-except BaseException:
-    raise
-
-import requests
-
 import numpy as np
 import pandas as pd
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import StringIO
 
 from .. import config, utils, core
+from .base import fetch_parallel, get_session, optional_import
 
 logger = config.get_logger(__name__)
+
+_cross_server_tools = optional_import("vfb_connect.cross_server_tools",
+                                      pip="vfb_connect")
+
+NEO_ENDPOINT = 'http://pdb.v4.virtualflybrain.org'
+NEO_CREDENTIALS = ('neo4j', 'vfb')
+
+_vc = None
+
+
+def get_client():
+    """Return the (lazily built) `VfbConnect` client.
+
+    Deliberately not built at import time: `VfbConnect()` talks to VFB's servers
+    in its constructor, and importing a navis interface must not require - let
+    alone silently make - a network connection.
+
+    Returns
+    -------
+    vfb_connect.cross_server_tools.VfbConnect
+
+    """
+    global _vc
+    if _vc is None:
+        _vc = _cross_server_tools.VfbConnect(
+            neo_endpoint=NEO_ENDPOINT, neo_credentials=NEO_CREDENTIALS
+        )
+    return _vc
+
+
+def __getattr__(name):
+    # `vc` used to be a module-level global holding the client. Keep it
+    # resolvable, but connect on first access rather than on import.
+    if name == "vc":
+        return get_client()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # For convenience some shorthands for datasets
@@ -95,7 +113,7 @@ def get_vfb_ids(x, database=None, attach=True):
 
     x = utils.make_iterable(x).astype(str)
 
-    res = vc.neo_query_wrapper.xref_2_vfb_id(acc=x, db=database)
+    res = get_client().neo_query_wrapper.xref_2_vfb_id(acc=x, db=database)
 
     res = {keys: {v['db']: v['vfb_id'] for v in values} for keys, values in res.items()}
 
@@ -148,7 +166,7 @@ def get_vfb_meta(x, database, raw=False):
 
     to_fetch = vfb_ids.iloc[0][ids[~miss]].values.astype(str)
 
-    json = vc.neo_query_wrapper.get_TermInfo(to_fetch.tolist())
+    json = get_client().neo_query_wrapper.get_TermInfo(to_fetch.tolist())
 
     if raw:
         return json
@@ -185,7 +203,7 @@ def get_vfb_meta(x, database, raw=False):
     return meta
 
 
-def get_skeletons(x, template=None, max_threads=5, verbose=True):
+def get_skeletons(x, template=None, max_threads=5, verbose=True, errors=None):
     """Fetch skeletons for given VFB IDs.
 
     Parameters
@@ -199,10 +217,14 @@ def get_skeletons(x, template=None, max_threads=5, verbose=True):
                     return all available images.
     max_threads :   int, optional
                     Max number of parallel requests.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if an individual skeleton fails to fetch.
+                    Defaults to "log", or to "raise" under `navis.config.strict`.
 
     Returns
     -------
     NeuronList
+                    Empty if nothing matched.
 
     Examples
     --------
@@ -224,33 +246,24 @@ def get_skeletons(x, template=None, max_threads=5, verbose=True):
     images = _query_images(x, template=template, verbose=verbose)
 
     if not images:
-        return
+        return core.NeuronList([])
 
-    with ThreadPoolExecutor(max_workers=1 if not max_threads else max_threads) as executor:
-        futures = {}
-        for img in images:
-            f = executor.submit(_fetch_single_skeleton, img)
-            futures[f] = img['template_channel']['short_form']
+    nl = fetch_parallel(
+        _fetch_single_skeleton,
+        images,
+        labels=[img['template_channel']['short_form'] for img in images],
+        errors=errors,
+        max_threads=max_threads,
+        desc='Downloading',
+    )
 
-        nl = []
-        with config.tqdm(desc='Downloading',
-                         total=len(futures),
-                         leave=config.pbar_leave,
-                         disable=len(futures) == 1 or config.pbar_hide) as pbar:
-            for f in as_completed(futures):
-                pbar.update(1)
-                try:
-                    nl.append(f.result())
-                except Exception as exc:
-                    print(f'{futures[f]} generated an exception:', exc)
-
-    return core.NeuronList(nl)
+    return core.NeuronList([n for n in nl if n is not None])
 
 
 def _fetch_single_skeleton(img, **kwargs):
-    """Fetch a single skeleton. Intended to be wrapped by ThreadPoolExecutor."""
+    """Fetch a single skeleton. Intended to be mapped by `fetch_parallel`."""
     # Fetch the SWC table (oddly this seems to stall occasionally)
-    r = requests.get(img['image_folder'] + '/volume.swc', timeout=30)
+    r = get_session().get(img['image_folder'] + '/volume.swc', timeout=30)
     r.raise_for_status()
     swc = pd.read_csv(StringIO(r.content.decode()),
                       sep=' ', comment='#', header=None)
@@ -281,9 +294,9 @@ def _query_images(short_forms, template, verbose=True):
     # Get anything that matches the term(s)
     inds = []
     if individuals or other:
-        inds += vc.neo_query_wrapper.get_anatomical_individual_TermInfo(short_forms=individuals + other)
+        inds += get_client().neo_query_wrapper.get_anatomical_individual_TermInfo(short_forms=individuals + other)
     if classes or other:
-        for hit in vc.neo_query_wrapper.get_TermInfo(short_forms=classes + other):
+        for hit in get_client().neo_query_wrapper.get_TermInfo(short_forms=classes + other):
             inds += hit.get('anatomy_channel_image', [])
 
     # First get all images

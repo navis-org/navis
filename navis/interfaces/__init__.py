@@ -11,6 +11,10 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+from .base import clear_cache, get_session  # noqa: F401
+
+__all__ = ["clear_cache", "get_session"]
+
 # The rpy2-based R interface was retired - point people at the file-based
 # replacement rather than letting them hit a bare ImportError.
 _RETIRED = {

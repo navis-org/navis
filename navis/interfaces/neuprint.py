@@ -23,8 +23,6 @@ import trimesh
 from urllib.parse import urlparse
 from textwrap import dedent
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 try:
     from neuprint import *
 
@@ -64,6 +62,7 @@ from .. import config, utils
 from ..core import Volume, Skeleton, Mesh, NeuronList
 from ..graph import neuron2KDTree
 from ..morpho import subset_neuron
+from .base import fetch_parallel
 
 logger = config.get_logger(__name__)
 
@@ -314,6 +313,7 @@ def fetch_mesh_neuron(
     missing_mesh="raise",
     parallel=True,
     max_threads=5,
+    errors=None,
     seg_source=None,
     client=None,
     **kwargs,
@@ -362,6 +362,11 @@ def fetch_mesh_neuron(
                     If True, will use parallel threads to fetch data.
     max_threads :   int
                     Max number of parallel threads to use.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if an individual neuron fails to fetch. Defaults
+                    to "log", or to "raise" under `navis.config.strict`. Note
+                    this governs *failures*; a body that simply has no mesh is
+                    governed by `missing_mesh`.
     seg_source :    str | cloudvolume.CloudVolume, optional
                     Use this to override the segmentation source specified by
                     neuPrint.
@@ -477,30 +482,22 @@ def fetch_mesh_neuron(
             node=node,
         )
     else:
-        nl = []
-        with ThreadPoolExecutor(
-            max_workers=1 if not parallel else max_threads
-        ) as executor:
-            futures = {}
-            for r in meta.itertuples():
-                f = executor.submit(
-                    __fetch_mesh, r.bodyId, vol=vol, lod=lod, missing_mesh=missing_mesh
-                )
-                futures[f] = r.bodyId
-
-            with config.tqdm(
-                desc="Fetching",
-                total=len(futures),
-                leave=config.pbar_leave,
-                disable=meta.shape[0] == 1 or config.pbar_hide,
-            ) as pbar:
-                for f in as_completed(futures):
-                    bodyId = futures[f]
-                    pbar.update(1)
-                    try:
-                        nl.append(f.result())
-                    except Exception as exc:
-                        print(f"{bodyId} generated an exception:", exc)
+        # `None` here is either a body that has no mesh (see `missing_mesh`) or
+        # one that failed outright (see `errors`) - neither belongs in the list.
+        nl = [
+            n
+            for n in fetch_parallel(
+                __fetch_mesh,
+                meta.bodyId.values,
+                errors=errors,
+                parallel=parallel,
+                max_threads=max_threads,
+                vol=vol,
+                lod=lod,
+                missing_mesh=missing_mesh,
+            )
+            if n is not None
+        ]
 
     nl = NeuronList(nl)
 
@@ -600,6 +597,7 @@ def fetch_skeletons(
     missing_swc="raise",
     parallel=True,
     max_threads=5,
+    errors=None,
     client=None,
 ):
     """Fetch neuron skeletons as navis.Skeletons.
@@ -637,6 +635,11 @@ def fetch_skeletons(
                     If True, will use parallel threads to fetch data.
     max_threads :   int
                     Max number of parallel threads to use.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if an individual neuron fails to fetch. Defaults
+                    to "log", or to "raise" under `navis.config.strict`. Note
+                    this governs *failures*; a body that simply has no SWC is
+                    governed by `missing_swc`.
     client :        neuprint.Client, optional
                     If `None` will try using global client.
 
@@ -676,40 +679,29 @@ def fetch_skeletons(
     # Apply a small number of potential fixes to the meta data
     meta = _fix_meta(meta)
 
-    nl = []
-    with ThreadPoolExecutor(
-        max_workers=1 if not parallel else max_threads,
-        initializer=_init_worker,
-        initargs=(client,),
-    ) as executor:
-        futures = {}
-        for r in meta.itertuples():
-            f = executor.submit(
+    # `None` here is either a body that has no SWC (see `missing_swc`) or one
+    # that failed outright (see `errors`) - neither belongs in the list.
+    nl = NeuronList(
+        [
+            n
+            for n in fetch_parallel(
                 __fetch_skeleton,
-                r,
+                list(meta.itertuples()),
+                labels=meta.bodyId.values,
+                errors=errors,
+                parallel=parallel,
+                max_threads=max_threads,
+                initializer=_init_worker,
+                initargs=(client,),
                 client=client,
                 with_synapses=with_synapses,
                 dedup=dedup,
                 missing_swc=missing_swc,
                 heal=heal,
             )
-            futures[f] = r.bodyId
-
-        with config.tqdm(
-            desc="Fetching",
-            total=meta.shape[0],
-            leave=config.pbar_leave,
-            disable=meta.shape[0] == 1 or config.pbar_hide,
-        ) as pbar:
-            for f in as_completed(futures):
-                bodyId = futures[f]
-                pbar.update(1)
-                try:
-                    nl.append(f.result())
-                except Exception as exc:
-                    print(f"{bodyId} generated an exception:", exc)
-
-    nl = NeuronList(nl)
+            if n is not None
+        ]
+    )
 
     # Make an effort to retain the original order
     if not isinstance(x, NeuronCriteria) and not nl.empty:

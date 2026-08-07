@@ -13,32 +13,15 @@
 
 """Interface with MICrONS datasets: https://www.microns-explorer.org/."""
 
-from .. import config
-from functools import lru_cache
-from textwrap import dedent
 from . import cave_utils
+from .base import cached, optional_import
 
-err_msg = dedent("""
-      Failed to import `caveclient` library. Please install using pip:
-
-            pip install caveclient -U
-
-      """)
-
-try:
-    from caveclient import CAVEclient
-    import cloudvolume as cv
-except ModuleNotFoundError:
-    config.logger.error(err_msg)
-    CAVEclient = None
-    cv = None
-except BaseException:
-    raise
+caveclient = optional_import("caveclient")
 
 NUCLEUS_TABLE = "nucleus_detection_v0"
 
 
-@lru_cache(None)
+@cached
 def _translate_datastack(datastack):
     """Translate datastack to source."""
     ds = get_datastacks(microns_only=False)
@@ -65,7 +48,7 @@ def _translate_datastack(datastack):
     raise ValueError(f"Datastack '{datastack}' not found.")
 
 
-@lru_cache(None)
+@cached
 def get_datastacks(microns_only=True):
     """Get available datastacks.
 
@@ -80,10 +63,7 @@ def get_datastacks(microns_only=True):
         List of available datastacks.
 
     """
-    if not CAVEclient:
-        raise ModuleNotFoundError(err_msg)
-
-    stacks = CAVEclient().info.get_datastacks()
+    stacks = caveclient.CAVEclient().info.get_datastacks()
 
     if microns_only:
         stacks = [s for s in stacks if "minnie" in s or "pinky" in s]
@@ -101,9 +81,6 @@ def get_cave_client(datastack="cortex65"):
                     "minnie65_public" for "cortex65"
 
     """
-    if not CAVEclient:
-        raise ModuleNotFoundError(err_msg)
-
     # Try mapping, else pass-through
     datastack = _translate_datastack(datastack)
     client = cave_utils.get_cave_client(datastack)
@@ -111,7 +88,7 @@ def get_cave_client(datastack="cortex65"):
     return client
 
 
-@lru_cache(None)
+@cached
 def list_annotation_tables(datastack="cortex65"):
     """Get available annotation tables for given datastack.
 
@@ -140,6 +117,7 @@ def fetch_neurons(
     materialization="auto",
     parallel=True,
     max_threads=4,
+    errors=None,
     **kwargs,
 ):
     """Fetch neuron meshes.
@@ -171,6 +149,9 @@ def fetch_neurons(
                     If True, will use parallel threads to fetch data.
     max_threads :   int
                     Max number of parallel threads to use.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if an individual neuron fails to fetch. Defaults
+                    to "log", or to "raise" under `navis.config.strict`.
     **kwargs
                     Keyword arguments are passed through to the initialization
                     of the ``navis.Meshes``.
@@ -190,6 +171,7 @@ def fetch_neurons(
         parallel=parallel,
         max_threads=max_threads,
         materialization=materialization,
+        errors=errors,
         **kwargs,
     )
 

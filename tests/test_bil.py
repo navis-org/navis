@@ -227,8 +227,12 @@ def test_search_validates_before_hitting_the_network(monkeypatch):
     def boom(*args, **kwargs):
         raise AssertionError("search() hit the network before validating fields")
 
-    monkeypatch.setattr(bil.session, "get", boom)
-    monkeypatch.setattr(bil.session, "post", boom)
+    # BIL now takes the shared session from `navis.utils.http` at each use site,
+    # so hand it one that refuses to do anything.
+    class NoNetwork:
+        get = post = boom
+
+    monkeypatch.setattr(bil, "get_session", lambda *a, **kw: NoNetwork())
 
     with pytest.raises(ValueError):
         bil.search(bogusfield="x")

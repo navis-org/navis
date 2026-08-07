@@ -36,6 +36,7 @@ from typing import List, Union, Iterable, Dict, Optional, Any, IO
 
 from .. import config, utils, core
 from ..compute.dispatch import default_n_workers, worker_initializer
+from ..utils import http
 
 try:
     import zlib
@@ -68,9 +69,6 @@ URL_THREADS_DEFAULT = 8
 # Regular expression to figure out if a string is a regex pattern
 rgx = re.compile(r"[\\\.\?\[\]\+\^\$\*]")
 
-_SESSION = None
-_SESSION_PID = None
-
 
 def get_session() -> requests.Session:
     """Return a `requests.Session` for reading URLs.
@@ -79,23 +77,13 @@ def get_session() -> requests.Session:
     pooled and kept alive, which matters a lot when reading many files off the
     same host.
 
-    Note this is a module-level session rather than an attribute on the reader:
+    Note this is a shared session rather than an attribute on the reader:
     `read_fn` is handed to a `multiprocessing.Pool` in `parallel_read` and a
     `Session` - while picklable - would otherwise be shipped into every worker.
-    We also key it on the pid so that a forked child never inherits (and
-    corrupts) the parent's live sockets.
+    `navis.utils.http` keys its cache on the pid, so a forked child never
+    inherits (and corrupts) the parent's live sockets.
     """
-    global _SESSION, _SESSION_PID
-
-    if _SESSION is None or _SESSION_PID != os.getpid():
-        session = requests.Session()
-        # Pool must be at least as large as the number of threads we may use
-        adapter = requests.adapters.HTTPAdapter(pool_maxsize=32)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        _SESSION, _SESSION_PID = session, os.getpid()
-
-    return _SESSION
+    return http.get_session()
 
 
 def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:

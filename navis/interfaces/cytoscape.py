@@ -20,7 +20,11 @@ import logging
 import networkx as nx
 import numpy as np
 import pandas as pd
-from py2cytoscape.data.cyrest_client import CyRestClient
+
+from .base import optional_import
+
+_cyrest_client = optional_import("py2cytoscape.data.cyrest_client",
+                                 pip="py2cytoscape")
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -38,7 +42,7 @@ if len(logger.handlers) == 0:
 
 def get_client():
     """Initialises connection with Cytoscape and returns client."""
-    return CyRestClient()
+    return _cyrest_client.CyRestClient()
 
 
 def get_navis_style():

@@ -34,6 +34,7 @@ def fetch_neurons(
     materialization="auto",
     parallel=True,
     max_threads=4,
+    errors=None,
     **kwargs,
 ):
     """Fetch neuron meshes.
@@ -63,6 +64,9 @@ def fetch_neurons(
                     If True, will use parallel threads to fetch data.
     max_threads :   int
                     Max number of parallel threads to use.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if an individual neuron fails to fetch. Defaults
+                    to "log", or to "raise" under `navis.config.strict`.
     **kwargs
                     Keyword arguments are passed through to the initialization
                     of the ``navis.Meshes``.
@@ -82,6 +86,7 @@ def fetch_neurons(
         parallel=parallel,
         max_threads=max_threads,
         materialization=materialization,
+        errors=errors,
         **kwargs,
     )
 

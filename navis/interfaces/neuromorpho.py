@@ -17,26 +17,18 @@ See http://neuromorpho.org/apiReference.html for documentation.
 """
 
 import os
-import requests
 
 import pandas as pd
-import numpy as np
 
 from typing import List, Dict, Union, Optional
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..core import Skeleton, NeuronList
 from ..io import read_swc
 from .. import utils, config
+from .base import fetch_parallel, get_session
 
 
 BASEURL = 'https://neuromorpho.org'
-HEADERS = requests.utils.default_headers()
-HEADERS.update(
-    {
-        'User-Agent': 'github.com/navis-org/navis',
-    }
-)
 
 # In the past there were some issues with neuromorpho's SSL certificate
 # This is not recommended but you can switch off verification here
@@ -48,6 +40,7 @@ VERIFY = str(os.environ.get('NAVIS_NEUROMORPHO_VERIFY', 'True')).lower() not in 
 def find_neurons(page_limit: Optional[int] = None,
                  parallel: bool = True,
                  max_threads: int = 4,
+                 errors=None,
                  **filters) -> pd.DataFrame:
     """Find neurons matching by given criteria.
 
@@ -55,6 +48,14 @@ def find_neurons(page_limit: Optional[int] = None,
     ----------
     page_limit :    int | None, optional
                     Use this to limit the results if you are running a big query.
+                    Required if you pass no filters at all.
+    parallel :      bool
+                    If True, will use threads to fetch pages.
+    max_threads :   int
+                    Max number of parallel threads to use.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if a page of results fails to fetch. Defaults to
+                    "log", or to "raise" under `navis.config.strict`.
     **filters
                     Search criteria as `field=value`. See
                     [`navis.interfaces.neuromorpho.get_neuron_fields`][] and
@@ -72,58 +73,54 @@ def find_neurons(page_limit: Optional[int] = None,
     >>> rat_or_mouse = nm.find_neurons(species=['rat', 'mouse'])
 
     """
-    if not filters:
-        answer = ""
-        while answer not in ["y", "n"]:
-            answer = input("No filters will list all neurons. Continue? [Y/N] ").lower()
-
-        if answer != 'y':
-            return  # type: ignore
+    # An unfiltered search walks the entire NeuroMorpho index. That used to
+    # prompt for confirmation, which a library must not do - there may well be
+    # nobody at the other end. Make the caller say what they want instead.
+    if not filters and page_limit is None:
+        raise ValueError(
+            "Searching without filters would list every neuron in NeuroMorpho. "
+            "Either pass a filter (e.g. `species='rat'`) or bound the search "
+            "with `page_limit=N`."
+        )
 
     # Turn strings into lists
     filters = {k: list(utils.make_iterable(v)) for k, v in filters.items()}
 
     url = utils.make_url(BASEURL, 'api', 'neuron', 'select')
 
-    if isinstance(page_limit, type(None)):
-        page_limit = float('inf')
-
-    data: List[str] = []
-
     # Load the first page to get the total number of pages
-    resp = requests.post(f'{url}?page=0', json=filters, headers=HEADERS, verify=VERIFY)
-    content = resp.json()
+    first = _fetch_page(0, url=url, filters=filters)
     # `totalPages` is a count (pages 0 .. totalPages-1); we've already fetched
-    # page 0 and the loop below fetches pages 1 .. page_limit-1
-    total_pages = content['page']['totalPages']
-    page_limit = min(page_limit, total_pages)
-    data += content['_embedded']['neuronResources']
+    # page 0 and fetch pages 1 .. page_limit-1 below
+    total_pages = first['page']['totalPages']
+    page_limit = total_pages if page_limit is None else min(page_limit, total_pages)
 
-    page = 1   # start with 1 because we already have 0
+    data: List[str] = list(first['_embedded']['neuronResources'])
 
-    with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
-        futures = {}
-        while page < page_limit:
-            f = executor.submit(requests.post, f'{url}?page={page}',
-                                json=filters, headers=HEADERS, verify=VERIFY)
-            futures[f] = page
-            page += 1
+    pages = list(range(1, page_limit))
+    rest = fetch_parallel(
+        _fetch_page,
+        pages,
+        labels=[f'page {p}' for p in pages],
+        errors=errors,
+        parallel=parallel,
+        max_threads=max_threads,
+        url=url,
+        filters=filters,
+    )
 
-        with config.tqdm(desc='Fetching',
-                         total=len(futures) + 1,
-                         leave=config.pbar_leave,
-                         disable=len(futures) == 1 or config.pbar_hide) as pbar:
-            pbar.update(1)  # for the first page fetched
-            for f in as_completed(futures):
-                pbar.update(1)
-                try:
-                    resp = f.result()
-                    resp.raise_for_status()
-                    data += resp.json()['_embedded']['neuronResources']
-                except Exception as exc:
-                    print(f'Page {futures[f]} generated an exception:', exc)
+    for page in rest:
+        if page is not None:  # `None` = a page that failed; see `errors`
+            data += page['_embedded']['neuronResources']
 
     return pd.DataFrame.from_records(data)
+
+
+def _fetch_page(page: int, *, url: str, filters: dict) -> dict:
+    """Fetch a single page of search results."""
+    resp = get_session().post(f'{url}?page={page}', json=filters, verify=VERIFY)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def get_neuron_info(x: Union[str, int]) -> pd.Series:
@@ -156,7 +153,7 @@ def get_neuron_info(x: Union[str, int]) -> pd.Series:
     else:
         raise TypeError(f'Expected string or int, got {type(x)}')
 
-    resp = requests.get(url, headers=HEADERS, verify=VERIFY)
+    resp = get_session().get(url, verify=VERIFY)
 
     resp.raise_for_status()
 
@@ -166,6 +163,7 @@ def get_neuron_info(x: Union[str, int]) -> pd.Series:
 def get_neuron(x: Union[str, int, Dict[str, str]],
                parallel: bool = True,
                max_threads: int = 4,
+               errors=None,
                **kwargs) -> Skeleton:
     """Fetch neuron by ID or by name.
 
@@ -179,12 +177,17 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
                     If True, will use threads to fetch data.
     max_threads :   int
                     Max number of parallel threads to use.
+    errors :        "raise" | "log" | "ignore", optional
+                    Only relevant when `x` is a DataFrame. What to do if an
+                    individual neuron fails to fetch. Defaults to "log", or to
+                    "raise" under `navis.config.strict`.
     **kwargs
                     Keyword arguments passed on to [`navis.read_swc`][].
 
     Returns
     -------
     Skeleton
+                    Or a NeuronList if `x` is a DataFrame.
 
     Examples
     --------
@@ -203,35 +206,20 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
 
     """
     if isinstance(x, pd.DataFrame):
-        nl = []
-        with ThreadPoolExecutor(max_workers=1 if not parallel else max_threads) as executor:
-            futures = {}
-            for r in x.to_dict(orient='records'):
-                f = executor.submit(get_neuron, r, **kwargs)
-                futures[f] = r.get('neuron_id', r.get('neuron_name', 'NA'))
+        records = x.to_dict(orient='records')
 
-            with config.tqdm(desc='Fetching',
-                             total=len(x),
-                             leave=config.pbar_leave,
-                             disable=len(x) == 1 or config.pbar_hide) as pbar:
-                for f in as_completed(futures):
-                    id = futures[f]
-                    pbar.update(1)
-                    try:
-                        nl.append(f.result())
-                    except Exception as exc:
-                        print(f'{id} generated an exception:', exc)
+        # `fetch_parallel` hands results back in input order, so no re-sort here.
+        nl = fetch_parallel(
+            get_neuron,
+            records,
+            labels=[r.get('neuron_id', r.get('neuron_name', 'NA')) for r in records],
+            errors=errors,
+            parallel=parallel,
+            max_threads=max_threads,
+            **kwargs,
+        )
 
-        # Turn into neuronlist
-        nl = NeuronList(nl)
-
-        # Make sure we return in same order as input
-        if 'neuron_id' in x.columns:
-            ids = x.neuron_id.values
-            ids = ids[np.isin(ids, nl.id)]  # drop failed IDs
-            nl = nl.idx[ids]
-
-        return nl
+        return NeuronList([n for n in nl if n is not None])
 
     if not isinstance(x, (pd.Series, dict)):
         info = get_neuron_info(x)
@@ -242,7 +230,7 @@ def get_neuron(x: Union[str, int, Dict[str, str]],
     name: str = info['neuron_name']
 
     url = utils.make_url(BASEURL, 'dableFiles', archive.lower(), 'CNG version', name + '.CNG.swc')
-    r = requests.get(url, verify=VERIFY)
+    r = get_session().get(url, verify=VERIFY)
     r.raise_for_status()
 
     n = read_swc(r.content.decode(), **kwargs)
@@ -269,7 +257,7 @@ def get_neuron_fields() -> Dict[str, List[str]]:
 
     """
     url = utils.make_url(BASEURL, 'api', 'neuron', 'fields')
-    resp = requests.get(url, headers=HEADERS, verify=VERIFY)
+    resp = get_session().get(url, verify=VERIFY)
 
     resp.raise_for_status()
 
@@ -308,7 +296,7 @@ def get_available_field_values(field: str) -> List[str]:
         while True:
             url = utils.make_url(BASEURL, 'api', 'neuron', 'fields', field, page=page)
 
-            resp = requests.get(url, headers=HEADERS, verify=VERIFY)
+            resp = get_session().get(url, verify=VERIFY)
 
             resp.raise_for_status()
 

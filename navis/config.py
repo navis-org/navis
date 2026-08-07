@@ -139,6 +139,21 @@ class quiet_logger:
 # Default settings for caching
 warn_caching = True
 
+# Strict mode. Aimed at server/pipeline contexts, where navis runs unattended
+# and a half-finished result is worse than a loud failure. It is deliberately
+# narrow - it does not change *what* navis computes, only how it behaves when
+# something goes wrong or when it would otherwise want a human:
+#   - remote fetches default to `errors="raise"`, so a partial result raises
+#     instead of logging and handing back a short NeuronList
+#   - functions never prompt for input
+# Set via the `NAVIS_STRICT` environment variable or by assigning to this.
+strict = os.environ.get("NAVIS_STRICT", "False").lower() in (
+    "true",
+    "1",
+    "yes",
+    "on",
+)
+
 # Default backend for `parallel=True`, i.e. where per-neuron work is run:
 #   "auto" (default) picks the highest-priority installed backend that can run
 #   the request - `joblib`, then `pathos`, then the dependency-free stdlib
@@ -184,6 +199,7 @@ WORKER_SETTINGS = (
     "pbar_hide",
     "pbar_leave",
     "warn_caching",
+    "strict",
     "add_units",
     "default_n_workers",
     "inner_max_num_threads",

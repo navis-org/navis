@@ -25,8 +25,6 @@ import pandas as pd
 import matplotlib.colors as mcl
 import trimesh as tm
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import lru_cache
 from urllib.parse import urlparse
 
 from typing import Union, Optional, List
@@ -34,7 +32,8 @@ from typing import Union, Optional, List
 from .. import config
 
 from ..core import Volume, Skeleton, NeuronList
-from ..utils import make_url, make_iterable
+from ..utils import make_url, make_iterable, http
+from .base import cached, fetch_parallel, get_session
 
 logger = config.get_logger(__name__)
 baseurl = 'https://www.insectbraindb.org'
@@ -53,7 +52,10 @@ class Session:
     """
 
     def __init__(self, username=None, password=None, token=None, created_at=None):
+        # Our own session rather than the shared one: the `Authorization` header
+        # is set on it, and that must not leak to anything else using HTTP.
         self._session = requests.Session()
+        self._session.headers.update(http.DEFAULT_HEADERS)
 
         self.username = username
         self.password = password
@@ -186,7 +188,8 @@ def authenticate(username=None, password=None, token=None):
 
 def get_brain_meshes(species: Union[str, int],
                      combine: bool = False,
-                     max_threads: int = 4
+                     max_threads: int = 4,
+                     errors=None,
                      ) -> Optional[List[Volume]]:
     """Fetch brain meshes for given species.
 
@@ -200,6 +203,9 @@ def get_brain_meshes(species: Union[str, int],
                     a single navis.Volume - else will return list with volumes.
     max_threads :   int
                     Number of parallel threads to use for fetching meshes.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if an individual mesh fails to fetch. Defaults to
+                    "log", or to "raise" under `navis.config.strict`.
 
     Returns
     -------
@@ -226,32 +232,23 @@ def get_brain_meshes(species: Union[str, int],
                              disable=config.pbar_hide,
                              leave=config.pbar_leave,
                              desc='Brains'):  # type: ignore
-        this_v = []
         # If no reconstructions, continue
         if not brain.get('viewer_files'):  # type: ignore
             continue
 
-        with ThreadPoolExecutor(max_workers=max_threads) as executor:
-            futures = {}
-            for file in brain['viewer_files']:
-                # If no file UUID, continue
-                if not file['p_file']['uuid']:
-                    continue
-                filename = file['p_file']['file_name']
-                f = executor.submit(_get_neuropil_mesh, file,)
-                futures[f] = filename
+        files = [f for f in brain['viewer_files'] if f['p_file']['uuid']]
 
-            with config.tqdm(desc='Fetching',
-                            total=len(futures),
-                            leave=config.pbar_leave,
-                            disable=len(futures) == 1 or config.pbar_hide) as pbar:
-                for f in as_completed(futures):
-                    name = futures[f]
-                    pbar.update(1)
-                    try:
-                        this_v.append(f.result())
-                    except Exception as exc:
-                        print(f'{name} generated an exception:', exc)
+        this_v = [
+            v
+            for v in fetch_parallel(
+                _get_neuropil_mesh,
+                files,
+                labels=[f['p_file']['file_name'] for f in files],
+                errors=errors,
+                max_threads=max_threads,
+            )
+            if v is not None
+        ]
 
         # Combine all volumes in this brain
         if combine:
@@ -269,7 +266,7 @@ def _get_neuropil_mesh(file):
     # Get the AWS URL (with all the required headers) for this object
     url = _get_download_url(file['p_file']['uuid'])
 
-    resp = requests.get(url)
+    resp = get_session().get(url)
     resp.raise_for_status()
 
     f = io.BytesIO(resp.content)
@@ -295,7 +292,7 @@ def _get_neuropil_mesh(file):
     return Volume(mesh, name=name, color=color)
 
 
-@lru_cache()
+@cached(maxsize=128)
 def get_species_info(species: Union[str, int]) -> pd.Series:
     """Get all info for given species.
 
@@ -322,14 +319,14 @@ def get_species_info(species: Union[str, int]) -> pd.Series:
     url = make_url(baseurl, '/archive/species/most_current_permitted/',
                    species_id=species)
 
-    resp = requests.get(url)
+    resp = get_session().get(url)
 
     resp.raise_for_status()
 
     return pd.Series(resp.json())
 
 
-@lru_cache()
+@cached(maxsize=128)
 def get_available_species() -> pd.DataFrame:
     """Get all info for given species.
 
@@ -428,7 +425,7 @@ def get_skeletons_experiment(id) -> 'NeuronList':
     for f in sk_files.itertuples():
         logger.info(f'Downloading {f.file_name}')
         # Load the file
-        r = requests.get(f.url)
+        r = get_session().get(f.url)
         r.raise_for_status()
 
         # Files appear to be json-formatted and not compressed
@@ -492,7 +489,7 @@ def get_meshes_experiment(id) -> 'NeuronList':
                          desc='Downloading',
                          total=me_files.shape[0]):
         # Load the file
-        r = requests.get(f.url)
+        r = get_session().get(f.url)
         r.raise_for_status()
 
         name = '.'.join(f.file_name.split('.')[:-1])
@@ -510,7 +507,7 @@ def get_meshes_experiment(id) -> 'NeuronList':
     return volumes
 
 
-def get_skeletons_species(species, max_threads=4):
+def get_skeletons_species(species, max_threads=4, errors=None):
     """Fetch all skeletons for given species.
 
     Note that some neurons might have multiple reconstructions. They will
@@ -522,6 +519,9 @@ def get_skeletons_species(species, max_threads=4):
                     Name or ID of a species to fetch skeletons for.
     max_threads :   int
                     Number of parallel threads to use for fetching skeletons.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if an individual skeleton fails to fetch.
+                    Defaults to "log", or to "raise" under `navis.config.strict`.
 
     Returns
     -------
@@ -543,10 +543,10 @@ def get_skeletons_species(species, max_threads=4):
 
     meta = [e for e in meta if e['viewer_files']]
 
-    return _get_skeletons(meta, max_threads=max_threads)
+    return _get_skeletons(meta, max_threads=max_threads, errors=errors)
 
 
-def get_skeletons(x, max_threads=4):
+def get_skeletons(x, max_threads=4, errors=None):
     """Fetch skeletons for given neuron(s).
 
     Parameters
@@ -555,6 +555,9 @@ def get_skeletons(x, max_threads=4):
                     Name(s) or ID(s) of neurons you want to fetch.
     max_threads :   int
                     Number of parallel threads to use for fetching skeletons.
+    errors :        "raise" | "log" | "ignore", optional
+                    What to do if an individual skeleton fails to fetch.
+                    Defaults to "log", or to "raise" under `navis.config.strict`.
 
     Returns
     -------
@@ -594,45 +597,39 @@ def get_skeletons(x, max_threads=4):
 
             meta.append(info[0])
 
-    return _get_skeletons(meta, max_threads=max_threads)
+    return _get_skeletons(meta, max_threads=max_threads, errors=errors)
 
 
-def _get_skeletons(meta, max_threads=4):
+def _get_skeletons(meta, max_threads=4, errors=None):
     """Fetch skeleton(s) from info."""
-    nl = []
-    with ThreadPoolExecutor(max_workers=max_threads) as executor:
-        futures = {}
-        for inf in meta:
-            id = inf['neuron']
-            desc = inf.get('description', '')
-            for file in inf['viewer_files']:
-                url = file['url']
-                fn = file['file_name']
-                f = executor.submit(_fetch_single_neuron,
-                                    url,
-                                    name=fn,
-                                    description=desc,
-                                    id=id)
-                futures[f] = fn
+    # A neuron may have more than one reconstruction, so flatten to one job per
+    # file rather than per neuron.
+    jobs = [
+        (file['url'], file['file_name'], inf.get('description', ''), inf['neuron'])
+        for inf in meta
+        for file in inf['viewer_files']
+    ]
 
-        with config.tqdm(desc='Fetching',
-                         total=len(futures),
-                         leave=config.pbar_leave,
-                         disable=len(futures) == 1 or config.pbar_hide) as pbar:
-            for f in as_completed(futures):
-                name = futures[f]
-                pbar.update(1)
-                try:
-                    nl.append(f.result())
-                except Exception as exc:
-                    print(f'{name} generated an exception:', exc)
+    nl = fetch_parallel(
+        _fetch_skeleton_job,
+        jobs,
+        labels=[j[1] for j in jobs],
+        errors=errors,
+        max_threads=max_threads,
+    )
 
-    return NeuronList(nl)
+    return NeuronList([n for n in nl if n is not None])
+
+
+def _fetch_skeleton_job(job):
+    """Fetch one reconstruction file. `job` is as built by `_get_skeletons`."""
+    url, name, description, id = job
+    return _fetch_single_neuron(url, name=name, description=description, id=id)
 
 
 def _fetch_single_neuron(url, **kwargs):
     """Load and parse SWC from given URL."""
-    resp = requests.get(url)
+    resp = get_session().get(url)
     resp.raise_for_status()
 
     s = io.StringIO(resp.content.decode())
@@ -694,7 +691,7 @@ def search_neurons(name=None, short_name=None, species=None, sex=None,
 
     url = make_url(baseurl, 'api', 'v2', 'neuron', **options)
 
-    resp = requests.get(url)
+    resp = get_session().get(url)
 
     resp.raise_for_status()
 
@@ -731,7 +728,7 @@ def _sort_columns(df):
 def _get_download_url(uuid):
     """Get AWS download URL for given object."""
     url = f"https://www.insectbraindb.org/filestore/download_url/?uuid={uuid}"
-    r = requests.get(url)
+    r = get_session().get(url)
     r.raise_for_status()
     return r.json()['url']
 

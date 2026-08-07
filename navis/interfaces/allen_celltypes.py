@@ -13,27 +13,17 @@
 
 """Interface with Allen cell type atlas: https://celltypes.brain-map.org/."""
 
-from textwrap import dedent
-
-try:
-    import allensdk
-    from allensdk.core.cell_types_cache import CellTypesCache
-except ModuleNotFoundError as e:
-    msg = dedent("""
-          allensdk library not found. Please install using pip:
-
-                pip install allensdk --no-deps
-
-          """)
-    raise ModuleNotFoundError(msg) from e
-except BaseException:
-    raise
-
 import numpy as np
 import pandas as pd
 
 from .. import config, utils
 from ..core import Skeleton, NeuronList
+from .base import optional_import
+
+_swc = optional_import("allensdk.core.swc", pip="allensdk --no-deps")
+_cell_types_cache = optional_import(
+    "allensdk.core.cell_types_cache", pip="allensdk --no-deps"
+)
 
 logger = config.get_logger(__name__)
 dataset = None
@@ -55,10 +45,30 @@ COMPS = {
 }
 SWC_FILE_TYPE = '3DNeuronReconstruction'
 
-ctc = CellTypesCache()
-
-
 __all__ = ['fetch_neurons']
+
+_ctc = None
+
+
+def _get_cache():
+    """Return the (lazily built) allensdk cache.
+
+    Deliberately not built at import time: `CellTypesCache()` writes a manifest
+    into the current working directory, and merely importing navis must not
+    leave files behind.
+    """
+    global _ctc
+    if _ctc is None:
+        _ctc = _cell_types_cache.CellTypesCache()
+    return _ctc
+
+
+def __getattr__(name):
+    # `ctc` used to be a module-level global. Keep it resolvable, but built on
+    # first access rather than on import.
+    if name == "ctc":
+        return _get_cache()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def fetch_neurons(ids):
@@ -82,7 +92,7 @@ def fetch_neurons(ids):
                           disable=config.pbar_hide,
                           leave=config.pbar_leave
                           ):
-        morphology = ctc.get_reconstruction(id)
+        morphology = _get_cache().get_reconstruction(id)
         neurons.append(_parse_morphology(morphology))
         neurons[-1].id = id
 
@@ -91,7 +101,7 @@ def fetch_neurons(ids):
 
 def _parse_morphology(morphology):
     """Convert allensdk morphology to Skeleton."""
-    assert isinstance(morphology, allensdk.core.swc.Morphology)
+    assert isinstance(morphology, _swc.Morphology)
 
     nodes = []
     for n in morphology.compartment_list:
