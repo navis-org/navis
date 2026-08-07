@@ -407,7 +407,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.merge_subset(x, subset, inplace=False)` - Fold a tracked subset back into the neuron it was taken from.
 - `navis.masked(x, mask, reset=True, warn_cut=True)` - Work on part of a neuron, then put it back.
 - `navis.smooth_skeleton(x, window=5, to_smooth=['x', 'y', 'z'], inplace=False)` - Smooth skeleton(s) using rolling windows.
-- `navis.smooth_mesh(x, iterations=5, L=0.5, backend='auto', inplace=False)` - Smooth meshes (TriMesh, Mesh, Volume).
+- `navis.smooth_mesh(x, iterations=5, L=None, method='taubin', backend=None, inplace=False, **kwargs)` - Smooth meshes (TriMesh, Mesh, Volume).
 - `navis.smooth_voxels(x, sigma=1, backend='sparsecubes', epsilon=0, truncate=4.0, inplace=False)` - Smooth voxel(s) using a Gaussian filter.
 - `navis.thin_voxels(x, backend='auto', inplace=False, **kwargs)` - Skeletonize image data to single voxel width.
 
@@ -417,7 +417,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.sample_skeleton(x, *, n_points=None, density=None, spacing=None)` - Sample points at equal spacing along a skeleton.
 - `navis.resample_along_axis(x, interval, axis=2, old_nodes='remove', inplace=False)` - Resample neuron such that nodes lie exactly on given 1d grid.
 - `navis.downsample_neuron(x, downsampling_factor, inplace=False, preserve_nodes=None, method='simple')` - Downsample neuron(s) by a given factor.
-- `navis.simplify_mesh(x, F, backend='auto', inplace=False, **kwargs)` - Simplify meshes (TriMesh, Mesh, Volume).
+- `navis.simplify_mesh(x, F, backend=None, inplace=False, **kwargs)` - Simplify meshes (TriMesh, Mesh, Volume).
 
 #### Comparing morphology
 

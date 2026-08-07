@@ -7210,31 +7210,62 @@ navis.smooth_mesh
 navis.smooth_voxels
                 For smoothing Voxels.
 
-### navis.smooth_mesh(x, iterations=5, L=0.5, backend='auto', inplace=False)
+### navis.smooth_mesh(x, iterations=5, L=None, method='taubin', backend=None, inplace=False, **kwargs)
 
 *function*
 
 Smooth meshes (TriMesh, Mesh, Volume).
 
-Uses Laplacian smoothing. Not necessarily because that is always the best
-approach but because there are three backends (see below) that offer similar
-interfaces.
+Runs on `navis-fastcore`, which moves the vertices and touches nothing else:
+the faces, the vertex count and the vertex order all come back unchanged.
+This is what separates smoothing from navis.simplify_mesh - connectors,
+extra edges, the skeleton correspondence and anything you attached yourself
+are still attached to the vertex they were attached to, so there is nothing
+to repair afterwards.
 
 Parameters
 ----------
 x :             navis.Mesh/List | navis.Volume | trimesh.Trimesh
-                Mesh(es) to simplify.
+                Mesh(es) to smooth.
 iterations :    int
-                Round of smoothing to apply.
-L :             float [0-1]
-                Diffusion speed constant lambda. Larger = more aggressive
-                smoothing.
-backend :       "auto" | "open3d" | "blender" | "trimesh"
-                Which backend to use. Currenly we support `open3d`,
-                Blender 3D or `trimesh`.
+                Rounds of smoothing to apply. For `"taubin"` a round is a
+                full shrink-then-inflate pair, i.e. two sweeps over the mesh.
+L :             float [0-1], optional
+                Deprecated: this is `lamb` now, the name
+                `navis_fastcore.smooth_mesh` gives it. Passing it raises a
+                `DeprecationWarning`.
+method :        "taubin" | "laplacian" | "humphrey"
+                Which filter to run:
+
+                - `"taubin"` alternates a shrinking pass with an inflating
+                  one, tuned so the two cancel below a cut-off frequency.
+                  Removes noise without removing the shape
+                - `"laplacian"` is the plain diffusion step - simple,
+                  effective, and it *shrinks*: at the defaults here the
+                  example neuron loses 55% of its enclosed volume. Pair it
+                  with `volume_correction=True` if that matters
+                - `"humphrey"` is the HC filter of Vollmer et al., which
+                  fights shrinkage by pulling each vertex back towards where
+                  it started. The gentler of the two on fine detail
+
+backend :       str, optional
+                Deprecated and ignored - smoothing always runs on
+                `navis-fastcore` now. Passing anything raises a
+                `DeprecationWarning`.
 inplace :       bool
-                If True, will perform simplication on `x`. If False, will
-                simplify and return a copy.
+                If True, will smooth `x`. If False, will smooth and return
+                a copy.
+**kwargs
+                Keyword arguments are passed through to
+                `navis_fastcore.smooth_mesh`: `lamb`/`mu` (`"taubin"` and
+                `"laplacian"`), `alpha`/`beta` (`"humphrey"`), `weights`,
+                `preserve_border`, `lock`, `volume_correction` and
+                `threads`. Two worth knowing about: `weights="cotangent"`
+                moves vertices along the surface normal rather than sliding
+                them around within the surface, which is usually what you
+                want on meshes out of EM segmentation; and `lock` pins the
+                given vertices so they come back at bitwise the same
+                coordinates.
 parallel :      bool
                 If True and input is NeuronList, distribute the
                 work across multiple processes. See
@@ -7260,6 +7291,11 @@ Returns
 -------
 smoothed
                 Smoothed object.
+
+See Also
+--------
+navis.simplify_mesh
+                Reduce a mesh's face count.
 
 ### navis.smooth_voxels(x, sigma=1, backend='sparsecubes', epsilon=0, truncate=4.0, inplace=False)
 
@@ -7444,6 +7480,12 @@ resample_to :       int | float | str
 method :            str, optional
                     See `scipy.interpolate.interp1d` for possible
                     options. By default, we're using linear interpolation.
+                    "linear" and "nearest" run in `navis-fastcore` and are
+                    several times faster than the rest, which are fitted
+                    per segment in scipy. Note "nearest" does not place a
+                    node *between* two originals - it picks whichever is
+                    closer, coordinates and all - so it moves nodes onto the
+                    original ones rather than resampling the geometry.
 map_columns :       list of str, optional
                     Names of additional columns to carry over to the resampled
                     neuron. Numerical columns will be interpolated according to
@@ -7454,7 +7496,9 @@ inplace :           bool, optional
                     resampled copy is returned.
 skip_errors :       bool, optional
                     If True, will skip errors during interpolation and
-                    only print summary.
+                    only print summary. Only the scipy methods can fail
+                    this way, so this has no effect for "linear" and
+                    "nearest".
 preserve_volume :   bool, optional
                     By default, radii are interpolated point-wise like any
                     other numeric column, which does *not* conserve a
@@ -7706,31 +7750,61 @@ Downsample neuron(s) by a given factor.
 
 For skeletons: preserves root, leafs, branchpoints by default. Preservation
 of nodes with synapses can be toggled - see `preserve_nodes` parameter.
-Use `downsampling_factor=float('inf')` to get a skeleton consisting only
-of root, branch and end points. Connectors and tags sitting on a node that
-does not survive are moved onto the geodesically nearest node that does.
+Connectors and tags sitting on a node that does not survive are moved onto
+the geodesically nearest node that does. Skeletons can also be thinned by
+*shape* rather than by counting - see the `method` parameter.
 
 Parameters
 ----------
 x :                     single neuron | NeuronList
                         Neuron(s) to downsample. Note that for Meshes
                         we use the first available backend.
-downsampling_factor :   int | float('inf')
-                        Factor by which downsample. For Skeleton, Dotprops
-                        and Meshes this reduces the node, point
-                        and face count, respectively. For Voxels it
-                        reduces the dimensions by given factor.
+downsampling_factor :   int | float | str
+                        How much to downsample. What this means depends on
+                        `method`:
+                          - the counting methods read it as a **factor**
+                            > 1: for Skeletons, Dotprops and Meshes it
+                            divides the node, point and face count,
+                            respectively, and for Voxels it divides the
+                            dimensions. `float('inf')` reduces a Skeleton
+                            to just its root, branch and end points.
+                          - the shape-aware Skeleton methods read it as a
+                            **distance tolerance** in the neuron's own
+                            units - roughly "how far the simplified neuron
+                            may stray from this one". There is no lower
+                            bound: `0` is a legitimate (if barely
+                            simplifying) request. If the neuron has
+                            `.units` you can pass a string such as
+                            "1 micron".
 preserve_nodes :        str | list, optional
                         Can be either list of node IDs to exclude from
                         downsampling or a string to a DataFrame attached
                         to the neuron (e.g. "connectors"). DataFrame must
                         have `node_id` column. Only relevant for
                         Skeletons.
-method :                "simple" | "uniform" | "fps" | "decimate"
-                        How to pick which points to keep. Only relevant for
-                        Dotprops (ignored for all other neuron types):
-                          - "simple" (default): take every N-th point. Fast
-                            but not spatially uniform.
+method :                str
+                        How to pick what to keep. Which values are allowed
+                        depends on the type of neuron; passing one that
+                        does not apply is an error rather than ignored.
+
+                        For all neurons:
+                          - "simple" (default): take every N-th node/point/
+                            face. Fast but pays no attention to geometry.
+
+                        For Skeletons, thinning by shape instead:
+                          - "rdp": Ramer-Douglas-Peucker. Drops a node
+                            unless removing it would move the traced path by
+                            more than the tolerance, so long straight
+                            stretches collapse to their two ends while a
+                            tight curve keeps every node it needs.
+                          - "vw": Visvalingam-Whyatt. Repeatedly removes
+                            whichever node adds least area to the path.
+                            Sheds detail more evenly than "rdp" under
+                            aggressive simplification, which keeps a neurite
+                            looking like itself where "rdp" will happily
+                            keep one spike and flatten everything around it.
+
+                        For Dotprops, sampling the point cloud instead:
                           - "uniform": draw a uniform sample, automatically
                             choosing farthest-point sampling or decimation
                             depending on size.
@@ -7767,6 +7841,15 @@ Returns
 Skeleton/Dotprops/Voxels/NeuronList
                         Same datatype as input.
 
+Notes
+-----
+Downsampling a skeleton **shortens it**. The nodes that survive keep their
+original coordinates, so the edges that replace a dropped chain cut its
+corners, and `.cable_length` drops accordingly - by around 5-6% on the
+example neuron at any of the settings below, and by more the harder you
+simplify. Use navis.resample_skeleton if you need a node count you
+choose *and* the cable length left intact.
+
 Examples
 --------
 >>> import navis
@@ -7775,6 +7858,13 @@ Examples
 ...                                downsampling_factor=5,
 ...                                inplace=False)
 >>> n.n_nodes > n_ds.n_nodes
+True
+
+Thinning by shape rather than by count. The example neurons are in 8nm
+voxels, so this lets the skeleton stray by up to half a micron:
+
+>>> n_rdp = navis.downsample_neuron(n, "0.5 micron", method="rdp")
+>>> n_rdp.n_nodes < n_ds.n_nodes
 True
 
 See Also
@@ -7786,11 +7876,23 @@ navis.simplify_mesh
                          This is the function used for `Meshes`. Use
                          directly for more control of the simplification.
 
-### navis.simplify_mesh(x, F, backend='auto', inplace=False, **kwargs)
+### navis.simplify_mesh(x, F, backend=None, inplace=False, **kwargs)
 
 *function*
 
 Simplify meshes (TriMesh, Mesh, Volume).
+
+Uses quadric error metric decimation (Garland & Heckbert) as implemented in
+`navis-fastcore`: the edge whose collapse costs least is contracted, over and
+over, until the target is met.
+
+Unlike other implementations this one tracks where every vertex went, which
+is what lets everything hanging off the vertices come through with them:
+connectors, extra edges, the skeleton correspondence and anything you
+attached yourself (see navis.BaseNeuron.attach).
+A vertex that was merged into another follows it there, and one the
+decimation could not place at all is read as the place on the surface it
+named - see `_place_orphans`.
 
 Parameters
 ----------
@@ -7802,15 +7904,20 @@ F :         float | int
             0.5 will reduce the number of faces to 50%.
             Integers (>1) are intepreted as target face count. For example,
             an F of 5000 will attempt to reduce the number of faces to 5000.
-backend :   "auto" | "pyfqmr" | "open3d" | "blender" | "pymeshlab"
-            Which backend to use. Currenly we support `pyfqmr`, `open3d`,
-            Blender 3D and `pymeshlab`.
+backend :   str, optional
+            Deprecated and ignored - simplification always runs on
+            `navis-fastcore` now. Passing anything raises a
+            `DeprecationWarning`.
 inplace :   bool
             If True, will perform simplication on `x`. If False, will
             simplify and return a copy.
 **kwargs
-            Keyword arguments are passed through to the respective backend's
-            functions (see below).
+            Keyword arguments are passed through to
+            `navis_fastcore.simplify_mesh`, e.g. `aggressiveness`,
+            `preserve_border` or `lock`. The last is worth knowing about:
+            it pins the given vertices so they are never merged away or
+            moved, which is how you keep, say, synapse-bearing vertices
+            exactly where they are.
 parallel :  bool
             If True and input is NeuronList, distribute the
             work across multiple processes. See
@@ -7841,14 +7948,6 @@ See Also
 --------
 navis.downsample_neuron
             Downsample all kinds of neurons.
-navis.meshes.simplify_mesh_fqmr
-            pyfqmr implementation for mesh simplification.
-navis.meshes.simplify_mesh_open3d
-            Open3D implementation for mesh simplification.
-navis.meshes.simplify_mesh_pyml
-            PyMeshLab implementation for mesh simplification.
-navis.meshes.simplify_mesh_blender
-            Blender 3D implementation for mesh simplification.
 
 ## Comparing morphology
 

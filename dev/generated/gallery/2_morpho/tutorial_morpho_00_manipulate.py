@@ -68,6 +68,57 @@ sk_downsampled = navis.downsample_neuron(sk, downsampling_factor=10, inplace=Fal
 print(sk_downsampled.n_nodes)
 
 # %%
+# Counting nodes is not the only way to go about it, though: it spends the same number of nodes on a
+# dead-straight stretch of backbone as on a tight curve. [`Skeletons`][navis.Skeleton] can also be
+# thinned by *shape*, via the `method` parameter:
+#
+# | `method` | Keeps a node when... |
+# |----------|----------------------|
+# | `"rdp"` (Ramer-Douglas-Peucker) | ...removing it would move the traced path by more than the tolerance. Straight runs collapse to their two ends; a curve keeps every node it needs |
+# | `"vw"` (Visvalingam-Whyatt) | ...it is not the node adding the least *area* to the path. Sheds detail more evenly when pushed hard, where `"rdp"` will happily keep one spike and flatten everything around it |
+#
+# For these, `downsampling_factor` is read as a **distance tolerance** in the neuron's own units -
+# roughly "how far may the simplified neuron stray from this one" - rather than as a factor. So, like
+# resampling below, it takes a unit string:
+
+# %%
+sk_rdp = navis.downsample_neuron(sk, "0.5 micron", method="rdp", inplace=False)
+print(sk_rdp.n_nodes)
+
+# %%
+# Both are worth a look side by side at roughly the same node budget. The tolerance-based one spends
+# its nodes where the neuron actually bends:
+
+# %%
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+for ax, nrn, title in zip(
+    axes,
+    [sk_downsampled, sk_rdp],
+    [f"Downsampled 10x ({sk_downsampled.n_nodes} nodes)", f"RDP, 0.5um ({sk_rdp.n_nodes} nodes)"],
+):
+    _ = navis.plot2d(
+        nrn.nodes[["x", "y", "z"]].values,
+        method="2d",
+        view=("x", "-z"),
+        scatter_kws=dict(c="green", s=1),
+        ax=ax,
+    )
+    ax.set_title(title, color="k")
+    ax.invert_yaxis()
+    ax.set_axis_off()
+
+plt.tight_layout()
+
+# %%
+# !!! warning "Downsampling shortens a skeleton"
+#     Whichever `method` you pick, the nodes that survive keep their original coordinates - so the edges
+#     that replace a dropped chain cut its corners, and `cable_length` falls with them (by 5-7% on this
+#     neuron at the settings above, and by more the harder you simplify). If you need a node count you
+#     choose *and* the cable length left intact, resample instead - see below.
+#
 # For [`Meshes`][navis.Mesh] downsampling will reduce the number of faces by a factor of N:
 
 # %%
@@ -81,8 +132,8 @@ print(me_downsampled.n_faces)
 # %%
 # !!! note
 #     Under the hood [`downsample_neuron`][navis.downsample_neuron] calls [`navis.simplify_mesh`][] for [`Meshes`][navis.Mesh].
-#     That function then requires one of the supported backends for mesh operations to be installed: Blender
-#     3D, `pymeshlab` or `open3d`. If none is available, it will prompt you to install one.
+#     That runs on `navis-fastcore` and needs nothing else installed. Because it tracks where every vertex
+#     went, connectors, extra edges and the skeleton correspondence come through the simplification with it.
 #
 # ## Resampling
 #
@@ -164,11 +215,16 @@ plt.tight_layout()
 #     ```
 #
 # === "mesh"
-#     [`navis.smooth_mesh`][] applies iterative rounds of Laplacian smoothing:
+#     [`navis.smooth_mesh`][] runs a filter over each vertex's neighbours, by default
+#     Taubin's - which alternates a shrinking pass with an inflating one so that the
+#     mesh does not deflate as it smooths:
 #     ```python
 #     me = navis.example_neurons(n=1, kind="mesh")
 #     me_smoothed = navis.smooth_mesh(me, iterations=5, inplace=False)
 #     ```
+#     `method="laplacian"` gets you the plain diffusion step (simpler, and it shrinks -
+#     pair it with `volume_correction=True`) and `method="humphrey"` the HC filter,
+#     which is the gentlest of the three on fine detail.
 #
 # === "voxels"
 #     [`navis.smooth_voxels`][] applies a Gaussian filter to the voxel grid:
