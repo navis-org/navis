@@ -57,6 +57,16 @@ def half(mesh):
     return np.where(mesh.vertices[:, 0] > np.median(mesh.vertices[:, 0]))[0]
 
 
+def still_nearby(mesh):
+    """How far something may move and still be where it was, roughly.
+
+    A tenth of the neuron's own extent: loose enough that decimation moving a
+    vertex to the quadric-optimal point never trips it, tight enough that a
+    reference landing on an unrelated branch always does.
+    """
+    return np.ptp(mesh.vertices, axis=0).max() / 10
+
+
 # ---------------------------------------------------------------------------
 # The declaration
 # ---------------------------------------------------------------------------
@@ -982,7 +992,7 @@ def test_a_rebuild_that_claims_no_identity_drops_even_carry(skeleton, caplog):
     rs = navis.resample_skeleton(skeleton, resample_to=1000)
 
     assert not hasattr(rs, "score")
-    assert "which of the new elements are old ones" in caplog.text
+    assert "did not record where the old elements went" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -1134,11 +1144,15 @@ def test_simplify_mesh_keeps_connectors_on_the_surface(mesh):
     assert (vid < simple.n_vertices).all() and (vid >= 0).all()
     # ... and to somewhere that is still the same part of the surface
     moved = np.linalg.norm(simple.vertices[vid] - was, axis=1)
-    assert moved.max() < np.ptp(mesh.vertices, axis=0).max() / 10
+    assert moved.max() < still_nearby(mesh)
 
 
-def test_simplify_mesh_claims_no_identity(mesh):
-    """Decimation invents vertices, so per-vertex data cannot come along."""
+def test_simplify_mesh_carries_per_vertex_data(mesh):
+    """Decimation merges vertices, and says which - so values come along.
+
+    `depth` is each vertex's own index, so the values that come through say
+    which old vertex each new one took them from.
+    """
     mesh.attach(
         "depth", np.arange(mesh.n_vertices, dtype=float), axis="vertices",
         on_rebuild="carry",
@@ -1146,7 +1160,65 @@ def test_simplify_mesh_claims_no_identity(mesh):
 
     simple = navis.simplify_mesh(mesh, F=0.2)
 
+    assert len(simple.depth) == simple.n_vertices
+    # Every value is one an old vertex actually had, rather than an average of
+    # the group or an index into the new vertices
+    assert set(simple.depth.tolist()) <= set(mesh.depth.tolist())
+    # ... and from a vertex that became this one, which - since a merged vertex
+    # sits where the ones it swallowed were - means from somewhere nearby
+    was = mesh.vertices[simple.depth.astype(int)]
+    moved = np.linalg.norm(simple.vertices - was, axis=1)
+    assert moved.max() < still_nearby(mesh)
+
+
+def test_simplify_mesh_still_drops_data_that_did_not_ask_to_be_carried(mesh, caplog):
+    """`on_rebuild="carry"` is opt-in, and silence still means drop."""
+    mesh.attach("depth", np.arange(mesh.n_vertices, dtype=float), axis="vertices")
+
+    simple = navis.simplify_mesh(mesh, F=0.2)
+
     assert not hasattr(simple, "depth")
+    assert "dropped depth" in caplog.text
+
+
+def test_simplify_mesh_keeps_the_skeleton_correspondence(mesh, monkeypatch):
+    """The arbour is where it was, so the vertex map follows the vertices."""
+    before = mesh.skeleton.nodes.node_id.values
+
+    def boom(*args, **kwargs):
+        raise AssertionError("skeletonize() was called - the link was not carried")
+
+    monkeypatch.setattr(navis.Mesh, "skeletonize", boom)
+    simple = navis.simplify_mesh(mesh, F=0.2)
+
+    # Not re-skeletonized, and not thinned out either - the rebuild happened on
+    # the mesh, and a skeleton is entitled to nodes no vertex speaks for
+    assert np.array_equal(simple.skeleton.nodes.node_id.values, before)
+    vmap = schema.get_mapping(simple, "vertices", "skeleton")
+    assert len(vmap) == simple.n_vertices
+    assert np.isin(vmap[vmap >= 0], before).all()
+
+
+def test_simplify_mesh_puts_each_vertex_on_the_node_it_belonged_to(mesh):
+    """A merged vertex takes the node of a vertex that became it."""
+    skel = mesh.skeleton
+    before = schema.get_mapping(mesh, "vertices", "skeleton")
+
+    simple = navis.simplify_mesh(mesh, F=0.2)
+
+    after = schema.get_mapping(simple, "vertices", "skeleton")
+    ok = after >= 0
+    # The node a new vertex names sits about where the new vertex does - which
+    # it would not if the map had simply been left at the old indices
+    pos = skel.nodes.set_index("node_id").loc[after[ok], ["x", "y", "z"]].values
+    dist = np.linalg.norm(simple.vertices[ok] - pos, axis=1)
+    was = np.linalg.norm(
+        mesh.vertices[before >= 0]
+        - skel.nodes.set_index("node_id")
+        .loc[before[before >= 0], ["x", "y", "z"]].values,
+        axis=1,
+    )
+    assert np.median(dist) < np.median(was) * 2
 
 
 def test_simplify_mesh_leaves_the_faces_alone(mesh):
@@ -1176,7 +1248,7 @@ def test_simplify_mesh_keeps_extra_edges_on_the_surface(mesh):
     # ... and every end is still on the part of the surface it was on
     got = simple.vertices[simple.extra_edges].reshape(-1, 3)
     nearest = np.linalg.norm(got[:, None, :] - was[None, :, :], axis=-1).min(axis=1)
-    assert nearest.max() < np.ptp(mesh.vertices, axis=0).max() / 10
+    assert nearest.max() < still_nearby(mesh)
 
 
 def test_a_positional_rebuild_drops_what_it_did_not_move(mesh):
@@ -1217,6 +1289,69 @@ def test_a_positional_rebuild_keeps_what_it_moved(mesh):
     assert res.extra_edges.tolist() == [[n - 2, n - 1]]
 
 
+def _fold_in_pairs(n):
+    """A rebuild that merges each pair of vertices: 0 and 1 become 0, and so on."""
+
+    @navis.utils.rebuilds("vertices")
+    def fold(x, merged=None):
+        # Same dance as `simplify_mesh`: the setter drops extra edges outright
+        # when the count changes, so they go out of its way and come back
+        # un-remapped for the rebuild to repair
+        edges, x._extra_edges = getattr(x, "_extra_edges", None), None
+        x.vertices = x.vertices[::2].copy()
+        x._extra_edges = edges
+        return x, schema.Rebuild(
+            merged=np.arange(n) // 2 if merged is None else merged
+        )
+
+    return fold
+
+
+def test_a_merging_rebuild_says_where_everything_went(mesh):
+    """`merged` is complete, so it is `snap` as well - one answer, not two."""
+    n = mesh.n_vertices
+    mesh.extra_edges = [[0, 2], [4, 6]]
+
+    res = _fold_in_pairs(n)(mesh.copy())
+
+    # Both edges survive, each end following the vertex it was folded into
+    assert res.extra_edges.tolist() == [[0, 1], [2, 3]]
+
+
+def test_a_merging_rebuild_carries_from_the_first_of_the_group(mesh):
+    """Several old elements, one new one - so one of them has to speak."""
+    n = mesh.n_vertices
+    mesh.attach("lab", np.arange(n), axis="vertices", on_rebuild="carry")
+
+    res = _fold_in_pairs(n)(mesh.copy())
+
+    # Vertices 0 and 1 became vertex 0, and it is 0's value that comes through
+    assert res.lab.tolist() == np.arange(0, n, 2).tolist()
+
+
+def test_a_merging_rebuild_that_leaves_a_new_element_unaccounted_for(mesh, caplog):
+    """Carrying needs every new element to have come from somewhere."""
+    n = mesh.n_vertices
+    mesh.attach("lab", np.arange(n), axis="vertices", on_rebuild="carry")
+    merged = np.arange(n) // 2
+    merged[merged == 3] = schema.DROPPED       # nothing became vertex 3
+
+    res = _fold_in_pairs(n)(mesh.copy(), merged=merged)
+
+    assert not hasattr(res, "lab")
+    assert "have no old element behind them" in caplog.text
+
+
+def test_simplify_mesh_leaves_the_input_alone(mesh):
+    """`inplace=False` must not write the new vertex map onto the original."""
+    before = mesh.skeleton.vertex_map.copy()
+
+    simple = navis.simplify_mesh(mesh, F=0.2)
+
+    assert np.array_equal(mesh.skeleton.vertex_map, before)
+    assert len(simple.skeleton.vertex_map) == simple.n_vertices
+
+
 def test_simplify_mesh_still_takes_a_volume():
     """`Volume` and bare trimeshes have no schema to carry."""
     m = navis.example_neurons(1, kind="mesh")
@@ -1226,6 +1361,12 @@ def test_simplify_mesh_still_takes_a_volume():
 
     assert isinstance(simple, navis.Volume)
     assert len(simple.vertices) < len(m.vertices)
+
+
+def test_simplify_mesh_rejects_a_stale_backend(mesh):
+    """The argument is gone; passing it should say so rather than be ignored."""
+    with pytest.warns(DeprecationWarning, match="navis-fastcore"):
+        navis.simplify_mesh(mesh, F=0.2, backend="pyfqmr")
 
 
 def test_insert_nodes_does_not_leave_attached_data_behind(skeleton):

@@ -17,7 +17,11 @@ if __name__ == '__main__':
     mesh_post = os.path.abspath(r'$MESH_POST')
 
     for filename in mesh_pre:  # use data.objects instead of context.scene.objects
-        bpy.ops.import_mesh.stl(filepath=os.path.abspath(filename))
+        try:
+            bpy.ops.wm.stl_import(filepath=os.path.abspath(filename))
+        except AttributeError:
+            # blender 4.0 moved (and renamed) the STL operators
+            bpy.ops.import_mesh.stl(filepath=os.path.abspath(filename))
 
     mesh = bpy.data.objects[0]
     # Make sure mesh is the active object
@@ -35,6 +39,12 @@ if __name__ == '__main__':
 
     bpy.ops.object.modifier_apply(modifier=mod.name)
 
-    bpy.ops.export_mesh.stl(
-        filepath=mesh_post,
-        use_mesh_modifiers=True)
+    try:
+        bpy.ops.wm.stl_export(
+            filepath=mesh_post,
+            apply_modifiers=True)
+    except AttributeError:
+        # blender 4.0 moved (and renamed) the STL operators
+        bpy.ops.export_mesh.stl(
+            filepath=mesh_post,
+            use_mesh_modifiers=True)

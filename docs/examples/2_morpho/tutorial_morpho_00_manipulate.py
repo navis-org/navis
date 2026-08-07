@@ -81,8 +81,8 @@ print(me_downsampled.n_faces)
 # %%
 # !!! note
 #     Under the hood [`downsample_neuron`][navis.downsample_neuron] calls [`navis.simplify_mesh`][] for [`Meshes`][navis.Mesh].
-#     That function then requires one of the supported backends for mesh operations to be installed: Blender
-#     3D, `pymeshlab` or `open3d`. If none is available, it will prompt you to install one.
+#     That runs on `navis-fastcore` and needs nothing else installed. Because it tracks where every vertex
+#     went, connectors, extra edges and the skeleton correspondence come through the simplification with it.
 #
 # ## Resampling
 #

@@ -105,8 +105,7 @@ n
 # MICrONS neurons can be fairly large, i.e. have lots of faces. You can try using a higher `lod` ("level of detail", higher = coarser)
 # but not all datastacks actually support multi-resolution meshes. If they don't (like this one) the `lod` parameter is silently ignored.
 #
-# For visualization in this documentation we will simplify the neuron a little. For this, you need either
-# `open3d` (`pip3 install open3d`), `pymeshlab` (`pip3 install pymeshlab`) or Blender 3D on your computer.
+# For visualization in this documentation we will simplify the neuron a little.
 
 # Reduce face counts to 1/3 of the original
 n_ds = navis.simplify_mesh(n, F=1 / 3)

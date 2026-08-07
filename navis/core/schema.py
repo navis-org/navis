@@ -87,12 +87,16 @@ _REQUIRED = object()
 #: selection: some of the elements are new, so there is no value to carry onto
 #: them and no way to invent one that is not a guess.
 REBUILDS = (
-    #: Let it go, with a warning saying so. The safe answer, and the default,
+    #: The value does not come through. The safe answer, and the default,
     #: because a wrong value that is the right length is worse than no value.
+    #: Attached data is detached and the loss warned about; a link's mapping is
+    #: simply left at its old length, where `fitted_mapping` reads it as absent
+    #: and the far end is regenerated - nothing is lost that was not derived.
     "drop",
-    #: Keep the values of the elements the rebuild says it kept. Only possible
-    #: when it says so - `Rebuild.kept` - and only when every new element has a
-    #: counterpart; otherwise this falls back to dropping.
+    #: Keep the values of the old elements each new one stands for. Only
+    #: possible where the rebuild said enough - `Rebuild.kept` or
+    #: `Rebuild.merged` - and every new element is accounted for; otherwise
+    #: this falls back to dropping. See `_carry_positions`.
     "carry",
 )
 
@@ -115,11 +119,11 @@ REBUILD_REFS = (
 )
 
 
-def _check_rebuild_policy(policy: str) -> None:
-    """One policy, one validator - `Ref` and `Link` offer the same choice."""
-    if policy not in REBUILD_REFS:
+def _check_rebuild_policy(policy: str, allowed: Tuple[str, ...] = REBUILD_REFS) -> None:
+    """One policy, one validator - several declarations offer the same choice."""
+    if policy not in allowed:
         raise ValueError(
-            f'Unknown rebuild policy "{policy}", expected one of {REBUILD_REFS}'
+            f'Unknown rebuild policy "{policy}", expected one of {allowed}'
         )
 
 
@@ -305,10 +309,7 @@ def declare_axis(neuron, axis: Axis) -> None:
 
 def declare_aligned(neuron, axis_name: str, attr: str, on_rebuild: str = "drop") -> None:
     """Record that `attr` holds one value per element of an axis."""
-    if on_rebuild not in REBUILDS:
-        raise ValueError(
-            f'Unknown rebuild policy "{on_rebuild}", expected one of {REBUILDS}'
-        )
+    _check_rebuild_policy(on_rebuild, REBUILDS)
     axis = get_axis(neuron, axis_name)
     carried = axis.carried | {attr} if on_rebuild == "carry" else axis.carried - {attr}
     data = axis.data if attr in axis.data else axis.data + (attr,)
@@ -805,6 +806,12 @@ _REF_READERS = {
 # never be inferred from the first. A rebuild is free to mint element IDs however
 # it likes, so an ID that happens to be reused is not thereby the same point -
 # only the function that did the rebuilding knows, and it has to say.
+#
+# A rebuild that *merges* can answer both at once, and `Rebuild.merged` is that
+# answer: a complete account of where every old element went, several of them
+# possibly to the same place. It is a weaker claim than `kept` - no new element
+# *is* any one old element - but a stronger one than `snap`, because it accounts
+# for every old element rather than for the ones it happened to record.
 # ---------------------------------------------------------------------------
 
 
@@ -816,28 +823,46 @@ class Rebuild:
     `apply_rebuild` - in practice by returning it alongside the neuron from a
     function wrapped in `navis.utils.rebuilds`.
 
+    All three fields speak in *names* - IDs on an id-bearing axis, indices on a
+    positional one, i.e. whatever `axis_names` says - and they answer the two
+    questions in one order of precedence:
+
+    - where a **reference** should now point: `snap`, laid over `merged`.
+    - which old element a new one takes its **values** from: `kept`, else
+      `merged`. See `_carry_positions`.
+
     Parameters
     ----------
     snap :  (old, new) arrays, optional
             For an old element, the element a *reference* to it should now name.
-            IDs for an id-bearing axis, indices for a positional one. May be
-            partial, and what that means depends on the axis: on an id-bearing
-            one an unlisted element keeps its value and then stands or falls on
-            whether it is still there, while on a positional one it is simply
-            gone - an index is not a name, so there is nothing to ask. `None`
-            means nothing moved anywhere recoverable, and every reference into
-            the axis is then repaired as if the elements had been removed.
+            May be partial, and what that means depends on what else is here: on
+            its own and on an id-bearing axis an unlisted element keeps its value
+            and then stands or falls on whether it is still there, while on a
+            positional one it is simply gone - an index is not a name, so there
+            is nothing to ask. Alongside `merged` it is the list of exceptions
+            to it, which is how a rebuild says "the map, except for these few I
+            had to place by hand".
     kept :  array, optional
             For each *new* element, in order, the name of the old element it
             **is** - or `DROPPED` where it is genuinely new. This is a claim
-            about identity and is the only thing that lets aligned data be
-            carried; `None` means no such claim, and everything aligned to the
-            axis is dropped. Do not derive it from `snap`.
+            about identity, and the strongest of the three: it is believed over
+            `merged` for carrying. Do not derive it from `snap`.
+    merged : array, optional
+            For each *old* element, in order, the new element it was folded
+            into - `DROPPED` where it went nowhere. The account a rebuild that
+            merges can give: mesh decimation collapses an edge, so two vertices
+            become one and there is no new element that *is* either of them,
+            but there is nowhere for a reference to either to go except the
+            vertex they became. Being complete it says everything `snap` says,
+            so references follow it on their own; and being many-to-one it does
+            not license `kept`, but it does say which group of old elements each
+            new one stands for, which is enough to carry aligned data.
 
     """
 
     snap: Optional[Tuple[Sequence, Sequence]] = None
     kept: Optional[Sequence] = None
+    merged: Optional[Sequence] = None
 
 
 @dataclass
@@ -874,7 +899,20 @@ def capture_rebuild(neuron, axis_name: str) -> Optional[RebuildState]:
     return RebuildState(axis=axis, names=names, aligned=aligned)
 
 
-def _rebuild_translator(neuron, axis: Axis, snap):
+def _dense_relocation(old, new, n: int) -> np.ndarray:
+    """A sparse `(old, new)` list as the dense lookup a positional axis wants.
+
+    An index *is* a position, so "where did old element i go" is an array
+    lookup rather than a search - and the elements a rebuild did not mention
+    are the `DROPPED` this starts out full of.
+    """
+    lut = np.full(n, DROPPED, dtype=np.int64)
+    inside = (old >= 0) & (old < n)
+    lut[old[inside]] = new[inside]
+    return lut
+
+
+def _rebuild_translator(neuron, axis: Axis, relocation):
     """Map reference values onto the axis as it is after a rebuild.
 
     Same contract as `_translator`: values in, `(new_values, ok)` out. A value
@@ -884,20 +922,45 @@ def _rebuild_translator(neuron, axis: Axis, snap):
     An ID names the same element wherever the rebuild put it, so an unmentioned
     one can simply be asked whether it is still there. An *index* names no
     element at all - position 3 of the rebuilt axis is whatever now sits at 3 -
-    so an unmentioned one is gone, in exactly the sense that `Rebuild.kept=None`
-    means everything aligned to the axis is gone. Asking whether it is "still
-    there" would only ever be a bounds check, and would leave it pointing at an
-    unrelated element: the plausible-but-wrong answer this module exists to
-    refuse.
+    so an unmentioned one is gone, in exactly the sense that a rebuild that says
+    nothing means everything aligned to the axis is gone. Asking whether it is
+    "still there" would only ever be a bounds check, and would leave it pointing
+    at an unrelated element: the plausible-but-wrong answer this module exists
+    to refuse.
+
+    `relocation` is `_relocation`'s output and comes in the currency of the
+    axis: a dense old-to-new lookup for a positional one, `(old, new)` pairs to
+    be searched for an id-bearing one.
     """
-    live = None if axis.positional else axis_names(neuron, axis)
     n_live = axis_length(neuron, axis)
-    old, new = (np.asarray(snap[0]), np.asarray(snap[1])) if snap else (None, None)
+
+    if axis.positional:
+        # Which is exactly the read a selection makes, so the two kinds of
+        # change agree by construction - and a lookup rather than a hash join,
+        # which on a rebuild that moved every element is the whole cost.
+        nowhere = np.zeros(0, dtype=np.int64)
+        follow = _translator(
+            axis, Survivors(old2new=nowhere if relocation is None else relocation)
+        )
+
+        def translate(values):
+            new, ok = follow(values)
+            # Belt and braces: a rebuild that relocated something to an element
+            # it does not have is a bug, not a reference to repair.
+            return new, ok & (new < n_live)
+
+        return translate
+
+    live = axis_names(neuron, axis)
+    old, new = (
+        (np.asarray(relocation[0]), np.asarray(relocation[1]))
+        if relocation is not None
+        else (None, None)
+    )
     lookup = None if old is None or not len(old) else pd.Index(old)
 
     def translate(values):
         values = np.asarray(values)
-        moved = np.zeros(values.shape, dtype=bool)
         if lookup is not None:
             # `get_indexer` takes one dimension, and a single reference can be a
             # row of several - a face, an extra edge - so ask flat and put the
@@ -909,12 +972,6 @@ def _rebuild_translator(neuron, axis: Axis, snap):
                 # latter goes through float and quietly widens integer IDs.
                 values = values.copy()
                 values[moved] = new[where[moved]]
-
-        if axis.positional:
-            # Only what the rebuild explicitly moved still means anything - see
-            # above. The bounds check is belt and braces: a rebuild that snapped
-            # to an element it does not have is a bug, not a reference to repair.
-            return values, moved & (values >= 0) & (values < n_live)
         return values, np.isin(values, live)
 
     return translate
@@ -932,7 +989,7 @@ def apply_rebuild(neuron, state: RebuildState, rebuild: Rebuild) -> None:
     # One translator per policy: `"snap"` follows the rebuild, `"drop"` treats
     # the old element as gone, exactly as a selection would.
     translators = {
-        "snap": _rebuild_translator(neuron, axis, rebuild.snap),
+        "snap": _rebuild_translator(neuron, axis, _relocation(state, rebuild)),
         "drop": _rebuild_translator(neuron, axis, None),
     }
 
@@ -940,18 +997,89 @@ def apply_rebuild(neuron, state: RebuildState, rebuild: Rebuild) -> None:
         if ref.on_rebuild != "rebuilt":
             _REF_HANDLERS[ref.kind](neuron, ref, translators[ref.on_rebuild])
 
+    # One pass, both hats: a link may name the axis, be aligned to it, or - for
+    # a link between two of this neuron's own axes - both.
+    live, aligned_links = [], []
+    for link in declared_links(neuron):
+        aligned, names = _roles(link, axis)
+        mapping = link_mapping(neuron, link) if aligned or names else None
+        if mapping is None:
+            continue
+        if names:
+            live.append(LiveLink(link, np.asarray(mapping), vouched=False))
+        # Only a mapping that still fits the *old* axis has anything to carry;
+        # asking here is what stops a mesh with no skeleton attached paying for
+        # provenance nobody will read.
+        if (
+            aligned
+            and link.on_rebuild_aligned == "carry"
+            and len(mapping) == len(state.names)
+        ):
+            aligned_links.append(link)
+
     # Same rule as a selection about what becomes of a source element left
     # naming nothing - a connector with nowhere to sit still goes - so this is
     # the selection's own code with a different idea of where things went.
-    live = []
-    for link in declared_links(neuron):
-        mapping = link_mapping(neuron, link) if _roles(link, axis)[1] else None
-        if mapping is not None:
-            live.append(LiveLink(link, np.asarray(mapping), vouched=False))
     repair_links(neuron, axis, live, None, translate=translators)
 
-    _restore_aligned(neuron, axis, state, rebuild)
+    # Both halves of "what described the old elements" - data attached to them
+    # and mappings aligned to them - are carried off the same provenance, so it
+    # is worked out once (and only if somebody wants it: it costs a pass over
+    # the axis, and most rebuilds have nothing that asked to be carried) and
+    # they agree by construction.
+    carried = state.axis.carried & set(state.aligned)
+    carry = (
+        _carry_positions(neuron, axis, state, rebuild)
+        if carried or aligned_links
+        else (None, None)
+    )
+
+    _restore_aligned(neuron, axis, state, carried, carry)
+    _carry_aligned_links(neuron, axis, state, aligned_links, carry)
     stamp_links(neuron, axis.name)
+
+
+def _relocation(state: RebuildState, rebuild: Rebuild):
+    """Where a rebuild says each old element went, in the axis' own currency.
+
+    A positional axis gets a dense old-to-new lookup, an id-bearing one the
+    `(old, new)` pairs to search - see `_rebuild_translator`, which is the only
+    consumer.
+
+    `merged` is the complete account and `snap` the exceptions to it, so where
+    both are given the latter is laid over the former. That is what lets
+    `simplify_mesh` say "the vertex map, except for these few I had to place by
+    hand" rather than having to restate the whole map to add three entries.
+    """
+    merged = None if rebuild.merged is None else np.asarray(rebuild.merged)
+    if merged is not None and len(merged) != len(state.names):
+        # Not ours to complain about here - `_carry_positions` says so once,
+        # with the numbers - but it is certainly not something to relocate to.
+        merged = None
+
+    snap = (
+        (np.asarray(rebuild.snap[0]), np.asarray(rebuild.snap[1]))
+        if rebuild.snap is not None
+        else None
+    )
+
+    if merged is None:
+        if snap is None or not state.axis.positional:
+            return snap
+        return _dense_relocation(*snap, len(state.names))
+
+    if snap is not None:
+        old, new = snap
+        # An index is already a position; an ID has to be looked up.
+        where = old if state.axis.positional else pd.Index(state.names).get_indexer(old)
+        inside = (where >= 0) & (where < len(merged))
+        merged = merged.copy()
+        merged[where[inside]] = new[inside]
+
+    if state.axis.positional:
+        return merged
+    live = merged >= 0
+    return state.names[live], merged[live]
 
 
 def relocate_refs(neuron, axis: Axis, old, new) -> None:
@@ -984,7 +1112,10 @@ def relocate_refs(neuron, axis: Axis, old, new) -> None:
     # Built against the axis as it stands, i.e. with every element still on it,
     # so nothing is dropped here on the way past - what survives is the
     # selection's business and it has not run yet.
-    translate = _rebuild_translator(neuron, axis, (old, new))
+    n = axis_length(neuron, axis)
+    translate = _rebuild_translator(
+        neuron, axis, _dense_relocation(old, new, n) if axis.positional else (old, new)
+    )
 
     for ref in axis.refs:
         if ref.on_rebuild == "snap":
@@ -1003,33 +1134,66 @@ def relocate_refs(neuron, axis: Axis, old, new) -> None:
 def _carry_positions(neuron, axis: Axis, state: "RebuildState", rebuild: Rebuild):
     """For each new element, the old one whose value it inherits - or why not.
 
-    Carrying needs the rebuild to have said which new elements are old ones
-    *and* for every new element to be one: there is no value to give an element
-    that was not there before, and inventing one is the kind of
+    Carrying needs the rebuild to have said where the old elements went *and*
+    for every new element to have somewhere they went from: there is no value to
+    give an element that was not there before, and inventing one is the kind of
     plausible-but-wrong answer this module exists to refuse.
+
+    Two things say enough, and they say different things. `kept` is the claim
+    that a new element *is* an old one, so the value simply comes with it.
+    `merged` is the weaker claim that a group of old elements became this one,
+    which leaves the question of which of them speaks for the group - and the
+    answer taken here is the first of them, in old order. That is arbitrary, and
+    deliberately so: the alternative is to combine them, and there is no mean of
+    a label, no sum of a name, and nothing that is true of both. A rebuild that
+    knows better says `kept` and is believed.
     """
-    if rebuild.kept is None:
-        return None, "it did not record which of the new elements are old ones"
+    n = axis_length(neuron, axis)
 
-    kept, n = np.asarray(rebuild.kept), axis_length(neuron, axis)
-    if len(kept) != n:
-        return None, f"it recorded {len(kept)} element(s) of provenance for {n} element(s)"
+    if rebuild.kept is not None:
+        kept = np.asarray(rebuild.kept)
+        if len(kept) != n:
+            return None, (
+                f"it recorded {len(kept)} element(s) of provenance for "
+                f"{n} element(s)"
+            )
+        where = pd.Index(state.names).get_indexer(kept)
+        if (where < 0).any():
+            return None, f"{int((where < 0).sum())} of the new elements are new"
+        return where, None
 
-    where = pd.Index(state.names).get_indexer(kept)
-    if (where < 0).any():
-        return None, f"{int((where < 0).sum())} of the new elements are new"
-    return where, None
+    if rebuild.merged is not None:
+        merged = np.asarray(rebuild.merged)
+        if len(merged) != len(state.names):
+            return None, (
+                f"it said where {len(merged)} old element(s) went, of "
+                f"{len(state.names)}"
+            )
+        # `merged` names the new elements and carrying wants their positions,
+        # which is the question `_positions` answers - on a positional axis for
+        # free, on an id-bearing one by the same hash join `get_mapping` uses.
+        into, ok = _positions(neuron, axis, merged)
+        # Reversed so the lowest old index is the one left standing, which is
+        # what makes "the first of them" true rather than merely stable.
+        live = np.flatnonzero(ok)[::-1]
+        where = np.full(n, DROPPED, dtype=np.int64)
+        where[into[live]] = live
+        if (where < 0).any():
+            return None, (
+                f"{int((where < 0).sum())} of the new elements have no old "
+                "element behind them"
+            )
+        return where, None
+
+    return None, "it did not record where the old elements went"
 
 
-def _restore_aligned(neuron, axis: Axis, state: "RebuildState", rebuild: Rebuild) -> None:
+def _restore_aligned(neuron, axis: Axis, state: "RebuildState", carried, carry) -> None:
     """Put back what was aligned to the old elements, where that is honest."""
     if not state.aligned:
         return
 
-    carried = state.axis.carried & set(state.aligned)
-    positions, why = (
-        _carry_positions(neuron, axis, state, rebuild) if carried else (None, None)
-    )
+    positions, why = carry if carried else (None, None)
 
     for attr, value in state.aligned.items():
         if attr in carried and positions is not None:
@@ -1059,6 +1223,43 @@ def _restore_aligned(neuron, axis: Axis, state: "RebuildState", rebuild: Rebuild
             'Attach with `on_rebuild="carry"` to keep such data where the '
             "rebuild can say which elements it kept."
         )
+
+
+def _carry_aligned_links(neuron, axis: Axis, state: "RebuildState", links, carry) -> None:
+    """Take a link's mapping through a rebuild of the axis it is aligned to.
+
+    The other half of `apply_rebuild`'s link handling, and the half a selection
+    gets for free: a mapping aligned to the axis goes wherever the elements go,
+    which for a selection means being subset alongside them and for a rebuild
+    means the same question `_restore_aligned` asks, answered off the same
+    provenance.
+
+    What it deliberately does *not* do is touch the far end. A vertex map that
+    no longer names some node is not a reason to take that node away - the
+    rebuild happened over here, and a skeleton is entitled to nodes no vertex
+    speaks for. That is the `cascade` that only a selection has.
+
+    A mapping left alone is not left wrong: it no longer fits its axis, so
+    `fitted_mapping` reads it as absent and `stamp_links` drops it from the
+    bookkeeping rather than blessing it.
+    """
+    if not links:
+        return
+
+    positions, why = carry
+    for link in links:
+        mapping = link_mapping(neuron, link)
+        if mapping is None or len(mapping) != len(state.names):
+            # Nothing to carry, or something already came adrift - either way
+            # not ours to repair.
+            continue
+        if positions is None:
+            logger.warning(
+                f"{type(neuron).__name__} {neuron.id}: rebuilding "
+                f"'{axis.name}' dropped the mapping to '{link.name}' - {why}."
+            )
+            continue
+        set_link_mapping(neuron, link, _select_aligned(mapping, positions, None))
 
 
 # ---------------------------------------------------------------------------
@@ -1470,6 +1671,17 @@ class Link:
                     One of `REBUILD_REFS`; see there. Distinct from `dangling`,
                     which is about a target that is *gone*: under a rebuild it
                     may merely have moved, and `"snap"` follows it.
+                    This is about the axis the mapping *names* - see
+                    `on_rebuild_aligned` for the other end.
+    on_rebuild_aligned :
+                    One of `REBUILDS`; what a rebuild of the axis the mapping is
+                    *aligned* to does to it. The two are separate questions
+                    asked of separate axes: `on_rebuild` is where a value should
+                    point now, `on_rebuild_aligned` is whether the new element
+                    has a value at all. `"drop"` (the default) leaves the
+                    mapping at its old length, where it reads as absent and the
+                    far end is regenerated; `"carry"` re-indexes it onto the new
+                    elements, which the rebuild has to have said enough for.
 
     """
 
@@ -1482,6 +1694,7 @@ class Link:
     cascade: str = "propagate"
     dangling: str = "drop"
     on_rebuild: str = "drop"
+    on_rebuild_aligned: str = "drop"
 
     def __post_init__(self):
         if self.cascade not in CASCADES:
@@ -1494,6 +1707,7 @@ class Link:
                 f"{DANGLING}"
             )
         _check_rebuild_policy(self.on_rebuild)
+        _check_rebuild_policy(self.on_rebuild_aligned, REBUILDS)
 
     @property
     def key(self) -> str:

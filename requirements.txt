@@ -77,7 +77,6 @@ octarine-navis-plugin>=0.1.8
 #extra: meshes
 
 open3d; python_version < "3.12"
-pyfqmr
 
 #extra: test-notebook
 

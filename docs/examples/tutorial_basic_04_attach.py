@@ -489,13 +489,17 @@ nl.attached()
 #     |----------------------------------------------------------------|---------------------------------|
 #     | [`subset_neuron`][navis.subset_neuron], [`mask`][navis.masked]  | [`resample_skeleton`][navis.resample_skeleton] |
 #     | [`prune_twigs`][navis.prune_twigs], [`prune_by_strahler`][navis.prune_by_strahler] | [`stitch_skeletons`][navis.stitch_skeletons], [`combine_neurons`][navis.combine_neurons] |
-#     | [`smooth_skeleton`][navis.smooth_skeleton], transforms, `copy()` | [`simplify_mesh`][navis.simplify_mesh] |
-#     | unmasking with `reset=False`                                   | [`downsample_neuron`][navis.downsample_neuron] - *unless you ask*  |
+#     | [`smooth_skeleton`][navis.smooth_skeleton], transforms, `copy()` | [`downsample_neuron`][navis.downsample_neuron] - *unless you ask* |
+#     | unmasking with `reset=False`                                   | [`simplify_mesh`][navis.simplify_mesh] - *unless you ask*  |
 #
 #     Some rebuilds *can* say which of their elements are old ones.
 #     [`downsample_neuron`][navis.downsample_neuron] is the case: it only thins slabs,
-#     so every node it keeps really is the node it was. `on_rebuild="carry"` takes it up
-#     on that, and still drops if any element turns out to be genuinely new:
+#     so every node it keeps really is the node it was.
+#     [`simplify_mesh`][navis.simplify_mesh] is the other, and says something weaker:
+#     no new vertex *is* an old one, but it knows which old vertices were merged into
+#     each, and the value of the first of them is what the new one takes.
+#     `on_rebuild="carry"` takes both up on that, and still drops if a rebuild turns out
+#     to be unable to say:
 #
 #     ```pycon
 #     >>> n.attach("score", np.arange(n.n_nodes), axis="nodes", on_rebuild="carry")
@@ -517,10 +521,11 @@ nl.attached()
 #     is *gone*. Under a rebuild it may merely have moved.
 #
 #     It works on positional axes too, where there is no ID to go by:
-#     [`simplify_mesh`][navis.simplify_mesh] invents vertices rather than choosing
-#     among the old ones, so per-vertex data is dropped - but a connector's `vertex_id`
-#     still names a *place* on the surface, and the new vertex nearest that place is the
-#     honest reading of it.
+#     [`simplify_mesh`][navis.simplify_mesh] merges vertices rather than keeping them,
+#     and tracks which went where, so a connector's `vertex_id` follows the vertex it
+#     named to whatever it was merged into. Only a vertex the decimation left with no
+#     surviving face at all has no answer, and there a connector falls back to the
+#     nearest surviving vertex - it still names a *place* on the surface.
 #
 # !!! warning "Assigning to an axis is not the same as selecting it"
 #     Selecting says which elements survived; assigning does not. Replacing a neuron's

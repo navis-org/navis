@@ -160,11 +160,13 @@ directly, are listed below:
 
     ---
 
-    #### ``meshes``: [open3d](https://pypi.org/project/open3d/), [pyfqmr](https://github.com/Kramer84/pyfqmr-Fast-quadric-Mesh-Reduction)
-      Assorted functionality associated with meshes. ``pyfqmr`` in particular is highly recommended if you want to downsample meshes.
+    #### ``meshes``: [open3d](https://pypi.org/project/open3d/)
+      Assorted functionality associated with meshes. Note that mesh *simplification*
+      ([`navis.simplify_mesh`][], and hence [`navis.downsample_neuron`][] on meshes)
+      needs nothing extra - it runs on `navis-fastcore`, which is a hard requirement.
 
     ``` shell
-    pip install open3d pyfqmr
+    pip install open3d
     ```
 
 ??? info "Cluster computing"

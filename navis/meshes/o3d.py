@@ -14,57 +14,7 @@
 import numpy as np
 import trimesh as tm
 
-from .. import core, utils
-
-
-def simplify_mesh_open3d(x, F, method='quadric', inplace=False, **kwargs):
-    """Simplify mesh using open3d.
-
-    Parameters
-    ----------
-    x :         Mesh | Volume | Trimesh
-                Mesh object to simplify.
-    F :         float | int
-                For method `quadric` this is the target face count (integer).
-                For method `cluster` this is the size of the voxel within which
-                vertices are pooled (larger t = coarser mesh).
-    method :    "quadric" | "cluster"
-                Which method to use for simplification: either Quadric Error
-                Metric Decimation (by Garland and Heckbert) or vertex clustering.
-                Note that the intepretation of `F` depends on the method.
-    inplace :   bool
-                If True, will perform simplication on `x`. If False, will
-                simplify and return a copy.
-    **kwargs
-                Keyword arguments are passed through to open3d's
-                `simplify_quadric_decimation` and `simplify_vertex_clustering`,
-                respectively.
-
-    Returns
-    -------
-    simp
-                Simplified mesh object.
-
-    """
-    if not utils.is_mesh(x):
-        raise TypeError(f'Expected mesh-like, got "{type(x)}"')
-
-    mesh_o3d = make_o3d_mesh(x)
-
-    if method == 'quadric':
-        result = mesh_o3d.simplify_quadric_decimation(int(F), **kwargs)
-    elif method == 'cluster':
-        result = mesh_o3d.simplify_vertex_clustering(F,  **kwargs)
-    else:
-        raise ValueError(f'Unknown simplification scheme "{method}"')
-
-    if not inplace:
-        x = x.copy()
-
-    x.vertices = np.asarray(result.vertices)
-    x.faces = np.asarray(result.triangles)
-
-    return x
+from .. import core
 
 
 def smooth_mesh_open3d(x, iterations=5, L=0.5, inplace=False):

@@ -150,6 +150,11 @@ class Mesh(BaseNeuron):
             target_axis='nodes',
             # A vertex whose node vanished is still a vertex
             dangling='blank',
+            # Re-making the vertices does not re-make the skeleton: the arbour
+            # is where it was, so a rebuild that can say which vertices became
+            # which keeps the map rather than throwing it away - same reason as
+            # above, for the other half of what can happen to an axis.
+            on_rebuild_aligned='carry',
         ),
         # Connectors sit on a vertex, and compose through the above onto the
         # skeleton's nodes without anyone declaring that mapping.
