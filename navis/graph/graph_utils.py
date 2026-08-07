@@ -1970,9 +1970,12 @@ def _simplified_childs(x: "core.Skeleton") -> Dict[int, List[int]]:
     Anything comparing itself against this walk has to enumerate children the same
     way, so call this rather than rebuilding it.
     """
-    ids, parents, _ = utils.fastcore.simplify_skeleton(
+    # N.B. only the first two of what fastcore returns are named: it also hands
+    # back the replacement edge weights and, since 0.11.0, a node map, and this
+    # wants neither.
+    ids, parents = utils.fastcore.simplify_skeleton(
         x.nodes.node_id.values, x.nodes.parent_id.values
-    )
+    )[:2]
 
     childs: Dict[int, List[int]] = defaultdict(list)
     for c, p in zip(ids.tolist(), parents.tolist()):

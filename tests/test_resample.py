@@ -23,7 +23,9 @@ def line(n_nodes, step=1.0):
     """Straight line of `n_nodes` along x, rooted at the far end."""
     coords = np.zeros((n_nodes, 3))
     coords[:, 0] = np.arange(n_nodes) * step
-    return toy_neuron(coords, [-1] + list(range(n_nodes - 1)))
+    # `range` rather than `[-1] + ...` so that `n_nodes=0` gives no parents
+    # rather than a root with no node to be.
+    return toy_neuron(coords, list(range(-1, n_nodes - 1)))
 
 
 def test_resolution_moves_toward_target(neuron):
