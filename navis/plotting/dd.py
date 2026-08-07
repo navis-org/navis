@@ -47,7 +47,7 @@ from ._common import (
 )
 from .colors import prepare_colormap, vertex_colors, parse_color_by
 from .plot_utils import (
-    mesh_faces,
+    mesh_rings,
     segments_to_coords,
     skeleton_capsules,
     tn_pairs_to_coords,
@@ -1447,7 +1447,7 @@ def _plot_surface(
     )
     binned = depth_bins and getattr(settings, "_depth_edges", None) is not None
 
-    tri, normals, depth, ix = mesh_faces(
+    rings, bbox, normals, depth, ix = mesh_rings(
         vertices,
         faces,
         (x_ix, y_ix),
@@ -1457,8 +1457,11 @@ def _plot_surface(
         normals=shade is not None,
         order=per_face or binned or merge is not None,
     )
-    if not len(tri):
+    if not len(rings):
         return
+    # the rings minus their closing point, as a view - what everything but the
+    # path fill wants, and what `mesh_faces` would have handed back
+    tri = rings[:, :3]
 
     cmap = array = facecolors = None
     if depth_color:
@@ -1489,13 +1492,20 @@ def _plot_surface(
         return
 
     for z_under, z_over, sub in _depth_groups(depth, settings, zorder, depth_bins):
-        sub_tri = tri if sub is None else tri[sub]
-        path = _compound_path(sub_tri) if uniform or halo is not None else None
+        sub_rings = rings if sub is None else rings[sub]
+        sub_tri = sub_rings[:, :3]
+        path = _ring_path(sub_rings) if uniform or halo is not None else None
 
         if halo is not None:
             halo_width, halo_color = halo
             _outline_under(
-                ax, path, halo_color, halo_width, z_under, settings.rasterize
+                ax,
+                path,
+                halo_color,
+                halo_width,
+                z_under,
+                settings.rasterize,
+                autolim=False,
             )
 
         z = z_over if halo is not None else z_under
@@ -1529,8 +1539,27 @@ def _plot_surface(
             else:
                 artist.set_facecolor(facecolors if sub is None else facecolors[sub])
 
-        ax.add_collection(artist)
+        # `autolim=True` would have matplotlib walk every vertex of the collection
+        # to find its extent - 0.53 s on a 17M-face mesh, for a box `mesh_rings`
+        # already reduced on its way past. The bins all sit inside it, so it is the
+        # same answer whether it goes in once or once per artist.
+        ax.add_collection(artist, autolim=False)
         label = None  # one legend entry per neuron, not one per bin
+
+    ax.update_datalim(bbox.reshape(2, 2))
+
+
+def _ring_path(rings):
+    """A path over triangles already closed into 4-point rings.
+
+    `_compound_path` without the closing: `mesh_rings` puts the repeat of the first
+    corner in place as it writes the rings, so the vertices go straight into the
+    path rather than through a second buffer built to hold them.
+    """
+    n, k, _ = rings.shape
+    codes = np.full(n * k, mpath.Path.LINETO, dtype=mpath.Path.code_type)
+    codes[::k] = mpath.Path.MOVETO
+    return mpath.Path(rings.reshape(-1, 2), codes)
 
 
 def _get_depth_axis(view):
@@ -2419,7 +2448,7 @@ def _compound_path(polys):
     return mpath.Path(verts, codes)
 
 
-def _outline_under(ax, path, color, width, zorder, rasterized=False):
+def _outline_under(ax, path, color, width, zorder, rasterized=False, autolim=True):
     """Stroke a compound path *behind* its own fill, to outline the union.
 
     Stroking a compound path strokes every subpath, so drawn on top of a mesh you
@@ -2430,6 +2459,9 @@ def _outline_under(ax, path, color, width, zorder, rasterized=False):
     `width` is the stroke width, so the margin it leaves is half of it - matching
     what `halo` means everywhere else (`_add_lines` adds it to the line width, so
     that too shows half on each side).
+
+    `autolim` off is for callers that already know the extent: the halo sits under
+    its own fill, so it never reaches past what that fill has already contributed.
     """
     ax.add_collection(
         PathCollection(
@@ -2441,7 +2473,8 @@ def _outline_under(ax, path, color, width, zorder, rasterized=False):
             capstyle="round",
             rasterized=rasterized,
             zorder=zorder,
-        )
+        ),
+        autolim=autolim,
     )
 
 
