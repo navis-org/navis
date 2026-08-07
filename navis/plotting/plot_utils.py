@@ -265,7 +265,9 @@ def mesh_faces(
     depth_ix: int,
     front: int = 1,
     smooth: bool = False,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    normals: bool = True,
+    order: bool = True,
+) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], np.ndarray]:
     """Project a mesh's triangles into the view plane, back to front.
 
     Faces pointing away from the viewer are dropped and the rest are sorted along
@@ -293,35 +295,69 @@ def mesh_faces(
                 face rather than with the face's own normal. Culling always uses
                 the geometric normal, so the silhouette is unaffected - this only
                 changes how a coarse mesh takes the light.
+    normals :   bool
+                Return unit normals. Implied by `smooth`. Off is for callers that
+                are not shading: the normals cost a cross product per surviving
+                face and nothing else needs them.
+    order :     bool
+                Return the triangles sorted furthest-first, and with them their
+                depths. Off is for callers that fill the whole mesh as one path
+                in one colour - the nonzero winding rule is blind to the order
+                its subpaths arrive in, so for those the sort cannot change a
+                pixel, and it is the most expensive step left here.
 
     Returns
     -------
     tri :       (K, 3, 2) array
-                Projected front-facing triangles, furthest first.
-    normals :   (K, 3) array
-                Unit normals to shade them with.
-    depth :     (K,) array
+                Projected front-facing triangles, furthest first (unless `order`
+                is off, in which case they keep their order in `faces`).
+    normals :   (K, 3) array or None
+                Unit normals to shade them with. None if `normals` is off.
+    depth :     (K,) array or None
                 Mean depth of each triangle along `depth_ix` (not sign-corrected,
-                so it can be handed straight to depth coloring).
+                so it can be handed straight to depth coloring). None if `order`
+                is off.
     ix :        (K,) array
                 Index of each triangle in the original `faces`.
 
     """
-    vertices = np.asarray(vertices, dtype=float)
+    vertices = np.asarray(vertices)
     faces = np.asarray(faces)
-    tri = vertices[faces]
 
-    # the cross product's length is twice the triangle's area, which is exactly the
-    # weighting we want when accumulating vertex normals - so normalise it late
-    raw = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+    # Project up front and work off the result. It is what the caller gets back,
+    # and - see `_cull_backfaces` - it is also all the cull needs, so the depth
+    # column is never widened and the (M, 3, 3) block every corner would
+    # otherwise be gathered into is never built. That block is the single
+    # largest allocation the old version made, and reading it a column at a time
+    # strided over every triangle cost more than the arithmetic it fed.
+    xy = np.ascontiguousarray(vertices[:, list(xy_ix)], dtype=np.float64)
+    f0, f1, f2 = faces[:, 0], faces[:, 1], faces[:, 2]
 
-    # normalising divides by a positive scalar, so the cull can read the sign
-    # straight off the cross product and only the survivors need unit length
-    keep = np.flatnonzero(raw[:, depth_ix] * front > 0)
-    depth = vertices[faces[keep], depth_ix].mean(axis=1)
-    order = np.argsort(depth * front)
-    ix, depth = keep[order], depth[order]
+    raw = None
+    if smooth:
+        # Vertex normals take a contribution from every face, back-facing ones
+        # included, so smooth shading needs the full cross whatever happens.
+        # Compute it once off contiguous corners and let the cull read its sign
+        # off the same array. The cross product's length is twice the triangle's
+        # area, which is exactly the weighting we want when accumulating vertex
+        # normals - so normalise it late.
+        v3 = np.asarray(vertices, dtype=np.float64)
+        p = v3[f0]
+        raw = np.cross(v3[f1] - p, v3[f2] - p)
+        del p
+        keep = np.flatnonzero(raw[:, depth_ix] * front > 0)
+    else:
+        keep = _cull_backfaces(xy, faces, front * _cull_sign(xy_ix, depth_ix))
 
+    if order:
+        vd = vertices[:, depth_ix]
+        depth = (vd[f0[keep]].astype(np.float64) + vd[f1[keep]] + vd[f2[keep]]) / 3
+        o = np.argsort(depth * front)
+        ix, depth = keep[o], depth[o]
+    else:
+        ix, depth = keep, None
+
+    kept = faces[ix]
     if smooth:
         # bincount rather than `np.add.at`, which is unbuffered and ~3x slower
         flat = faces.ravel()
@@ -332,13 +368,62 @@ def mesh_faces(
             ],
             axis=1,
         )
-        normals = _normalize(_normalize(vn)[faces[ix]].mean(axis=1))
+        del raw
+        out = _normalize(_normalize(vn)[kept].mean(axis=1))
+    elif normals:
+        # only the survivors need a normal, which is about half the mesh
+        v3 = np.asarray(vertices, dtype=np.float64)
+        p = v3[kept[:, 0]]
+        out = _normalize(np.cross(v3[kept[:, 1]] - p, v3[kept[:, 2]] - p))
     else:
-        normals = _normalize(raw[ix])
+        out = None
 
-    # gather from the projected vertices rather than slicing the (M, 3, 3) block,
-    # which would copy every kept triangle in full to keep two of its columns
-    return vertices[:, list(xy_ix)][faces[ix]], normals, depth, ix
+    return xy[kept], out, depth, ix
+
+
+def _cull_sign(xy_ix: Tuple[int, int], depth_ix: int) -> int:
+    """+1 if `xy_ix` is already the cyclic pair for `depth_ix`, else -1.
+
+    `cross(e1, e2)[depth_ix]` is a 2x2 determinant of the two *other* columns,
+    taken in cyclic order. `xy_ix` is that same pair of columns but in whichever
+    order the view asked for, so swapping them flips the sign of the determinant
+    and with it which side of the surface the cull keeps.
+    """
+    return 1 if tuple(xy_ix) == ((depth_ix + 1) % 3, (depth_ix + 2) % 3) else -1
+
+
+def _cull_backfaces(xy: np.ndarray, faces: np.ndarray, sign: int) -> np.ndarray:
+    """Indices of the faces that wind `sign`-wards once projected onto `xy`.
+
+    Telling front from back only needs the sign of the face normal's depth
+    component, and that component is a determinant of the two *projected* edges -
+    so the cull runs entirely off `xy` and never looks at the depth column or
+    builds the other two components of the cross product.
+
+    Done in blocks, which caps the intermediates at a few arrays the length of a
+    block rather than of the mesh. That is a bound on what an arbitrarily large
+    mesh costs here, and it is also faster, since the intermediates stay in cache.
+    """
+    parts = []
+    for s in range(0, len(faces), _CULL_BLOCK):
+        g0 = faces[s : s + _CULL_BLOCK, 0]
+        g1 = faces[s : s + _CULL_BLOCK, 1]
+        g2 = faces[s : s + _CULL_BLOCK, 2]
+        x0, y0 = xy[g0, 0], xy[g0, 1]
+        nd = (xy[g1, 0] - x0) * (xy[g2, 1] - y0)
+        nd -= (xy[g1, 1] - y0) * (xy[g2, 0] - x0)
+        block = np.flatnonzero(nd * sign > 0)
+        block += s
+        parts.append(block)
+
+    if not parts:
+        return np.empty(0, dtype=np.intp)
+    return parts[0] if len(parts) == 1 else np.concatenate(parts)
+
+
+#: Faces per block in `_cull_backfaces`. Large enough that the per-block overhead
+#: is noise, small enough that the intermediates are not the peak allocation.
+_CULL_BLOCK = 1 << 22
 
 
 def _normalize(v: np.ndarray) -> np.ndarray:

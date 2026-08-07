@@ -628,6 +628,61 @@ def test_mesh_faces_winding_is_consistent(mesh):
         assert np.all(area >= 0) or np.all(area <= 0)
 
 
+@pytest.mark.parametrize(
+    "xy_ix,d_ix", [((0, 1), 2), ((1, 0), 2), ((0, 2), 1), ((2, 0), 1), ((1, 2), 0), ((2, 1), 0)]
+)
+@pytest.mark.parametrize("front", [1, -1])
+@pytest.mark.parametrize("smooth", [False, True])
+def test_mesh_faces_cull_agrees_with_the_full_normal(mesh, xy_ix, d_ix, front, smooth):
+    """The cheap cull has to keep exactly what the full cross product would.
+
+    It only evaluates the depth component, and out of the *projected* edges at
+    that, so the column order in `xy_ix` has to be undone - get that wrong and
+    the mesh silently turns inside out for half the views.
+    """
+    tri, normals, depth, ix = mesh_faces(
+        mesh.vertices, mesh.faces, xy_ix, d_ix, front=front, smooth=smooth
+    )
+
+    v = np.asarray(mesh.vertices, dtype=float)[np.asarray(mesh.faces)]
+    raw = np.cross(v[:, 1] - v[:, 0], v[:, 2] - v[:, 0])
+    expected = np.flatnonzero(raw[:, d_ix] * front > 0)
+
+    assert np.array_equal(np.sort(ix), expected)
+    assert len(tri) == len(normals) == len(depth) == len(ix)
+    # averaged vertex normals can cancel out, and those are left at zero
+    length = np.linalg.norm(normals, axis=1)
+    assert np.all(np.isclose(length, 1) | np.isclose(length, 0))
+
+
+def test_mesh_faces_can_skip_what_is_not_read(mesh):
+    """`normals`/`order` off must drop the work without moving a triangle.
+
+    Both are opt-outs for the single-coloured fill, which is blind to the order
+    its subpaths arrive in - so the same faces have to survive, only unsorted.
+    """
+    full = mesh_faces(mesh.vertices, mesh.faces, (0, 2), 1, front=1)
+    lean = mesh_faces(
+        mesh.vertices, mesh.faces, (0, 2), 1, front=1, normals=False, order=False
+    )
+
+    assert lean[1] is None and lean[2] is None
+    assert np.array_equal(np.sort(lean[3]), np.sort(full[3]))
+    # unsorted means face order, which is what the compound path wants anyway
+    assert np.array_equal(lean[3], np.sort(lean[3]))
+    # and the geometry per face is untouched
+    order = np.argsort(full[3])
+    assert np.allclose(lean[0], full[0][order])
+
+
+def test_mesh_faces_handles_an_empty_mesh():
+    """No faces must not blow up the blocked cull."""
+    tri, normals, depth, ix = mesh_faces(
+        np.zeros((0, 3)), np.zeros((0, 3), dtype=int), (0, 1), 2
+    )
+    assert len(tri) == len(ix) == 0
+
+
 def test_view_front_matches_the_view(mesh):
     """Which way the viewer is has to come from the view, not from the data."""
     assert _view_front(("x", "y")) == 1

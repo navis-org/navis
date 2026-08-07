@@ -1434,6 +1434,19 @@ def _plot_surface(
     x_ix, y_ix, d_ix = _view_axes(settings.view)
     shade = _mesh_shade_spec(settings)
 
+    # Ask for only what will actually be read. A mesh in one colour is filled as
+    # a single path under the nonzero winding rule, which is blind to the order
+    # its subpaths arrive in - so unless something downstream reads a depth (a
+    # per-face colour, a bin, the global sort) the depth sort cannot change a
+    # pixel, and neither can the normals if nothing is shading.
+    merge = _global_sort(settings, depth_bins)
+    per_face = (
+        depth_color
+        or (isinstance(color, np.ndarray) and color.ndim == 2)
+        or shade is not None
+    )
+    binned = depth_bins and getattr(settings, "_depth_edges", None) is not None
+
     tri, normals, depth, ix = mesh_faces(
         vertices,
         faces,
@@ -1441,6 +1454,8 @@ def _plot_surface(
         d_ix,
         front=_view_front(settings.view),
         smooth=shade is not None,
+        normals=shade is not None,
+        order=per_face or binned or merge is not None,
     )
     if not len(tri):
         return
@@ -1465,7 +1480,6 @@ def _plot_surface(
     halo = _halo_spec(settings, ax) if halo else None
     uniform = array is None and facecolors is None
 
-    merge = _global_sort(settings, depth_bins)
     if merge is not None:
         resolved = cmap(_norm_for(settings, array)) if array is not None else (
             color if facecolors is None else facecolors
