@@ -386,7 +386,7 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments, cap_holes=Fal
     if cap_holes and len(subset):
         dropped = np.ones(n_old, dtype=bool)
         dropped[subset] = False
-        exposed = caps.find_new_boundary(np.asarray(x.faces), dropped)
+        exposed = utils.fastcore.exposed_halfedges(np.asarray(x.faces), dropped)
 
     # `submesh` does the vertex/face subsetting itself - it resolves which faces
     # survive and drops degenerate vertices, so only it knows which vertices

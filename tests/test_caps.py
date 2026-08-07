@@ -9,16 +9,15 @@ Two entry points, with deliberately different scope:
 """
 
 import navis
+import navis_fastcore as fastcore
 import numpy as np
 import pytest
 import trimesh as tm
 
-from navis.morpho import caps
-
 
 def boundary(mesh):
     """Directed half-edges with only one face on them."""
-    return caps.find_boundary(np.asarray(mesh.faces), len(mesh.vertices))
+    return fastcore.boundary_halfedges(np.asarray(mesh.faces))
 
 
 @pytest.fixture
@@ -155,19 +154,8 @@ def test_empty_subset_with_capping(tube):
 def test_ring_tracing_covers_every_half_edge(cut_tube):
     """The whole point of tracing half-edges rather than using cycle bases."""
     halfedges = boundary(cut_tube)
-    traced = sum(len(r) for r in caps.trace_loops(halfedges))
-    assert traced == len(halfedges)
-
-
-def test_caps_survive_without_earcut(cut_tube, monkeypatch):
-    """Fans are worse, but they still have to close the hole and wind right."""
-    monkeypatch.setattr(caps, "mapbox_earcut", None)
-    filled = navis.fill_holes(cut_tube)
-
-    assert len(boundary(filled)) == 0
-    assert filled.trimesh.is_watertight
-    assert filled.trimesh.is_winding_consistent
-    assert filled.n_vertices == cut_tube.n_vertices
+    rings, offsets = fastcore.trace_loops(halfedges)
+    assert offsets[-1] == len(rings) == len(halfedges)
 
 
 def test_cap_holes_keeps_provenance_usable(tube):

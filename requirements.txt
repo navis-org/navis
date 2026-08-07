@@ -14,12 +14,6 @@ scipy>=1.5
 tqdm>=4.45
 typing-extensions>=3.7.4
 trimesh>=3.8
-# Ear clipping for the caps navis puts on meshes it has cut open (see
-# `navis/morpho/caps.py`). Without it those caps fall back to triangle fans,
-# which are wonky on non-convex openings - so this is a soft requirement and
-# navis keeps working if it is missing. Candidate for folding into
-# navis-fastcore, at which point it can go again.
-mapbox_earcut>=1.0.2
 fuzzywuzzy>=0.18
 molesq>=0.2.0
 sparse-cubes[skeleton]>=0.5.0
@@ -32,11 +26,13 @@ rdata>=0.11; python_version < "3.11"
 igraph!=0.10.0,!=0.10.1
 skeletor>=1.0.0
 # Required since 2.0: navis-fastcore is the engine for the graph, geodesic and
-# NBLAST core, and for the CMTK/elastix and landmark transforms. 0.11.0 is the
-# floor: it is the first release with `downsample_skeleton`, `simplify_rdp` and
-# `simplify_vw` (which `navis.downsample_neuron` now calls unconditionally), on
-# top of the `has_cycles`, `contract_nodes`, `longest_paths` and `betweenness`
-# the graph module has needed since 0.10.0.
+# NBLAST core, for the mesh operations, and for the CMTK/elastix and landmark
+# transforms. 0.11.0 is the floor: it is the first release with
+# `downsample_skeleton`, `simplify_rdp` and `simplify_vw` (which
+# `navis.downsample_neuron` now calls unconditionally) and with the `caps`
+# functions `navis.fill_holes` is built on, on top of the `has_cycles`,
+# `contract_nodes`, `longest_paths` and `betweenness` the graph module has
+# needed since 0.10.0.
 navis-fastcore>=0.11.0
 
 pathos>=0.2.7 #extra: pathos
