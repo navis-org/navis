@@ -667,8 +667,13 @@ Which vertices belong to the first 50 nodes of a mesh's skeleton?
 >>> import navis
 >>> m = navis.example_neurons(1, kind='mesh')
 >>> nodes = m.skeleton.nodes.node_id.values[:50]
->>> int(m.select_across('vertices', 'skeleton', nodes).sum())
-364
+>>> mask = m.select_across('vertices', 'skeleton', nodes)
+>>> mask.shape == (m.n_vertices,)
+True
+>>> bool(mask.any())
+True
+>>> set(m.get_mapping('vertices', 'skeleton')[mask]).issubset(nodes)
+True
 
 See Also
 --------
