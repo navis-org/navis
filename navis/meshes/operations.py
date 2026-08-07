@@ -24,6 +24,7 @@ except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
 from .. import core, config, utils
+from ..core import schema
 
 from .b3d import simplify_mesh_blender, smooth_mesh_blender
 from .pyml import simplify_mesh_pyml
@@ -73,6 +74,7 @@ def available_backends(only_first=False):
 
 
 @utils.map_neuronlist(desc='Simplifying', allow_parallel=True)
+@utils.rebuilds('vertices')
 def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
     """Simplify meshes (TriMesh, Mesh, Volume).
 
@@ -135,6 +137,20 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
     if not inplace:
         x = x.copy()
 
+    # Taken before a backend replaces them: where a reference to an old vertex
+    # should now point can only be worked out against the vertices it names.
+    old_vertices = np.asarray(x.vertices)
+
+    # Extra edges go out of the `.vertices` setter's way, exactly as
+    # `_subset_meshneuron` does - it is the caller that knows better which that
+    # setter's comment refers to. Left in place they would be dropped outright
+    # the moment the vertex count changed, and there would be nothing left for
+    # the snap below to move. They go back in un-remapped and are repaired along
+    # with everything else. `Volume` and bare trimeshes have none to hold.
+    extra_edges = getattr(x, '_extra_edges', None)
+    if extra_edges is not None:
+        x._extra_edges = None
+
     if backend == 'pyfqmr':
         # This expects a target face count
         if F < 1:
@@ -156,7 +172,37 @@ def simplify_mesh(x, F, backend='auto', inplace=False, **kwargs):
             F = F / len(x.faces)
         _ = simplify_mesh_pyml(x, F=F, inplace=True, **kwargs)
 
-    return x
+    if extra_edges is not None:
+        x._extra_edges = extra_edges
+
+    return x, schema.Rebuild(snap=_snap_to_new_vertices(x, old_vertices))
+
+
+def _snap_to_new_vertices(x, old_vertices):
+    """Where a reference to each old vertex should point after simplification.
+
+    Decimation invents vertex positions rather than choosing among the old ones,
+    so there is no identity here to claim - which is why `Rebuild.kept` is left
+    unset and anything aligned to the vertices is dropped. But a reference to an
+    old vertex still names a *place* on the surface, and the new vertex nearest
+    that place is the honest reading of it: a connector stays where it was
+    instead of pointing at a vertex that no longer exists, or at whatever
+    happens to sit at its old index now.
+
+    Only the vertices something actually names are looked up - the query is
+    priced per point, and a mesh whose connectors have never been snapped to a
+    vertex has nothing to ask about.
+    """
+    # `Volume` and bare `trimesh.Trimesh` come through here too, and have no
+    # schema to carry
+    if not isinstance(x, core.BaseNeuron):
+        return None
+
+    named = schema.referenced_values(x, schema.get_axis(x, 'vertices'))
+    named = named[(named >= 0) & (named < len(old_vertices))]
+    if not len(named):
+        return None
+    return named, x.snap(old_vertices[named])[0]
 
 
 def combine_meshes(meshes, max_dist='auto', progress=True):

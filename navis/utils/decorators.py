@@ -460,10 +460,111 @@ def lock_neuron(function):
             # Unlock neuron
             if isinstance(args[0], core.BaseNeuron):
                 args[0]._lock -= 1
+                if args[0]._lock == 0:
+                    # The neuron has stopped moving, so anything that carried a
+                    # link through this call can now be vouched for. This lives
+                    # here rather than in the functions that select because
+                    # every one of them would otherwise have to remember, and
+                    # forgetting is silent (see `schema.refresh_links`). Costs a
+                    # dict lookup per link when there is nothing pending.
+                    core.schema.refresh_links(args[0])
         # Return result
         return res
 
     return wrapper
+
+
+def rebuilds(axis: str):
+    """Decorate a function that replaces an axis' elements rather than selecting.
+
+    Rebuilding is a different thing from selecting and needs saying so.
+    [`navis.subset_neuron`][] takes elements away, so everything else - a
+    connector's node, a tag, anything attached - follows by construction.
+    [`navis.resample_skeleton`][] does not remove any part of the neuron; it
+    re-samples it, so the node a connector named is gone while the connector
+    still sits on the arbour. Only the function knows where it went.
+
+    So the function says. It returns `(neuron, schema.Rebuild)` instead of just
+    the neuron, and this unwraps that: the `Rebuild` goes to
+    `schema.apply_rebuild` and the caller gets the neuron, as before.
+
+    Two things happen around the call:
+
+    - the axis' attached data is taken out of the way first, because the
+      function will assign the new elements through the public setter, which -
+      knowing nothing of the rebuild - would drop it;
+    - `_replacing` is stood down for the same reason, so it does not warn about
+      something we are about to put back.
+
+    Goes *inside* `map_neuronlist`, so it always sees a single neuron.
+
+    Parameters
+    ----------
+    axis :  str
+            Name of the axis being rebuilt, e.g. `"nodes"`.
+
+    """
+
+    def decorator(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            from .. import core
+
+            neuron = args[0] if args else None
+            if not isinstance(neuron, core.BaseNeuron):
+                return _split_rebuild(function(*args, **kwargs))[0]
+
+            state = core.schema.capture_rebuild(neuron, axis)
+            if state is None:
+                return _split_rebuild(function(*args, **kwargs))[0]
+
+            for attr in state.aligned:
+                neuron.detach(attr)
+
+            with core.schema.replacing(neuron, axis):
+                res, rebuild = _split_rebuild(function(*args, **kwargs))
+
+            # `inplace=False` means the result is a copy taken *after* we moved
+            # the data aside, so it is the result that gets it back - and the
+            # input keeps what it always had.
+            if res is not neuron:
+                for attr, value in state.aligned.items():
+                    neuron.attach(
+                        attr,
+                        value,
+                        axis,
+                        on_rebuild="carry" if attr in state.axis.carried else "drop",
+                    )
+            core.schema.apply_rebuild(res, state, rebuild)
+            return res
+
+        return wrapper
+
+    return decorator
+
+
+def _split_rebuild(result):
+    """Split a `(neuron, Rebuild)` return, insisting on one.
+
+    Always strict: a wrapped function that returns the bare neuron has skipped
+    saying where its elements went, which is silent and is the whole thing
+    `@rebuilds` exists to prevent.
+    """
+    from ..core import schema
+
+    if (
+        isinstance(result, tuple)
+        and len(result) == 2
+        and isinstance(result[1], schema.Rebuild)
+    ):
+        return result
+    raise TypeError(
+        "A function wrapped in `@rebuilds` must return "
+        "`(neuron, schema.Rebuild(...))` saying where its old elements went, "
+        f"got {type(result).__name__}. Pass `Rebuild()` if nothing can be said "
+        "- references into the axis are then repaired as a selection would "
+        "repair them."
+    )
 
 
 def meshneuron_skeleton(

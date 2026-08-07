@@ -30,7 +30,9 @@ from typing import Union, Optional
 from .. import utils, config, meshes, conversion, graph, morpho
 from ..utils.subclasses import TrimeshPlus, validate_extra_edges
 from .base import BaseNeuron
-from .schema import Axis, Ref, axes
+from . import schema
+from .schema import (CONNECTOR_AXIS, Axis, Link, Ref, axes, connector_link,
+                     links)
 from .neuronlist import NeuronList
 from .skeleton import Skeleton
 from .core_utils import temp_property, add_units
@@ -97,8 +99,12 @@ class Mesh(BaseNeuron):
     #: Attributes to be used when comparing two neurons.
     EQ_ATTRIBUTES = ['name', 'n_vertices', 'n_faces', 'n_extra_edges']
 
-    #: Temporary attributes that need clearing when neuron data changes
-    TEMP_ATTR = ['_memory_usage', '_trimesh', '_skeleton', '_igraph', '_graph_nx']
+    #: Temporary attributes that need clearing when neuron data changes.
+    #: N.B. `_skeleton` is deliberately *not* in here: it is governed by the
+    #: `skeleton` link below, which can tell a change that was carried through
+    #: to it from one that happened behind its back. `TEMP_ATTR` cannot, and
+    #: would throw away a skeleton we had just gone to the trouble of keeping.
+    TEMP_ATTR = ['_memory_usage', '_trimesh', '_igraph', '_graph_nx']
 
     #: Core data table(s) used to calculate hash
     CORE_DATA = ['vertices', 'faces', 'extra_edges']
@@ -107,21 +113,47 @@ class Mesh(BaseNeuron):
     #: See `navis/core/schema.py` - this drives `subset_neuron`. The axis is
     #: positional, so references store indices and have to be remapped, not just
     #: filtered.
-    #: N.B. the skeleton's `vertex_map` is also aligned to `vertices` but is a
-    #: TEMP_ATTR and gets regenerated rather than maintained - it will move here
-    #: once meshes and their skeletons are kept in sync.
     AXES = axes(
         Axis(
             name='vertices',
             data=('_vertices',),
             refs=(
-                # A face survives only if all three of its corners do
-                Ref('_faces', kind='index_array'),
+                # A face survives only if all three of its corners do. A face
+                # *is* three vertex indices, so anything that rebuilds the
+                # vertices has necessarily rebuilt these too.
+                Ref('_faces', kind='index_array', on_rebuild='rebuilt'),
+                # An extra edge is a bridge between two vertices, i.e. a place
+                # on the surface rather than a piece of it. A rebuild does not
+                # take that place away, so the edge follows its endpoints to
+                # wherever they were re-made - the same reading `connector_link`
+                # takes. An edge whose two ends land on one vertex says nothing
+                # and is dropped by `validate_extra_edges`.
                 Ref('_extra_edges', kind='index_array',
-                    write_attr='extra_edges'),
-                Ref('_connectors', kind='column', column='vertex_id'),
+                    write_attr='extra_edges', on_rebuild='snap'),
             ),
-        )
+        ),
+        CONNECTOR_AXIS,
+    )
+
+    #: Links to this neuron's other representations. Each is one array wearing
+    #: two hats - aligned to one axis, and naming elements of another - which is
+    #: what lets a single selection carry all of them.
+    LINKS = links(
+        # The vertex map: keeping it is what lets a selection carry the skeleton
+        # along instead of throwing it away and re-skeletonizing the remainder
+        # into a different set of nodes.
+        Link(
+            name='skeleton',
+            source='vertices',
+            mapping='_skeleton._vertex_map',
+            target='_skeleton',
+            target_axis='nodes',
+            # A vertex whose node vanished is still a vertex
+            dangling='blank',
+        ),
+        # Connectors sit on a vertex, and compose through the above onto the
+        # skeleton's nodes without anyone declaring that mapping.
+        connector_link('vertices', 'vertex_id'),
     )
 
     #: The soma position is a coordinate, not a vertex index - it survives a
@@ -141,6 +173,7 @@ class Mesh(BaseNeuron):
         # Lock neuron during initialization
         self._lock = 1
         self._trimesh = None  # this is required to avoid recursion during init
+        skeleton = None  # attached at the very end, see below
 
         if isinstance(x, Mesh):
             self.__dict__.update(x.copy().__dict__)
@@ -162,7 +195,7 @@ class Mesh(BaseNeuron):
             self.vertices, self.faces = np.zeros((0, 3)), np.zeros((0, 3))
         elif isinstance(x, sk.Skeleton):
             self.vertices, self.faces = x.mesh.vertices, x.mesh.faces
-            self._skeleton = Skeleton(x)
+            skeleton = x
         elif isinstance(x, tuple):
             if len(x) != 2 or any([not isinstance(v, np.ndarray) for v in x]):
                 raise TypeError('Expect tuple to be two arrays: (vertices, faces)')
@@ -192,6 +225,14 @@ class Mesh(BaseNeuron):
             self.validate(inplace=True)
 
         self.units = units
+
+        if skeleton is not None:
+            # Last, and through the setter, so that there is only ever one way a
+            # skeleton gets attached. It has to be last because `process=True`
+            # merges duplicate vertices, so the mesh the skeleton was built
+            # against is not necessarily the one we ended up with - and because
+            # only now do we have the final `id`/`name` to hand it.
+            self.skeleton = skeleton
 
     def __getstate__(self):
         """Get state (used e.g. for pickling)."""
@@ -327,6 +368,8 @@ class Mesh(BaseNeuron):
             )
             self.extra_edges = None
 
+        # Replacing the elements, not selecting from them - see `_replacing`
+        self._replacing('vertices', verts)
         self._vertices = verts
         self._clear_temp_attr()
 
@@ -422,15 +465,29 @@ class Mesh(BaseNeuron):
         return float(self.trimesh.volume)
 
     @property
-    @temp_property
     def skeleton(self) -> 'Skeleton':
         """Skeleton representation of this neuron.
 
-        Uses [`navis.conversion.mesh2skeleton`][].
+        Generated with [`navis.conversion.mesh2skeleton`][] the first time it is
+        asked for, and kept as long as it still describes this mesh.
+
+        A selection - `subset_neuron`, `mask` - carries it along through the
+        vertex map, so node IDs survive and anything computed on the skeleton
+        can still be traced back. Any other change to the vertices (assigning
+        them, transforming the neuron) is one we cannot follow, so the skeleton
+        is regenerated on next access, as it always was.
 
         """
-        if not hasattr(self, '_skeleton'):
-            self._skeleton = self.skeletonize()
+        # While the neuron is locked we take what is there, exactly as
+        # `temp_property` does: the lock is held across operations that
+        # legitimately leave the data inconsistent halfway through, and
+        # re-deriving from it is both wrong and (this being a hash of every
+        # vertex) not cheap.
+        if self.is_locked and '_skeleton' in self.__dict__:
+            return self._skeleton
+
+        if not schema.target_is_current(self, self._skeleton_link):
+            self.skeleton = self.skeletonize()
         return self._skeleton
 
     @skeleton.setter
@@ -441,6 +498,16 @@ class Mesh(BaseNeuron):
         elif not isinstance(s, Skeleton):
             raise TypeError(f'`.skeleton` must be a Skeleton, got "{type(s)}"')
         self._skeleton = s
+        # Stamp the link, i.e. record that this skeleton describes the mesh as
+        # it is now. A skeleton without a vertex map gets one too: there is no
+        # correspondence to carry, but it is still *this* mesh's skeleton until
+        # the mesh changes.
+        schema.stamp_link(self, self._skeleton_link)
+
+    @property
+    def _skeleton_link(self) -> Link:
+        """The declaration tying our vertices to the skeleton's nodes."""
+        return schema.get_link(self, 'skeleton', source='vertices')
 
     @property
     def soma(self):

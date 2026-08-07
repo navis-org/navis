@@ -23,6 +23,7 @@ from typing import Union, Optional
 from typing_extensions import Literal
 
 from .. import config, core, utils, graph
+from ..core import schema
 
 # `method` is handed straight to `scipy.interpolate.interp1d(kind=...)`. Check
 # it here: an unknown value otherwise surfaces from deep inside scipy as
@@ -48,6 +49,7 @@ __all__ = ['resample_skeleton', 'resample_along_axis']
 
 
 @utils.map_neuronlist(desc='Resampling', allow_parallel=True)
+@utils.rebuilds('nodes')
 def resample_skeleton(x: 'core.NeuronObject',
                       resample_to: Union[int, str],
                       inplace: bool = False,
@@ -213,61 +215,44 @@ def resample_skeleton(x: 'core.NeuronObject',
     # Remove duplicate nodes (branch points)
     new_nodes = new_nodes[~new_nodes.node_id.duplicated()]
 
-    # Soma, connectors and tags are pinned to whichever node in the resampled
-    # neuron ended up closest to their original position. The KDTree and the
-    # indexed node table needed for that are built on first use - a neuron with
-    # none of the three does not pay for them.
-    tree, old_nodes = None, None
-
-    def snap_to_new(node_ids):
-        """Map old node IDs onto the closest node in the resampled neuron."""
-        nonlocal tree, old_nodes
-        if tree is None:
-            tree = scipy.spatial.cKDTree(new_nodes[["x", "y", "z"]].values)
-            old_nodes = x.nodes.set_index("node_id", inplace=False)
-        _, ix = tree.query(old_nodes.loc[node_ids, ["x", "y", "z"]].values)
-        return new_nodes.node_id.values[ix]
-
-    # Map soma onto new nodes if required
-    # Note that if `._soma` is a soma detection function we can't tell
-    # how to deal with it. Ideally the new soma node will
-    # be automatically detected but it is possible, for example, that
-    # the radii of nodes have changed due to interpolation such that more
-    # than one soma is detected now. Also a "label" column in the node
-    # table would be lost at this point.
-    # We will go for the easy option which is to pin the soma at this point.
-    # N.B. `.soma` may be a detection function, so only ask for it once
+    # `.soma` may be a detection function, and the radii it goes by change under
+    # resampling - so resolve it now and pin the result. This has to happen
+    # *before* the snap map is built below: a callable is a rule for finding the
+    # soma rather than a reference to a node, so `referenced_values` rightly does
+    # not report one - and a soma that is not in the map has nowhere to move to.
     soma = x.soma
     if np.any(soma):
-        soma_nodes = utils.make_iterable(soma)
-        node_map = dict(zip(soma_nodes, snap_to_new(soma_nodes)))
-
-        # Map back onto neuron
-        if utils.is_iterable(soma):
-            # Use _soma to avoid checks - the new nodes have not yet been
-            # assigned to the neuron!
-            x._soma = [node_map[n] for n in soma]
-        else:
-            x._soma = node_map[soma]
+        # `_soma` to skip the checks - the new nodes are not assigned yet
+        x._soma = list(soma) if utils.is_iterable(soma) else soma
     else:
         # If `._soma` was (read: is) a function but it didn't detect anything in
-        # the original neurons, this makes sure that the resampled neuron
-        # doesn't have a soma either:
+        # the original neuron, this makes sure the resampled one has no soma
+        # either
         x.soma = None
 
-    # Map connectors back if necessary
-    if x.has_connectors:
-        x.connectors["node_id"] = snap_to_new(x.connectors.node_id)
+    # Anything naming a node - the soma, connectors, tags, a link somebody
+    # attached - is pinned to whichever node in the resampled neuron ended up
+    # closest to its original position. Resampling does not remove any part of
+    # the neuron, so that node is the same place on the same branch. Handing the
+    # map back rather than applying it here is what lets all of them follow it,
+    # each by the policy it was declared with (see `schema.Rebuild`).
+    # Only the nodes something actually names: the query is priced per point,
+    # and a skeleton with no soma, connectors or tags has nothing to ask about.
+    named = schema.referenced_values(x, schema.get_axis(x, "nodes"))
+    if len(named):
+        tree = scipy.spatial.cKDTree(new_nodes[["x", "y", "z"]].values)
+        old_pos = x.nodes.set_index("node_id", inplace=False)
+        _, ix = tree.query(old_pos.loc[named, ["x", "y", "z"]].values)
+        snap = (named, new_nodes.node_id.values[ix])
+    else:
+        snap = None
 
-    # Map tags back if necessary
-    # Expects `tags` to be a dictionary {'tag': [node_id1, node_id2, ...]}
-    if x.has_tags and isinstance(x.tags, dict):
-        # Get nodes that need remapping
-        nodes_to_remap = list({n for tagged in x.tags.values() for n in tagged})
-
-        # Map back onto tags
-        node_map = dict(zip(nodes_to_remap, snap_to_new(nodes_to_remap)))
-        x.tags = {k: [node_map[n] for n in v] for k, v in x.tags.items()}
+    # The soma comes out of the way for the swap. `_clear_temp_attr` drops one
+    # whose node is not in the table, and that is exactly the state a rebuild
+    # leaves it in between the new nodes going on and `apply_rebuild` snapping
+    # the references - so leaving it there would delete the very soma we just
+    # pinned. Connectors and tags are not repaired from here, so they can stay.
+    soma_ref, x._soma = x._soma, None
 
     # Set nodes (avoid setting on copy warning)
     x.nodes = new_nodes.copy()
@@ -281,7 +266,15 @@ def resample_skeleton(x: 'core.NeuronObject',
     if preserve_volume:
         _conserve_segment_volumes(x, orig_vols)
 
-    return x
+    # Put it back for `apply_rebuild` to move onto the node it now belongs on -
+    # last, so that nothing in between can take it for a dangling reference.
+    x._soma = soma_ref
+
+    # No `kept`: resampling re-samples, so a node that comes out carrying an old
+    # ID is not thereby the old node, and claiming otherwise would carry data
+    # onto points it does not describe. Anything aligned to the nodes is dropped
+    # (loudly) rather than guessed at.
+    return x, schema.Rebuild(snap=snap)
 
 
 def _flatten_segments(x):

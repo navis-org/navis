@@ -312,6 +312,12 @@ print(f"{n6.n_nodes:,} -> {merged.n_nodes:,} nodes")
 #     notice, and the original faces come back. Drop the vertices instead - with
 #     [`navis.subset_neuron`][] - and the faces that used them go with them.
 #
+# !!! tip "Your own data can ride along too"
+#     "The tables that hang off the elements" is not a fixed list - it is a declaration,
+#     and [`.attach()`][navis.BaseNeuron.attach] lets you add to it. Per-vertex labels,
+#     per-connector scores or a table of your own are then masked, subset and merged back
+#     exactly like the neuron's own. See [attaching data](../tutorial_basic_04_attach).
+#
 # !!! danger "A mask that cuts across branches invents endings"
 #     This is the sharpest edge in masking, and worth understanding before you use
 #     `reset=False`.

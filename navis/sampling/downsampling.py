@@ -18,6 +18,7 @@ import sparsecubes
 from typing import Optional, Union, List
 
 from .. import config, graph, core, utils, meshes
+from ..core import schema
 from .utils import sample_points_uniform
 
 # Set up logging
@@ -202,26 +203,33 @@ def _downsample_dotprops(x, downsampling_factor, method="simple"):
     else:
         raise ValueError(f"Unknown (down-)sampling method: {method}")
 
-    # Mask vectors
-    # This will also trigger re-calculation which is necessary for two reasons:
+    # Make sure the tangent vectors exist before we select. This also triggers
+    # re-calculation which is necessary for two reasons:
     # 1. Vectors will change dramatically if they have to be recalculated from
     #    the downsampled dotprops.
     # 2. There might not be enough points left after downsampling given the
     #    original k.
     if isinstance(x._vect, type(None)) and x.k:
         x.recalculate_tangents(k=x.k, inplace=True)
-    x._vect = x._vect[mask]
 
-    # Mask alphas if exists
-    if not isinstance(x._alpha, type(None)):
-        x._alpha = x._alpha[mask]
-
-    # Finally mask points
-    x._points = x._points[mask]
+    # Taking points away is a selection, not a rebuild - so the schema carries
+    # the vectors, the alphas, anything attached and the soma's point index, and
+    # takes the connectors along with the points they sit on.
+    axis = schema.get_axis(x, "points")
+    schema.apply_selection(x, axis, schema.resolve_selection(x, axis, mask))
 
 
+@utils.rebuilds("nodes")
 def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
-    """Downsample Skeleton."""
+    """Downsample Skeleton.
+
+    A rebuild rather than a selection, in the one sense that matters: the nodes
+    that survive are genuinely the old ones, but the ones that go do not take
+    anything with them - thinning a slab does not remove that stretch of the
+    neuron, so a connector sitting on it still means something. Hence the
+    `Rebuild` handed back, which says both where a reference should now point
+    and - because here we really can - which new nodes are which old ones.
+    """
     assert isinstance(x, core.Skeleton)
 
     if not isinstance(preserve_nodes, type(None)):
@@ -247,7 +255,7 @@ def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
 
     if x.nodes.shape[0] <= 1:
         logger.warning(f"Neuron {x.id} has no nodes. Skipping.")
-        return
+        return x, schema.Rebuild()
 
     list_of_parents = {
         n: p for n, p in zip(x.nodes.node_id.values, x.nodes.parent_id.values)
@@ -312,9 +320,10 @@ def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
 
     logger.debug(f"Nodes before/after: {len(x.nodes)}/{len(new_nodes)}")
 
-    # Connectors and tags refer to nodes by ID and some of those nodes are about
-    # to disappear. Move them first - the search below needs the full topology.
-    _remap_dropped_refs(x, kept=set(new_parents))
+    # Where a reference to a node that is about to go should now point. Worked
+    # out first - the search needs the full topology, which assigning the
+    # thinned table is exactly what ends.
+    snap = _snap_dropped(x, kept=set(new_parents), axis=schema.get_axis(x, "nodes"))
 
     x.nodes = new_nodes
 
@@ -323,37 +332,35 @@ def _downsample_treeneuron(x, downsampling_factor, preserve_nodes):
 
     x._clear_temp_attr()
 
+    # Every surviving node is one of the old ones, row for row, so identity can
+    # be claimed here - which is what lets attached data be carried.
+    return x, schema.Rebuild(snap=snap, kept=x.nodes.node_id.values)
 
-def _remap_dropped_refs(x, kept):
-    """Move connectors and tags off the nodes downsampling is about to remove.
 
-    Both refer to nodes by ID, so without this they would keep pointing at nodes
-    that are no longer in the table - a neuron that looks fine until something
-    tries to look one of them up.
+def _snap_dropped(x, kept, axis):
+    """Where each node downsampling is about to remove sends its references.
+
+    Connectors, tags and the soma refer to nodes by ID, so without this they
+    would keep pointing at nodes that are no longer in the table - a neuron that
+    looks fine until something tries to look one of them up.
 
     They are moved rather than dropped because downsampling only thins slabs: it
     does not remove any part of the neuron, so the geodesically nearest survivor
     is the same stretch of the same branch, just sampled more coarsely. Use
-    `preserve_nodes="connectors"` to pin them exactly instead.
+    `preserve_nodes="connectors"` to pin connectors exactly instead.
+
+    Only the nodes something actually names are searched for: the graph search
+    is priced by how many places we ask about, and a skeleton with no connectors,
+    tags or soma has nothing to ask.
 
     Must run *before* the thinned node table is assigned - finding the nearest
     survivor needs the original topology.
 
     """
-    has_tags = x.has_tags and isinstance(x.tags, dict)
-    if not x.has_connectors and not has_tags:
-        return
-
-    # Everything referred to from outside the node table, resolved in one search
-    referenced = set()
-    if x.has_connectors:
-        referenced.update(x.connectors.node_id.values.tolist())
-    if has_tags:
-        referenced.update(n for nodes in x.tags.values() for n in nodes)
-
-    dropped = np.array([n for n in referenced if n not in kept])
+    referenced = schema.referenced_values(x, axis)
+    dropped = referenced[~np.isin(referenced, list(kept))]
     if not len(dropped):
-        return
+        return None
 
     nearest, _ = graph._geodesic_nearest(
         x,
@@ -367,14 +374,4 @@ def _remap_dropped_refs(x, kept):
     # `-1` (unreachable) should not happen - but if it somehow does, leaving the
     # ID alone beats silently moving the connector to an arbitrary node.
     reachable = nearest >= 0
-    node_map = pd.Series(nearest[reachable], index=dropped[reachable])
-
-    if x.has_connectors:
-        cn = x.connectors.node_id.values.copy()
-        moved = np.isin(cn, node_map.index.values)
-        cn[moved] = node_map.loc[cn[moved]].values
-        x.connectors["node_id"] = cn
-
-    if has_tags:
-        lookup = node_map.to_dict()
-        x.tags = {t: [lookup.get(n, n) for n in nodes] for t, nodes in x.tags.items()}
+    return dropped[reachable], nearest[reachable]

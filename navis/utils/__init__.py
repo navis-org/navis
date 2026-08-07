@@ -24,7 +24,7 @@ from .eval import (eval_node_ids, eval_neurons, eval_id, eval_conditions,
 from .exceptions import (ConstructionError, VolumeError, CMTKError)
 from .cv import (patch_cloudvolume)
 from .decorators import (meshneuron_skeleton, map_neuronlist_df, map_neuronlist,
-                         lock_neuron)
+                         lock_neuron, rebuilds)
 
 # navis-fastcore is a hard requirement since 2.0. It stays exposed as
 # `utils.fastcore` because that is the name ~80 call sites reach it through.

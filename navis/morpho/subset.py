@@ -29,7 +29,7 @@ __all__ = sorted(["subset_neuron", "merge_subset"])
 
 
 def _skip_connectors(keep_disc_cn):
-    """Refs to leave alone when the caller asked to keep disconnected connectors."""
+    """Data to leave alone when the caller asked to keep disconnected connectors."""
     return ("_connectors",) if keep_disc_cn else ()
 
 
@@ -44,9 +44,21 @@ def _snap_connectors(x, axis, keep_disc_cn):
     if keep_disc_cn or not x.has_connectors:
         return
 
-    ref = next(r for r in axis.refs if r.attr == "_connectors")
-    if ref.column not in x.connectors.columns:
-        x.connectors[ref.column] = x.snap(x.connectors[["x", "y", "z"]].values)[0]
+    # `connector_link` names its far end after the axis it points at, so the
+    # link into this axis is the one to look for. Through `get_link` so that a
+    # second link a user attached under the same name is an error rather than a
+    # coin toss over which one we snap.
+    try:
+        link = schema.get_link(x, axis.name, source="connectors")
+    except KeyError:
+        return
+    if link.column in x.connectors.columns:
+        return
+
+    x.connectors[link.column] = x.snap(x.connectors[["x", "y", "z"]].values)[0]
+    # The mapping exists as of now, so say so - otherwise nothing downstream
+    # would trust it enough to compose across it.
+    schema.stamp_link(x, link)
 
 
 @utils.map_neuronlist(desc="Subsetting", allow_parallel=True)
@@ -200,6 +212,9 @@ def subset_neuron(
     if track:
         schema.record_provenance(x, parent[0], parent[1], axis, survivors)
 
+    # N.B. links carried above are stamped by `lock_neuron` on the way out, once
+    # everything that moves has stopped - `_subset_treeneuron` reroots *after*
+    # selecting, which moves the data an epoch is taken from.
     return x
 
 
@@ -339,18 +354,24 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments, cap_holes=Fal
             )
 
     if prevent_fragments:
-        # Generate skeleton
+        # Generate skeleton. Note we hold on to it rather than going back
+        # through `x.skeleton`, which re-checks the link (and so re-hashes every
+        # vertex) on each access.
         sk = x.skeleton
         # Convert vertex IDs to node IDs
-        subset_nodes = np.unique(x.skeleton.vertex_map[subset])
+        subset_nodes = np.unique(sk.vertex_map[subset])
         # Find connected subgraph
-        subset, _ = graph.connected_subgraph(x.skeleton, subset_nodes)
+        subset, _ = graph.connected_subgraph(sk, subset_nodes)
         # Convert node IDs back to vertex IDs
-        subset = np.arange(0, len(x.vertices))[np.isin(sk.vertex_map, subset)]
+        subset = np.flatnonzero(np.isin(sk.vertex_map, subset))
 
     axis = schema.get_axis(x, "vertices")
     _snap_connectors(x, axis, keep_disc_cn)
     n_old = len(x.vertices)
+
+    # Take this before `submesh` moves the vertices: whether a link can still be
+    # followed is a question about the neuron we are about to stop having.
+    live_links = schema.snapshot_links(x, axis)
 
     # Drop the extra edges *before* touching the vertices: the `.vertices`
     # setter would otherwise (rightly) warn about dropping them itself. They go
@@ -370,11 +391,15 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments, cap_holes=Fal
     # `submesh` does the vertex/face subsetting itself - it resolves which faces
     # survive and drops degenerate vertices, so only it knows which vertices
     # *actually* made it through.
-    if len(subset):
-        x.vertices, x.faces, kept = submesh(x, vertex_index=subset, return_map=True)
-    else:
-        x.vertices, x.faces = np.empty((0, 3)), np.empty((0, 3))
-        kept = np.array([], dtype=int)
+    # ... which means assigning through the public setter, whose orphan check
+    # cannot tell this from a caller replacing the vertices outright. It is
+    # `apply_selection` below that carries what is aligned to them.
+    with schema.replacing(x, "vertices"):
+        if len(subset):
+            x.vertices, x.faces, kept = submesh(x, vertex_index=subset, return_map=True)
+        else:
+            x.vertices, x.faces = np.empty((0, 3)), np.empty((0, 3))
+            kept = np.array([], dtype=int)
 
     x._extra_edges = extra_edges
 
@@ -384,7 +409,10 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments, cap_holes=Fal
         x,
         axis,
         survivors=schema.Survivors.from_kept(n_old, kept),
+        # `submesh` remapped the faces itself; the vertices go without saying,
+        # since passing `survivors` is what says them.
         skip=("_faces",) + _skip_connectors(keep_disc_cn),
+        links=live_links,
     )
 
     # Capping only ever *adds* faces, so it can happen last: every vertex index

@@ -170,6 +170,10 @@ def mask_neuron(x, mask, inplace: bool = False, warn_cut: bool = True):
     # A fresh list rather than an append: a neuron and its copies otherwise
     # share one stack, and unmasking either would corrupt the other
     n._mask_stack = [*getattr(n, "_mask_stack", ()), snapshot]
+    # The neuron shrank *and* took a whole copy of itself along, and neither
+    # showed: `memory_usage` caches, and the selection ran with the neuron
+    # locked, which is precisely when `_clear_temp_attr` declines to do anything
+    n.__dict__.pop("_memory_usage", None)
 
     if warn_cut:
         _warn_cut_branches([(n, _count_cut_branches(snapshot, n))])
@@ -205,6 +209,10 @@ def unmask_neuron(x, reset: bool = True, warn_cut: bool = True):
     # a tracked subset of something else, and `_adopt` has just restored it.
     x._adopt(restored)
     x._mask_stack = stack
+    # `_adopt` took the snapshot's cached size with the rest of its state, which
+    # describes the neuron as it was before the mask - true again for
+    # `reset=True`, a lie for a merge
+    x.__dict__.pop("_memory_usage", None)
 
     return x
 

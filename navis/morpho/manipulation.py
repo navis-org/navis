@@ -192,7 +192,6 @@ def prune_by_strahler(
     inplace: bool = False,
     reroot_soma: bool = True,
     force_strahler_update: bool = False,
-    relocate_connectors: bool = False,
 ) -> NeuronObject:
     """Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 
@@ -217,10 +216,6 @@ def prune_by_strahler(
     force_strahler_update : bool, optional
                             If True, will force update of Strahler order even
                             if already exists in node table.
-    relocate_connectors : bool, optional
-                          If True, connectors on removed nodes will be
-                          reconnected to the closest still existing node.
-                          Works only in child->parent direction.
 
     Returns
     -------
@@ -267,35 +262,13 @@ def prune_by_strahler(
         SI_range = range(1, int(neuron.nodes.strahler_index.max() + 1))
         to_prune = list(SI_range)[to_prune]
 
-    # Prepare parent dict if needed later
-    if relocate_connectors:
-        parent_dict = {tn.node_id: tn.parent_id for tn in neuron.nodes.itertuples()}
-
     # Drop the pruned nodes and repair everything that pointed at them: parents
     # that lost their target become roots, and connectors, tags and the soma are
     # filtered. Note this goes via the schema rather than setting `.nodes`, which
     # would trigger a graph regeneration while parents are still dangling.
     axis = schema.get_axis(neuron, "nodes")
     keep = ~neuron._nodes.strahler_index.isin(to_prune).values
-    schema.apply_selection(
-        neuron,
-        axis,
-        keep,
-        # Relocating handles the connectors itself, below
-        skip=("_connectors",) if relocate_connectors else (),
-    )
-
-    if neuron.has_connectors and relocate_connectors:
-        remaining_tns = set(neuron._nodes.node_id.values)
-        for cn in neuron._connectors[
-            ~neuron.connectors.node_id.isin(neuron._nodes.node_id.values)
-        ].itertuples():
-            this_tn = parent_dict[cn.node_id]
-            while True:
-                if this_tn in remaining_tns:
-                    break
-                this_tn = parent_dict[this_tn]
-            neuron._connectors.loc[cn.Index, "node_id"] = this_tn
+    schema.apply_selection(neuron, axis, keep)
 
     # Remove temporary attributes
     neuron._clear_temp_attr()
@@ -1252,6 +1225,10 @@ def combine_neurons(
     elif isinstance(nl[0], core.Mesh):
         x = nl[0].copy()
         comb = tm.util.concatenate([n.trimesh for n in nl])
+        # Elements of several neurons, so nothing attached to the first one's
+        # describes them - and there is no answer to which neuron's data should
+        # win. Say so rather than leaving it at the old length.
+        x._replacing("vertices", comb.vertices)
         x._vertices = comb.vertices
         x._faces = comb.faces
 
@@ -1270,7 +1247,9 @@ def combine_neurons(
             )
     elif isinstance(nl[0], core.Dotprops):
         x = nl[0].copy()
-        x._points = np.vstack(nl._points)
+        points = np.vstack(nl._points)
+        x._replacing("points", points)     # see the Mesh branch above
+        x._points = points
 
         x._vect = np.vstack(nl.vect)
 
@@ -1463,10 +1442,14 @@ def stitch_skeletons(
                 n._clear_temp_attr()
 
     # We will start by simply merging all neurons into one
-    m._nodes = pd.concat(
+    nodes = pd.concat(
         [n.nodes for n in nl],  # type: ignore  # no stubs for concat
         ignore_index=True,
     )
+    # The result is made of several neurons' elements, so data attached to the
+    # master describes only some of them - and no correspondence says which.
+    m._replacing("nodes", nodes)
+    m._nodes = nodes
 
     if any(nl.has_connectors):
         m._connectors = pd.concat(

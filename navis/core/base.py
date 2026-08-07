@@ -12,7 +12,6 @@
 #    GNU General Public License for more details.
 
 import copy
-import hashlib
 import numbers
 import pint
 import uuid
@@ -28,11 +27,7 @@ from typing import Union, List, Optional, Any
 from typing_extensions import Literal
 
 from .. import utils, config, core
-
-try:
-    import xxhash
-except ModuleNotFoundError:
-    xxhash = None
+from . import schema
 
 __all__ = ["Neuron"]
 
@@ -107,6 +102,89 @@ def _extension_bytes(column: pd.Series) -> int:
     O(1) instead of walking the values.
     """
     return int(column.memory_usage(index=False, deep=False))
+
+
+#: Columns of `BaseNeuron.attached`, written once so the builder, the link rows
+#: and the empty frame cannot drift apart.
+ATTACHED_COLUMNS = ["name", "kind", "axis", "names", "shape"]
+
+
+def _attachment(name: str, kind: str, axis: str, value, names: str = "") -> dict:
+    """One row of `BaseNeuron.attached`."""
+    return {
+        "name": name,
+        "kind": kind,
+        "axis": axis,
+        "names": names,
+        "shape": None if value is None else tuple(np.shape(value)),
+    }
+
+
+def _sizeof(value, deep: bool, estimate: bool, seen: set) -> int:
+    """Bytes held by a value, following the containers a neuron nests things in.
+
+    A neuron holds more than its own tables. A mesh keeps its skeleton - that is
+    the whole point of the vertex-to-node link - a masked neuron keeps the
+    snapshot it will be restored from, and provenance keeps an array per axis.
+    None of those are arrays themselves, and all of them are real memory.
+
+    Derived caches built by other libraries (`_trimesh`, the igraph and networkx
+    views) are still not counted: they are `TEMP_ATTR`, so they come and go with
+    any change, and pricing them would mean modelling someone else's layout.
+    """
+    if isinstance(value, np.ndarray):
+        return value.nbytes
+
+    # An ndarray costs the same either way, so only the pandas containers branch
+    # on `estimate`. Estimating prices each column from its dtype - much faster
+    # than walking it - and materialises the column only for the dtypes that
+    # cannot be priced that way. Iterating `dtypes` rather than columns is the
+    # point: building a Series per column costs more than the sizing itself.
+    if isinstance(value, pd.DataFrame):
+        if not estimate:
+            return int(value.memory_usage(deep=deep).sum())
+        return sum(
+            dtype.itemsize * value.shape[0]
+            if isinstance(dtype, np.dtype)
+            else _extension_bytes(value[col])
+            for col, dtype in value.dtypes.items()
+        )
+
+    if isinstance(value, pd.Series):
+        if not estimate:
+            return int(value.memory_usage(deep=deep))
+        if isinstance(value.dtype, np.dtype):
+            return value.dtype.itemsize * value.shape[0]
+        return _extension_bytes(value)
+
+    if isinstance(value, (BaseNeuron, schema.Provenance)):
+        # By identity, so a neuron reachable twice is paid for once - and so
+        # that a cycle cannot send us round for ever
+        if id(value) in seen:
+            return 0
+        seen.add(id(value))
+        return _sizeof(vars(value), deep, estimate, seen)
+
+    # Containers, but only over the items that could hold anything. A skeleton's
+    # `tags` is a dict of lists of node IDs: descending blindly costs one call
+    # per tagged node to be told that each one is free, and `memory_usage` is on
+    # the `NeuronList` repr path. `__dict__` catches the two things worth
+    # descending into that are not containers at all - a nested neuron, and its
+    # provenance.
+    if isinstance(value, dict):
+        value = value.values()
+    elif not isinstance(value, (list, tuple)):
+        return 0
+
+    return sum(
+        _sizeof(v, deep, estimate, seen)
+        for v in value
+        if type(v) in _BULK_TYPES or hasattr(v, "__dict__")
+    )
+
+
+#: Types `_sizeof` prices directly, for the exact-type fast path above.
+_BULK_TYPES = frozenset((np.ndarray, pd.DataFrame, pd.Series, dict, list, tuple))
 
 
 def Neuron(
@@ -263,6 +341,11 @@ class BaseNeuron(UnitObject):
     #: references them. See `navis/core/schema.py`. Empty means this neuron
     #: type cannot be subset element-wise.
     AXES = {}
+
+    #: Correspondences between one of our axes and an axis of another
+    #: representation - a mesh's vertex-to-node map. See `navis/core/schema.py`.
+    #: Empty means this neuron type has no other representation to carry.
+    LINKS = ()
 
     #: Data attributes that are deliberately *not* aligned to any axis, e.g. a
     #: mesh's soma position (a coordinate, not a vertex index). Declaring them
@@ -540,12 +623,7 @@ class BaseNeuron(UnitObject):
                         data = data[cols]
                     data = data.values
 
-                data = np.ascontiguousarray(data)
-
-                if xxhash:
-                    hash += xxhash.xxh128(data).hexdigest()
-                else:
-                    hash += hashlib.md5(data).hexdigest()
+                hash += schema.hash_array(data)
 
         return hash if hash else None
 
@@ -636,13 +714,30 @@ class BaseNeuron(UnitObject):
         """Connector table. If none, will return `None`."""
         return getattr(self, "_connectors", None)
 
+    #: Columns a connector table must have. A tuple means "any of these", and
+    #: the first is what it gets renamed to. Subclasses that need more (a
+    #: skeleton's connectors have always had to say which node they sit on)
+    #: extend this rather than the setter.
+    CONNECTOR_COLUMNS = ["x", "y", "z"]
+
     @connectors.setter
     def connectors(self, v):
         if isinstance(v, type(None)):
-            self._connectors = None
+            self.detach("_connectors")
         else:
-            self._connectors = utils.validate_table(
-                v, required=["x", "y", "z"], rename=True, restrict=False
+            if "connectors" not in schema.declared_axes(self):
+                # `Voxels` has no schema at all, so nothing has declared the
+                # axis its connectors live on. Say so here rather than leaning
+                # on `attach` to conjure one, which it deliberately no longer
+                # does - an axis it has never heard of is a user's typo far
+                # more often than it is a new kind of element.
+                schema.declare_axis(self, schema.CONNECTOR_AXIS)
+            self.attach(
+                "_connectors",
+                utils.validate_table(
+                    v, required=self.CONNECTOR_COLUMNS, rename=True, restrict=False
+                ),
+                axis="connectors",
             )
 
     @property
@@ -703,6 +798,498 @@ class BaseNeuron(UnitObject):
         [`navis.BaseNeuron.mask`][]
         """
         return bool(getattr(self, "_mask_stack", None))
+
+    def attach(
+        self,
+        name: str,
+        data,
+        axis: Optional[str] = None,
+        *,
+        ids=None,
+        on_rebuild: str = "drop",
+    ):
+        """Attach data that selections should carry along.
+
+        Anything attached this way is subset, filtered and re-indexed by
+        `subset_neuron`, `mask` and everything built on them, exactly as the
+        neuron's own tables are - it is the same declaration
+        (`navis/core/schema.py`), just made per-neuron instead of per-class.
+
+        Parameters
+        ----------
+        name :      str
+                    Attribute to hang the data off, e.g. `n.compartment`.
+        data :      array | DataFrame | None
+                    One entry per element of `axis`. `None` detaches.
+        axis :      str, optional
+                    Axis the data is aligned to - `"vertices"`, `"nodes"`,
+                    `"connectors"`, ... Must be one the neuron has; a name that
+                    is not there raises rather than declaring it, since nothing
+                    would ever select it. Leave it out for data that brings its
+                    own elements and becomes an axis in its own right.
+        ids :       str, optional
+                    Column of `data` holding stable element IDs, when it is a
+                    new axis. Without it elements are identified by position,
+                    which is fine but means references to them have to be
+                    remapped rather than merely filtered.
+        on_rebuild : "drop" | "carry"
+                    What happens when a function *rebuilds* the axis instead of
+                    selecting from it - [`resample_skeleton`][navis.resample_skeleton]
+                    and friends. Some of the elements are then new, and there is
+                    no value to carry onto them, so the default is to let the
+                    data go with a warning. `"carry"` keeps the values of the
+                    elements the rebuild says it kept, and still drops if any
+                    element turns out to be genuinely new.
+
+        Examples
+        --------
+        Carry a per-vertex label through a mask
+
+        >>> import navis, numpy as np
+        >>> n = navis.example_neurons(1, kind='mesh')
+        >>> n.attach('compartment', np.arange(n.n_vertices), axis='vertices')
+        >>> with navis.masked(n, np.arange(100)):
+        ...     len(n.compartment) == n.n_vertices < 100
+        True
+
+        See Also
+        --------
+        [`navis.BaseNeuron.attach_link`][]
+                    For data that *names* elements of another axis.
+
+        """
+        if data is None:
+            return self.detach(name)
+
+        # Anything the class defines, not just a property. Attaching writes an
+        # instance attribute, which shadows a method as silently as it shadows a
+        # property - and `n.attach("attach", ...)` leaves nothing able to attach
+        # anything ever again. Note this only looks at the class, so re-attaching
+        # to a name of your own is still fine.
+        if hasattr(type(self), name):
+            raise AttributeError(
+                f'Cannot attach to "{name}": {type(self).__name__} already '
+                f"defines it. Pick a name of your own."
+            )
+
+        axis = axis or name
+        if not isinstance(data, pd.DataFrame):
+            data = np.asarray(data)
+
+        declared = schema.declared_axes(self)
+        if axis not in declared:
+            if axis != name:
+                # An `axis` that is not there is a typo far more often than it
+                # is intent, and a silent one: the data would be declared
+                # against elements nothing ever selects, so nothing would ever
+                # carry it - which is the whole reason to attach it. Bringing
+                # elements of its own is the one thing that legitimately makes
+                # an axis, and that is spelled by leaving `axis` alone.
+                raise KeyError(
+                    f'{type(self).__name__} has no "{axis}" axis '
+                    f'(has: {sorted(declared)}). Omit `axis` if "{name}" '
+                    "brings elements of its own and should become one."
+                )
+            schema.declare_axis(self, schema.Axis(name=axis, data=(name,), ids=ids))
+        else:
+            existing = declared[axis]
+            if name == existing.data[0]:
+                # The axis' own elements are being replaced - same door as the
+                # `.nodes`/`.vertices`/`.points` setters use
+                self._replacing(axis, data)
+            elif len(data) != schema.axis_length(self, existing):
+                # Anything else has to line up with the elements already there
+                raise ValueError(
+                    f'"{name}" has {len(data)} entries but axis "{axis}" has '
+                    f"{schema.axis_length(self, existing)} elements."
+                )
+
+        setattr(self, name, data)
+        schema.declare_aligned(self, axis, name, on_rebuild)
+        schema.stamp_links(self, axis)
+        # Attaching does not go through `_clear_temp_attr` - it changes what the
+        # neuron carries, not how it is built - but it does change its size
+        self.__dict__.pop("_memory_usage", None)
+
+    def _replacing(self, axis_name: str, replacement) -> None:
+        """Deal with attached data before an axis' elements are replaced.
+
+        The `.nodes`, `.vertices` and `.points` setters predate the schema and
+        write their private attribute directly, so nothing else gets a chance.
+        Without this, data attached to the old elements is left exactly where it
+        was - at the old length, describing elements that are gone, and indexing
+        cleanly enough that nothing ever complains.
+        """
+        if schema.is_replacing(self, axis_name):
+            # Somebody who knows better is driving - see `schema.replacing`
+            return
+        axis = schema.declared_axes(self).get(axis_name)
+        if axis is not None:
+            self._orphan_aligned(axis, replacement)
+
+    def _attached_aligned(self, axis) -> list:
+        """Attributes aligned to an axis that were attached, not declared.
+
+        A [`Dotprops`][navis.Dotprops]' tangent vectors are aligned to its points
+        and are the class' own business: the setter that maintains them is the
+        one asking us, and orphaning them would take away data the type needs to
+        function. Only what `attach` put there is ours to carry or drop.
+        """
+        declared = type(self).AXES.get(axis.name)
+        companions = set(declared.data) if declared is not None else set()
+        return [
+            attr
+            for attr in axis.data[1:]
+            if attr not in companions and getattr(self, attr, None) is not None
+        ]
+
+    def _orphan_aligned(self, axis, replacement) -> None:
+        """Deal with data aligned to an axis whose elements are being replaced.
+
+        Assigning is not selecting: nothing here can say where the old elements
+        went, so anything describing them has to go. The one case we *can* tell
+        apart is an id-bearing axis whose new elements are a subset of the old
+        ones - that is a selection written as an assignment, and the IDs say
+        exactly which survived, so the aligned data is carried instead of
+        dropped.
+
+        Note what this must *not* do: infer that a reused ID is the same element.
+        A function that rebuilds an axis is free to mint IDs however it likes, so
+        only the subset case - where every new element was already there - is
+        safe to read as a selection. Anything else says so through
+        [`schema.apply_rebuild`][] or gets dropped.
+        """
+        aligned = self._attached_aligned(axis)
+        if not aligned:
+            return
+
+        if axis.positional:
+            # No identity to compare, so the count is the only signal there is -
+            # the same guess reference repair has always made.
+            if len(replacement) == schema.axis_length(self, axis):
+                return
+        else:
+            # One hash join answers all three questions - are the new elements
+            # all old ones, are they unique, and where did each come from - where
+            # `np.isin` plus `np.unique` would sort the IDs twice over.
+            was = pd.Index(schema.axis_ids(self, axis))
+            now = np.asarray(replacement[axis.ids].values)
+            where = was.get_indexer(now)
+            if (where >= 0).all() and len(np.unique(where)) == len(now):
+                for attr in aligned:
+                    # Through `_select_aligned`, which knows a DataFrame from an
+                    # array - `attach` accepts either
+                    setattr(
+                        self,
+                        attr,
+                        schema._select_aligned(getattr(self, attr), where, None),
+                    )
+                return
+
+        for attr in aligned:
+            self.detach(attr)
+        logger.warning(
+            f"Replacing {type(self).__name__} {self.id}'s '{axis.name}' with "
+            f"different elements: dropped {', '.join(aligned)}, which described "
+            "the old ones. Select the axis instead of assigning to it if you "
+            "want them carried."
+        )
+
+    def attach_link(
+        self,
+        name: str,
+        mapping: str,
+        *,
+        source: str,
+        target_axis: str,
+        target: str = "",
+        column: Optional[str] = None,
+        cascade: str = "propagate",
+        dangling: str = "drop",
+        on_rebuild: str = "drop",
+    ):
+        """Declare that some of this neuron's data names elements of an axis.
+
+        A link is one array wearing two hats: aligned to `source`, so a
+        selection there carries it, and naming elements of `target_axis`, so a
+        selection *there* filters and re-indexes it. See
+        `navis/core/schema.py`.
+
+        Parameters
+        ----------
+        name :          str
+                        Names the far end, for `get_mapping` and friends.
+        mapping :       str
+                        Attribute the values live in - `"vertex_id"`, or the
+                        table they are a column of when `column` is given.
+        source :        str
+                        Axis the mapping is aligned to.
+        target_axis :   str
+                        Axis its values name.
+        target :        str, optional
+                        Attribute holding the object that owns `target_axis`.
+                        Empty means this neuron.
+        column :        str, optional
+                        Column of `mapping` holding the values, when it is a
+                        table rather than an array of its own.
+        cascade :       "propagate" | "keep"
+                        What a selection of `source` does to the far end.
+        dangling :      "drop" | "blank"
+                        What becomes of a source element whose target is gone.
+        on_rebuild :    "drop" | "snap"
+                        What happens when a function *rebuilds* the target axis
+                        instead of selecting from it. A different question from
+                        `dangling`: the target is not gone, it moved, and
+                        `"snap"` follows it to wherever the rebuild says
+                        references should now point. This is what keeps a
+                        connector on its branch through
+                        [`resample_skeleton`][navis.resample_skeleton].
+
+        Examples
+        --------
+        A mitochondria table that sits on the nodes, and goes when they do
+
+        >>> import navis, numpy as np, pandas as pd
+        >>> n = navis.example_neurons(1, kind='skeleton')
+        >>> mito = pd.DataFrame({'mito_id': np.arange(20),
+        ...                      'node_id': n.nodes.node_id.values[:20]})
+        >>> n.attach('mito', mito, ids='mito_id')
+        >>> n.attach_link('nodes', 'mito', column='node_id',
+        ...               source='mito', target_axis='nodes', cascade='keep')
+
+        See Also
+        --------
+        [`navis.BaseNeuron.attach`][]
+                    For data that is merely aligned to an axis.
+
+        """
+        link = schema.Link(
+            name=name,
+            source=source,
+            mapping=mapping,
+            column=column,
+            target_axis=target_axis,
+            target=target,
+            cascade=cascade,
+            dangling=dangling,
+            on_rebuild=on_rebuild,
+        )
+
+        # A link is identified by `source->name`, so reusing both replaces
+        # whatever the class declared under them. Pointing the replacement at
+        # the *same* values is the supported way to change a built-in link's
+        # policy and is silent; pointing it somewhere else stops the built-in
+        # being maintained at all, which is silent and destructive - a
+        # skeleton's connectors simply stop being pruned.
+        replaced = next((lk for lk in type(self).LINKS if lk.key == link.key), None)
+        if replaced is not None and (link.mapping, link.column) != (
+            replaced.mapping,
+            replaced.column,
+        ):
+            logger.warning(
+                f'Link "{link.key}" replaces the one {type(self).__name__} '
+                f"declares over {replaced.where}, which will no longer be "
+                f'maintained - nothing will repair it when "{link.target_axis}" '
+                f"changes. Give this link a name of its own unless you mean to "
+                f"replace it; to change only the policy of the built-in one, "
+                f"declare it over the same mapping."
+            )
+
+        schema.declare_link(self, link)
+        schema.stamp_link(self, link)
+
+    def detach(self, name: str):
+        """Drop attached data, and any links or declarations that named it."""
+        self.__dict__.pop("_memory_usage", None)
+        for axis in schema.declared_axes(self).values():
+            if name not in axis.data:
+                continue
+            if name != axis.data[0]:
+                schema.undeclare_aligned(self, axis.name, name)
+                continue
+            if axis.name in type(self).AXES:
+                # The class declared this axis, so emptying its table is not the
+                # same as taking the axis away - a neuron with no connectors is
+                # still a neuron that *can* have them.
+                setattr(self, name, None)
+                schema.stamp_links(self, axis.name)
+                return
+            # An axis this neuron alone declared goes away with its data
+            self.__dict__.get("_axes", {}).pop(axis.name, None)
+
+        schema.undeclare_link(self, name)
+        self.__dict__.pop(name, None)
+
+    def attached(self) -> pd.DataFrame:
+        """What `attach` and `attach_link` have put on this neuron.
+
+        Only what *this* neuron carries beyond its type: the axes every
+        [`Skeleton`][navis.Skeleton] has are a property of the class, not
+        something to report per neuron. Attached data is otherwise invisible -
+        it is a plain attribute, and nothing in the summary mentions it.
+
+        Returns
+        -------
+        pandas.DataFrame
+                    One row per attachment, with columns:
+
+                    - `name`: the attribute it hangs off, or - for a link -
+                      the `source->target` key `get_mapping` addresses it by
+                    - `kind`: `"aligned"` (one value per element of `axis`),
+                      `"axis"` (elements of its own), or `"link"`
+                    - `axis`: the axis it is aligned to
+                    - `names`: for a link, the axis its values name
+                    - `shape`: shape of the data, `None` if it is not set -
+                      which for a link is what says it cannot be followed yet
+
+        Examples
+        --------
+        >>> import navis, numpy as np
+        >>> n = navis.example_neurons(1, kind='skeleton')
+        >>> n.attach('score', np.arange(n.n_nodes), axis='nodes')
+        >>> n.attached()[['name', 'kind', 'axis']]
+            name     kind   axis
+        0  score  aligned  nodes
+
+        See Also
+        --------
+        [`navis.NeuronList.attached`][]
+                    The same, summarised over a list of neurons.
+
+        """
+        return pd.DataFrame(self._attachment_rows(), columns=ATTACHED_COLUMNS)
+
+    def _attachment_rows(self) -> List[dict]:
+        """The rows of `attached`, before they become a frame.
+
+        Separate because `NeuronList.attached` wants every neuron's rows and one
+        frame at the end - building an empty one per neuron and throwing it away
+        is most of what a list of untouched neurons would otherwise cost.
+        """
+        rows = []
+        class_axes = type(self).AXES
+        for name, axis in schema.declared_axes(self).items():
+            # An axis the class did not declare is itself an attachment, so its
+            # primary table counts too - which `data[0] not in own` says exactly.
+            own = set(class_axes[name].data) if name in class_axes else set()
+            rows.extend(
+                _attachment(
+                    attr,
+                    "axis" if i == 0 else "aligned",
+                    name,
+                    getattr(self, attr, None),
+                )
+                for i, attr in enumerate(axis.data)
+                if attr not in own
+            )
+
+        for link in self.__dict__.get("_links", ()):
+            names = (
+                link.target_axis
+                if not link.target
+                else f"{link.target}.{link.target_axis}"
+            )
+            rows.append(
+                _attachment(
+                    link.key,
+                    "link",
+                    link.source,
+                    schema.link_mapping(self, link),
+                    names=names,
+                )
+            )
+        return rows
+
+    def get_mapping(self, source: str, target: str) -> np.ndarray:
+        """Map every element of one endpoint onto an element of another.
+
+        Composes links, so a correspondence nobody declared directly - a mesh's
+        connectors onto its skeleton's nodes, via the vertices they sit on - is
+        still available. Links describe what is there; they do not build it, so
+        this raises rather than generating a mapping that is missing.
+
+        Parameters
+        ----------
+        source :    str
+                    Endpoint to map *from*: one of this neuron's axes, or the
+                    name of a link on it.
+        target :    str
+                    Endpoint to map *to*.
+
+        Returns
+        -------
+        np.ndarray
+                    One entry per `source` element, in its order, naming a
+                    `target` element - an ID where the target axis has IDs, an
+                    index where it does not. `-1` where it maps to nothing.
+
+        Raises
+        ------
+        navis.core.schema.MappingError
+                    If the mapping is not there, or describes elements that have
+                    changed since.
+
+        Examples
+        --------
+        Which skeleton node does each of a mesh's vertices belong to? Note the
+        skeleton has to exist before there is a mapping onto it to read.
+
+        >>> import navis
+        >>> m = navis.example_neurons(1, kind='mesh')
+        >>> m.skeleton is not None
+        True
+        >>> len(m.get_mapping('vertices', 'skeleton')) == m.n_vertices
+        True
+
+        See Also
+        --------
+        [`navis.BaseNeuron.select_across`][]
+                    For the other direction, which is a selection rather than a
+                    mapping.
+
+        """
+        return schema.get_mapping(self, source, target)
+
+    def select_across(self, source: str, target: str, selection) -> np.ndarray:
+        """Which `source` elements map into a selection of `target` elements.
+
+        Links are directed and only followed forwards - a mesh vertex has one
+        skeleton node, but a node has many vertices, so backwards is not a
+        mapping at all. As a *selection* it is perfectly well defined, and that
+        is what this answers.
+
+        Parameters
+        ----------
+        source :    str
+                    Endpoint to select *on*, i.e. what the mask is over.
+        target :    str
+                    Endpoint `selection` refers to.
+        selection : list | np.ndarray
+                    Anything [`navis.subset_neuron`][] accepts for `target`:
+                    element IDs, indices, or a boolean mask.
+
+        Returns
+        -------
+        np.ndarray
+                    Boolean mask over `source`, ready to hand to
+                    [`navis.subset_neuron`][] or [`navis.masked`][].
+
+        Examples
+        --------
+        Which vertices belong to the first 50 nodes of a mesh's skeleton?
+
+        >>> import navis
+        >>> m = navis.example_neurons(1, kind='mesh')
+        >>> nodes = m.skeleton.nodes.node_id.values[:50]
+        >>> int(m.select_across('vertices', 'skeleton', nodes).sum())
+        364
+
+        See Also
+        --------
+        [`navis.BaseNeuron.get_mapping`][]
+
+        """
+        return schema.select_across(self, source, target, selection)
 
     def _adopt(self, other: "BaseNeuron") -> "BaseNeuron":
         """Take over another neuron's state, in place.
@@ -1013,8 +1600,13 @@ class BaseNeuron(UnitObject):
     def memory_usage(self, deep=False, estimate=False):
         """Return estimated memory usage of this neuron.
 
-        Works by going over attached data (numpy arrays and pandas DataFrames
-        such as vertices, nodes, etc) and summing up their size in memory.
+        Works by going over the data the neuron holds - numpy arrays and pandas
+        DataFrames such as vertices, nodes, anything you attached - and summing
+        up their size in memory. Data held *inside* something else counts too:
+        a mesh's skeleton, the snapshot a masked neuron will be restored from,
+        and the arrays provenance keeps per axis. Caches built by other
+        libraries (`trimesh`, igraph, networkx) do not - they are temporary and
+        rebuilt on demand.
 
         Parameters
         ----------
@@ -1041,33 +1633,7 @@ class BaseNeuron(UnitObject):
             if mu["deep"] == deep and mu["estimate"] == estimate:
                 return mu["size"]
 
-        # An ndarray costs the same either way, so only the pandas containers
-        # branch on `estimate`. Estimating prices each column from its dtype -
-        # much faster than walking it - and materialises the column only for
-        # the dtypes that cannot be priced that way. Iterating `dtypes` rather
-        # than columns is the point: building a Series per column costs more
-        # than the sizing itself.
-        size = 0
-        for v in self.__dict__.values():
-            if isinstance(v, np.ndarray):
-                size += v.nbytes
-            elif isinstance(v, pd.DataFrame):
-                if not estimate:
-                    size += v.memory_usage(deep=deep).sum()
-                    continue
-                for col, dtype in v.dtypes.items():
-                    size += (dtype.itemsize * v.shape[0]
-                             if isinstance(dtype, np.dtype)
-                             else _extension_bytes(v[col]))
-            elif isinstance(v, pd.Series):
-                if not estimate:
-                    size += v.memory_usage(deep=deep)
-                elif isinstance(v.dtype, np.dtype):
-                    size += v.dtype.itemsize * v.shape[0]
-                else:
-                    size += _extension_bytes(v)
-
-        size = int(size)
+        size = int(_sizeof(self.__dict__, deep, estimate, {id(self)}))
         self._memory_usage = {"deep": deep, "estimate": estimate, "size": size}
 
         return size

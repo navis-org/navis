@@ -141,10 +141,16 @@ def merge_duplicate_nodes(x, round=False, inplace=False):
 
         # Go over each non-unique location
         ids = x.nodes.loc[dupl].groupby(['x', 'y', 'z']).node_id.apply(list)
+        # Which node each collapsed one is folded into, for `relocate_refs`
+        # below. Groups are one per position and so disjoint: a node is folded
+        # at most once, and never into another node that is itself folded.
+        folded, onto = [], []
         for i in ids:
             # Keep the first node and collapse all others into it
             edges[np.isin(edges[:, 0], i[1:]), 0] = i[0]
             edges[np.isin(edges[:, 1], i[1:]), 1] = i[0]
+            folded.extend(i[1:])
+            onto.extend([i[0]] * (len(i) - 1))
 
         # Drop self-loops
         edges = edges[edges[:, 0] != edges[:, 1]]
@@ -212,11 +218,26 @@ def merge_duplicate_nodes(x, round=False, inplace=False):
         new_edges = np.array(G2.edges)
         new_parents = dict(zip(new_edges[:, 0], new_edges[:, 1]))
 
-        # Drop nodes that aren't present anymore
-        x._nodes = x._nodes.loc[x._nodes.node_id.isin(new_edges.flatten())].copy()
+        axis = core.schema.get_axis(x, "nodes")
 
-        # Rewire kept nodes
-        x.nodes['parent_id'] = x.nodes.node_id.map(lambda x: new_parents.get(x, -1))
+        # A folded node is not gone from the neuron: it is the very same point
+        # in space as the one it was folded into, so a connector, tag or soma
+        # sitting on it belongs on that one. Say so first - a selection can only
+        # say "gone", and would take them out with it.
+        core.schema.relocate_refs(x, axis, folded, onto)
+
+        # Now drop the nodes that aren't present anymore. No node is invented
+        # here, so this is an ordinary selection and goes through the schema:
+        # anything aligned to the nodes is carried, and anything still naming a
+        # node that did not survive for some *other* reason is repaired.
+        core.schema.apply_selection(
+            x, axis, x._nodes.node_id.isin(new_edges.flatten()).values
+        )
+
+        # Rewire kept nodes. Built from the collapsed graph, so it has the answer
+        # for every remaining node - including those whose parent was merged away
+        # and which `apply_selection` has just turned into roots.
+        x.nodes['parent_id'] = x.nodes.node_id.map(lambda i: new_parents.get(i, -1))
 
         # Reset temporary attributes
         x._clear_temp_attr()

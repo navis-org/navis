@@ -61,11 +61,17 @@ def test_schema_is_complete(kind, request):
     # Give it connectors so they show up in `__dict__`
     if not n.has_connectors:
         n.connectors = navis.example_neurons(1, kind="skeleton").connectors
+    # ... and, for a mesh, its skeleton, so the link bookkeeping shows up too
+    if isinstance(n, navis.Mesh):
+        _ = n.skeleton
 
     declared = set()
-    for axis in n.AXES.values():
+    for axis in schema.declared_axes(n).values():
         declared.update(axis.data)
         declared.update(ref.attr for ref in axis.refs)
+    # A link's mapping is aligned data of its source axis; it just happens to
+    # live behind a path rather than a plain name.
+    declared.update(link.mapping.split(".")[0] for link in schema.declared_links(n))
 
     accounted = declared | set(n.TEMP_ATTR) | set(n.AXIS_INDEPENDENT)
 
@@ -74,8 +80,8 @@ def test_schema_is_complete(kind, request):
         for key, value in n.__dict__.items()
         if isinstance(value, (np.ndarray, pd.DataFrame, dict))
         and key not in accounted
-        # `SUMMARY_PROPS`/`TEMP_ATTR` are per-instance copies of class config
-        and key not in ("SUMMARY_PROPS", "TEMP_ATTR")
+        # Per-instance copies of class config, and the schema's own bookkeeping
+        and key not in ("SUMMARY_PROPS", "TEMP_ATTR", "_link_state", "_axes")
     ]
 
     assert not undeclared, (
@@ -91,16 +97,17 @@ def test_schema_declarations_are_resolvable(kind, request):
     """Declared attributes must actually exist (catches typos and renames)."""
     n = request.getfixturevalue(kind)
 
-    for name, axis in n.AXES.items():
+    for name, axis in schema.declared_axes(n).items():
         assert axis.name == name, "AXES key and Axis.name disagree"
-        # The primary data attribute must exist - the axis is meaningless
-        # without it
-        assert hasattr(n, axis.data[0]), (
-            f"{type(n).__name__} axis '{axis.name}' declares primary data "
-            f"'{axis.data[0]}' which does not exist"
-        )
+
+        table = getattr(n, axis.data[0], None)
+        if table is None:
+            # Legitimately empty - a neuron need not have connectors - but then
+            # the axis must read as empty rather than blow up
+            assert schema.axis_length(n, axis) == 0
+            continue
+
         if not axis.positional:
-            table = getattr(n, axis.data[0])
             assert axis.ids in table.columns, (
                 f"axis '{axis.name}' declares ids column '{axis.ids}' which is "
                 f"not in {axis.data[0]}"

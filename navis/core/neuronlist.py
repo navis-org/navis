@@ -11,6 +11,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 import random
 import re
@@ -773,6 +774,52 @@ class NeuronList:
             size *= len(self.neurons) / len(neurons)
 
         return int(size)
+
+    def attached(self) -> pd.DataFrame:
+        """Summarise what `attach` and `attach_link` have put on these neurons.
+
+        Attached data is per *neuron*, so a list can perfectly well be ragged -
+        half its neurons carrying a `mito` table and half not, or the same name
+        aligned to different axes. This says so rather than hiding it: one row
+        per distinct attachment, and `neurons` counts how many carry it.
+
+        Returns
+        -------
+        pandas.DataFrame
+                    Columns as [`navis.BaseNeuron.attached`][], with `shape`
+                    replaced by `neurons` - the number carrying that attachment.
+                    Empty if nothing is attached to anything.
+
+        Examples
+        --------
+        >>> import navis, numpy as np
+        >>> nl = navis.example_neurons(3, kind='skeleton')
+        >>> for n in nl[:2]:
+        ...     n.attach('score', np.arange(n.n_nodes), axis='nodes')
+        >>> nl.attached()
+            name     kind   axis names  neurons
+        0  score  aligned  nodes              2
+
+        See Also
+        --------
+        [`navis.BaseNeuron.attached`][]
+                    The per-neuron version, which also gives you the shapes.
+
+        """
+        cols = ["name", "kind", "axis", "names"]
+        # One neuron contributes one row per attachment, so counting rows *is*
+        # counting neurons. Counted off the rows rather than through a frame per
+        # neuron: for a list nobody has attached anything to, building and
+        # discarding those frames is the whole cost.
+        seen = Counter(
+            tuple(row[c] for c in cols)
+            for n in self.neurons
+            for row in n._attachment_rows()
+        )
+        return pd.DataFrame(
+            [{**dict(zip(cols, key)), "neurons": count} for key, count in seen.items()],
+            columns=[*cols, "neurons"],
+        )
 
     def sample(self, N: Union[int, float] = 1) -> 'NeuronList':
         """Return random subset of neurons."""

@@ -14,4 +14,5 @@ self-contained script you can read here or download and run yourself.
 
 ## General Tutorials
 
-Get to grips with the core concepts: neuron types, lists of neurons and masking.
+Get to grips with the core concepts: neuron types, lists of neurons, masking, and
+carrying your own data along with a neuron.

@@ -26,7 +26,7 @@ from typing_extensions import Literal
 from .. import utils, config, core, sampling, graph, morpho
 
 from .base import BaseNeuron
-from .schema import Axis, Ref, axes
+from .schema import CONNECTOR_AXIS, Axis, Ref, axes, connector_link, links
 
 try:
     import xxhash
@@ -124,11 +124,15 @@ class Dotprops(BaseNeuron):
             # have dropped it for us, but subsetting writes `_points` directly
             invalidates=('_tree',),
             refs=(
-                Ref('_connectors', kind='column', column='point'),
                 Ref('_soma', kind='scalar'),
             ),
-        )
+        ),
+        CONNECTOR_AXIS,
     )
+
+    #: Connectors sit on a point; see `Skeleton.LINKS` for why this is a link
+    #: rather than a bare reference.
+    LINKS = links(connector_link('points', 'point'))
 
     def __init__(self,
                  points: np.ndarray,
@@ -324,6 +328,8 @@ class Dotprops(BaseNeuron):
         value = np.asarray(value)
         if value.ndim != 2 or value.shape[1] != 3:
             raise ValueError(f'points must be (N, 3) array, got {value.shape}')
+        # Replacing the elements, not selecting from them - see `_replacing`
+        self._replacing('points', value)
         self._points = value
         # Also reset KDtree
         self._tree = None

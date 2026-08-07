@@ -2306,6 +2306,7 @@ def connected_subgraph(
     return np.array(list(include)), new_roots
 
 
+@utils.rebuilds("nodes")
 def insert_nodes(
     x: "core.Skeleton",
     where: List[tuple],
@@ -2445,7 +2446,14 @@ def insert_nodes(
 
     x._nodes = nodes
 
-    return x
+    # Every old node came through at its own ID, and the inserted ones are
+    # genuinely new - `pd.concat` put them after the old ones, in order. That
+    # second half is why nothing aligned to the nodes can be carried: there is
+    # no label, no radius-like value, nothing to give a node that was not there
+    # before, and inventing one is worse than saying so.
+    kept = nodes.node_id.values.copy()
+    kept[len(kept) - len(new_nodes):] = core.schema.DROPPED
+    return x, core.schema.Rebuild(kept=kept)
 
 
 def remove_nodes(
@@ -2609,9 +2617,13 @@ def collapse_nodes(
     x.nodes = x.nodes[~collapsed | (node_ids == center_node)].copy()
     x.nodes["parent_id"] = new_parents.astype(x.nodes.parent_id.dtype)
 
-    # Check if there is a vertex map to update
-    if hasattr(x, "_vertex_map"):
-        x._vertex_map[np.isin(x._vertex_map, which)] = center_node
+    # Check if there is a vertex map to update. Note we build a new array rather
+    # than writing into the old one: skeletor hands its `mesh_map` back as a
+    # read-only view, and even where it is writeable it may be shared with a
+    # copy of this neuron.
+    if hasattr(x, "vertex_map"):
+        vertex_map = np.asarray(x.vertex_map)
+        x.vertex_map = np.where(np.isin(vertex_map, which), center_node, vertex_map)
 
     # Clear temporary attributes
     x._clear_temp_attr()

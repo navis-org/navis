@@ -33,7 +33,7 @@ from .. import graph, morpho, utils, config, core, sampling, intersection
 from .. import io  # type: ignore # double import
 
 from .base import BaseNeuron
-from .schema import Axis, Ref, axes
+from .schema import CONNECTOR_AXIS, Axis, Ref, axes, connector_link, links
 from .core_utils import temp_property, add_units
 
 try:
@@ -142,6 +142,15 @@ class Skeleton(BaseNeuron):
     #: Core data table(s) used to calculate hash
     CORE_DATA = ['nodes:node_id,parent_id,x,y,z']
 
+    #: Skeletons are the one type that has always insisted its connectors say
+    #: which node they sit on - the rest is `BaseNeuron`'s.
+    CONNECTOR_COLUMNS = [('connector_id', 'id'),
+                         ('node_id', 'rowId', 'node', 'treenode_id'),
+                         ('x', 'X'),
+                         ('y', 'Y'),
+                         ('z', 'Z'),
+                         ('type', 'relation', 'label', 'prepost')]
+
     #: Element axes: what is aligned to the nodes, and what references them.
     #: See `navis/core/schema.py` - this drives `subset_neuron`.
     AXES = axes(
@@ -150,14 +159,32 @@ class Skeleton(BaseNeuron):
             data=('_nodes',),
             ids='node_id',
             refs=(
-                # A node whose parent was dropped becomes a root
-                Ref('_nodes', kind='column', column='parent_id', null=-1),
-                Ref('_connectors', kind='column', column='node_id'),
-                Ref('tags', kind='id_lists'),
-                Ref('_soma', kind='scalar'),
+                # A node whose parent was dropped becomes a root. Under a
+                # rebuild the new table's parents are the rebuild's own answer.
+                Ref('_nodes', kind='column', column='parent_id', null=-1,
+                    on_rebuild='rebuilt'),
+                # Tags and the soma name a *place* on the neuron. A selection
+                # that cuts that place away takes them with it; a rebuild does
+                # not remove anything, so they follow their node to wherever it
+                # was re-sampled to - which is what `downsample_neuron` and
+                # `resample_skeleton` have always done by hand.
+                Ref('tags', kind='id_lists', on_rebuild='snap'),
+                Ref('_soma', kind='scalar', on_rebuild='snap'),
             ),
-        )
+        ),
+        CONNECTOR_AXIS,
     )
+
+    #: Connectors are elements of their own, sitting on a node. Declaring that
+    #: as a link rather than a bare reference is what lets a selection carry
+    #: anything else aligned to them - and makes "which node is this connector
+    #: on" a question the link graph can answer and compose across.
+    LINKS = links(connector_link('nodes', 'node_id'))
+
+    #: `_vertex_map` is aligned to the *mesh's* vertices, not to anything of
+    #: ours, so nothing we do to our nodes should subset it. The mesh declares
+    #: it as a link and maintains it from there.
+    AXIS_INDEPENDENT = ('_vertex_map',)
 
     def __init__(self,
                  x: Union[pd.DataFrame,
@@ -396,6 +423,38 @@ class Skeleton(BaseNeuron):
         return self.nodes[['x', 'y', 'z']].values
 
     @property
+    def vertex_map(self) -> np.ndarray:
+        """For each vertex of the mesh this was skeletonized from, its node ID.
+
+        Only present on skeletons that came from a mesh - see
+        [`navis.conversion.mesh2skeleton`][]. Note this array belongs to the
+        *mesh*: it has one entry per mesh vertex, not per node, and it is the
+        mesh that declares and maintains it (see `Mesh.LINKS`).
+
+        """
+        vertex_map = self.__dict__.get('_vertex_map')
+        if vertex_map is None:
+            raise AttributeError(
+                f"{type(self).__name__} has no attribute 'vertex_map' - it maps "
+                "mesh vertices onto nodes and only exists on skeletons that "
+                "were made from a mesh (see `navis.conversion.mesh2skeleton`)."
+            )
+        return vertex_map
+
+    @vertex_map.setter
+    def vertex_map(self, value):
+        if value is None:
+            self.__dict__.pop('_vertex_map', None)
+            return
+
+        value = np.asarray(value)
+        if value.ndim != 1:
+            raise ValueError(
+                f'Vertex map must be a 1-dimensional array, got {value.ndim}'
+            )
+        self._vertex_map = value
+
+    @property
     @requires_nodes
     def edges(self) -> np.ndarray:
         """Edges between nodes.
@@ -494,15 +553,21 @@ class Skeleton(BaseNeuron):
 
     def _set_nodes(self, v):
         # Redefine this function in subclass to change validation
-        self._nodes = utils.validate_table(v,
-                                           required=[('node_id', 'rowId', 'node', 'treenode_id', 'PointNo'),
-                                                     ('parent_id', 'link', 'parent', 'Parent'),
-                                                     ('x', 'X'),
-                                                     ('y', 'Y'),
-                                                     ('z', 'Z')],
-                                           rename=True,
-                                           optional={('radius', 'W'): 0},
-                                           restrict=False)
+        v = utils.validate_table(v,
+                                 required=[('node_id', 'rowId', 'node', 'treenode_id', 'PointNo'),
+                                           ('parent_id', 'link', 'parent', 'Parent'),
+                                           ('x', 'X'),
+                                           ('y', 'Y'),
+                                           ('z', 'Z')],
+                                 rename=True,
+                                 optional={('radius', 'W'): 0},
+                                 restrict=False)
+
+        # Assigning replaces the elements rather than selecting from them, so
+        # anything attached to the old ones has to be carried or dropped - and
+        # this is the only chance to do it, since we write `_nodes` ourselves
+        self._replacing('nodes', v)
+        self._nodes = v
 
         # Make sure we don't end up with object dtype anywhere as this can
         # cause problems
@@ -556,24 +621,7 @@ class Skeleton(BaseNeuron):
     @connectors.setter
     def connectors(self, v):
         """Validate and set connector table."""
-        # We are refering to an extra function to facilitate subclassing:
-        # Redefine _set_connectors() to not break property
-        self._set_connectors(v)
-
-    def _set_connectors(self, v):
-        # Redefine this function in subclass to change validation
-        if isinstance(v, type(None)):
-            self._connectors = None
-        else:
-            self._connectors = utils.validate_table(v,
-                                                    required=[('connector_id', 'id'),
-                                                              ('node_id', 'rowId', 'node', 'treenode_id'),
-                                                              ('x', 'X'),
-                                                              ('y', 'Y'),
-                                                              ('z', 'Z'),
-                                                              ('type', 'relation', 'label', 'prepost')],
-                                                    rename=True,
-                                                    restrict=False)
+        BaseNeuron.connectors.fset(self, v)
 
     @property
     @requires_nodes

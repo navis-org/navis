@@ -72,6 +72,12 @@ class [`BaseNeurons`][navis.BaseNeuron].
 | [`Neuron.mask()`][navis.BaseNeuron.mask] | {{ autosummary("navis.BaseNeuron.mask") }} |
 | [`Neuron.unmask()`][navis.BaseNeuron.unmask] | {{ autosummary("navis.BaseNeuron.unmask") }} |
 | [`Neuron.apply_mask()`][navis.BaseNeuron.apply_mask] | {{ autosummary("navis.BaseNeuron.apply_mask") }} |
+| [`Neuron.attach()`][navis.BaseNeuron.attach] | {{ autosummary("navis.BaseNeuron.attach") }} |
+| [`Neuron.attach_link()`][navis.BaseNeuron.attach_link] | {{ autosummary("navis.BaseNeuron.attach_link") }} |
+| [`Neuron.detach()`][navis.BaseNeuron.detach] | {{ autosummary("navis.BaseNeuron.detach") }} |
+| [`Neuron.attached()`][navis.BaseNeuron.attached] | {{ autosummary("navis.BaseNeuron.attached") }} |
+| [`Neuron.get_mapping()`][navis.BaseNeuron.get_mapping] | {{ autosummary("navis.BaseNeuron.get_mapping") }} |
+| [`Neuron.select_across()`][navis.BaseNeuron.select_across] | {{ autosummary("navis.BaseNeuron.select_across") }} |
 
 In addition to methods, neurons also have properties. These properties common
 to all neurons:
@@ -266,6 +272,7 @@ Methods:
 | Method | Description |
 |--------|-------------|
 | [`NeuronList.apply()`][navis.NeuronList.apply] | {{ autosummary("navis.NeuronList.apply") }} |
+| [`NeuronList.attached()`][navis.NeuronList.attached] | {{ autosummary("navis.NeuronList.attached") }} |
 | [`NeuronList.head()`][navis.NeuronList.head] | {{ autosummary("navis.NeuronList.head") }} |
 | [`NeuronList.itertuples()`][navis.NeuronList.itertuples] | {{ autosummary("navis.NeuronList.itertuples") }} |
 | [`NeuronList.mean()`][navis.NeuronList.mean] | {{ autosummary("navis.NeuronList.mean") }} |

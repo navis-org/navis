@@ -125,6 +125,34 @@ def test_remaps_connectors_and_soma(neuron):
     assert np.allclose(res.soma_pos, neuron.soma_pos, atol=125)
 
 
+@pytest.mark.parametrize("pin", ["explicit", "detected"])
+def test_remaps_a_soma_whose_node_is_resampled_away(pin):
+    """A soma has to follow its node, not be dropped when the node goes.
+
+    Two ways to lose it, and the example neuron catches neither because its soma
+    sits on a node resampling happens to keep: `_clear_temp_attr` drops a soma
+    that is not in the node table - which is exactly what a rebuild leaves
+    behind between the new nodes going on and the references being repaired -
+    and a soma that is still a *detection function* is not a reference to a
+    node, so nothing would have thought to move it.
+    """
+    n = line(101)                       # nodes 0..100, a unit apart
+    if pin == "explicit":
+        n.soma = 50                     # squarely in the middle of a slab
+    else:
+        n.soma_detection_radius = 5
+        n.nodes.loc[n.nodes.node_id == 50, "radius"] = 10.0
+        n._clear_temp_attr()
+        assert n.soma == 50 and "_soma" not in n.__dict__
+
+    res = navis.resample_skeleton(n, resample_to=10, inplace=False)
+
+    assert 50 not in res.nodes.node_id.values      # the node itself did go
+    assert res.soma is not None
+    assert np.isin(res.soma, res.nodes.node_id.values).all()
+    assert np.allclose(res.soma_pos, n.soma_pos, atol=10)
+
+
 def test_remaps_tags(neuron):
     neuron = neuron.copy()
     neuron.tags = {"of interest": list(neuron.nodes.node_id.values[:5])}
