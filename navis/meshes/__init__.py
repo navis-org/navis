@@ -12,6 +12,6 @@
 #    GNU General Public License for more details.
 
 from .mesh_utils import fix_mesh
-from .operations import simplify_mesh, smoothing_backends, smooth_mesh
+from .operations import simplify_mesh, smooth_mesh
 
 __all__ = ['fix_mesh', 'simplify_mesh', 'smooth_mesh']

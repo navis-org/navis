@@ -77,7 +77,11 @@ octarine-navis-plugin>=0.1.8
 
 #extra: meshes
 
-open3d; python_version < "3.12"
+# Back-compat no-op, like `[fastcore]` above: this extra used to install open3d
+# for mesh simplification and smoothing, both of which now run on
+# navis-fastcore. Nothing in navis imports open3d any more, but the extra keeps
+# resolving rather than warning about an unknown one.
+navis-fastcore>=0.11.0
 
 #extra: test-notebook
 

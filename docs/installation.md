@@ -160,14 +160,12 @@ directly, are listed below:
 
     ---
 
-    #### ``meshes``: [open3d](https://pypi.org/project/open3d/)
-      Assorted functionality associated with meshes. Note that mesh *simplification*
-      ([`navis.simplify_mesh`][], and hence [`navis.downsample_neuron`][] on meshes)
-      needs nothing extra - it runs on `navis-fastcore`, which is a hard requirement.
-
-    ``` shell
-    pip install open3d
-    ```
+    #### ``meshes``: nothing left to install
+      This extra used to pull in `open3d` for mesh simplification and smoothing.
+      Both ([`navis.simplify_mesh`][], [`navis.smooth_mesh`][], and hence
+      [`navis.downsample_neuron`][] on meshes) now run on `navis-fastcore`, which
+      is a hard requirement - so `pip install navis[meshes]` still resolves but
+      has nothing to do.
 
 ??? info "Cluster computing"
 

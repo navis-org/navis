@@ -16,8 +16,6 @@ import warnings
 import numpy as np
 import trimesh as tm
 
-from importlib.util import find_spec
-
 try:
     from pykdtree.kdtree import KDTree
 except ModuleNotFoundError:
@@ -26,27 +24,27 @@ except ModuleNotFoundError:
 from .. import core, config, utils
 from ..core import schema
 
-from .b3d import smooth_mesh_blender
-from .o3d import smooth_mesh_open3d
-from .mesh_utils import smooth_mesh_trimesh
+
+#: `stacklevel` values that make a `DeprecationWarning` raised in one of the
+#: functions below land on the *caller*: two to clear `warnings.warn` and the
+#: function raising it, plus one for each navis decorator wrapping that function.
+#: That is where it has to land - Python's default filters only show a
+#: `DeprecationWarning` attributed to `__main__`, so one blamed on
+#: `map_neuronlist` is a warning nobody ever sees. `test_mesh_ops.py` pins both.
+_MAPPED = 3  # `@map_neuronlist`
+_MAPPED_REBUILD = 4  # `@map_neuronlist` over `@rebuilds`
 
 
-def smoothing_backends():
-    """Backends available for smoothing, in order of preference.
+def _deprecated_backend(func):
+    """The `backend` argument both mesh operations used to take.
 
-    Blender comes last, behind a backend that is always there, and deliberately:
-    it is reached by writing the mesh out to STL and reading the result back,
-    which welds and reorders the vertices. Smoothing moves vertices without
-    replacing them - which is why `smooth_mesh` is not a rebuild and everything
-    indexing the vertices is simply left alone - and that stops being true on the
-    way through a file. Still selectable by name for anyone who wants Blender's
-    smoothing specifically and does not index the vertices.
+    Neither has one any more - `navis-fastcore` is a hard requirement, so there
+    is nothing left to choose between.
     """
-    backends = ['open3d'] if find_spec('open3d') is not None else []
-    backends.append('trimesh')
-    if tm.interfaces.blender.exists:
-        backends.append('blender')
-    return backends
+    return (
+        f"`{func}(backend=...)` is deprecated and ignored - it now always runs "
+        "on `navis-fastcore`. Drop the argument."
+    )
 
 
 @utils.map_neuronlist(desc='Simplifying', allow_parallel=True)
@@ -103,17 +101,8 @@ def simplify_mesh(x, F, backend=None, inplace=False, **kwargs):
 
     """
     if backend is not None:
-        warnings.warn(
-            "`simplify_mesh(backend=...)` is deprecated and ignored - "
-            "simplification now always runs on `navis-fastcore`. Drop the "
-            "argument.",
-            DeprecationWarning,
-            # Past `@rebuilds` and `@map_neuronlist`, so that this lands on the
-            # caller: Python's default filters only show a `DeprecationWarning`
-            # attributed to `__main__`, and one blamed on navis' own decorators
-            # is a warning nobody ever sees.
-            stacklevel=4,
-        )
+        warnings.warn(_deprecated_backend('simplify_mesh'),
+                      DeprecationWarning, stacklevel=_MAPPED_REBUILD)
 
     if not utils.is_mesh(x):
         raise TypeError(f'Expected mesh-like, got "{type(x)}"')
@@ -262,56 +251,110 @@ def combine_meshes(meshes, max_dist='auto', progress=True):
 
 
 @utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
-def smooth_mesh(x, iterations=5, L=.5, backend='auto', inplace=False):
+def smooth_mesh(x, iterations=5, L=None, method='taubin', backend=None,
+                inplace=False, **kwargs):
     """Smooth meshes (TriMesh, Mesh, Volume).
 
-    Uses Laplacian smoothing. Not necessarily because that is always the best
-    approach but because there are three backends (see below) that offer similar
-    interfaces.
+    Runs on `navis-fastcore`, which moves the vertices and touches nothing else:
+    the faces, the vertex count and the vertex order all come back unchanged.
+    This is what separates smoothing from [`navis.simplify_mesh`][] - connectors,
+    extra edges, the skeleton correspondence and anything you attached yourself
+    are still attached to the vertex they were attached to, so there is nothing
+    to repair afterwards.
 
     Parameters
     ----------
     x :             navis.Mesh/List | navis.Volume | trimesh.Trimesh
-                    Mesh(es) to simplify.
+                    Mesh(es) to smooth.
     iterations :    int
-                    Round of smoothing to apply.
-    L :             float [0-1]
-                    Diffusion speed constant lambda. Larger = more aggressive
-                    smoothing.
-    backend :       "auto" | "open3d" | "blender" | "trimesh"
-                    Which backend to use. Currenly we support `open3d`,
-                    Blender 3D or `trimesh`.
+                    Rounds of smoothing to apply. For `"taubin"` a round is a
+                    full shrink-then-inflate pair, i.e. two sweeps over the mesh.
+    L :             float [0-1], optional
+                    Deprecated: this is `lamb` now, the name
+                    `navis_fastcore.smooth_mesh` gives it. Passing it raises a
+                    `DeprecationWarning`.
+    method :        "taubin" | "laplacian" | "humphrey"
+                    Which filter to run:
+
+                    - `"taubin"` alternates a shrinking pass with an inflating
+                      one, tuned so the two cancel below a cut-off frequency.
+                      Removes noise without removing the shape
+                    - `"laplacian"` is the plain diffusion step - simple,
+                      effective, and it *shrinks*: at the defaults here the
+                      example neuron loses 55% of its enclosed volume. Pair it
+                      with `volume_correction=True` if that matters
+                    - `"humphrey"` is the HC filter of Vollmer et al., which
+                      fights shrinkage by pulling each vertex back towards where
+                      it started. The gentler of the two on fine detail
+
+    backend :       str, optional
+                    Deprecated and ignored - smoothing always runs on
+                    `navis-fastcore` now. Passing anything raises a
+                    `DeprecationWarning`.
     inplace :       bool
-                    If True, will perform simplication on `x`. If False, will
-                    simplify and return a copy.
+                    If True, will smooth `x`. If False, will smooth and return
+                    a copy.
+    **kwargs
+                    Keyword arguments are passed through to
+                    `navis_fastcore.smooth_mesh`: `lamb`/`mu` (`"taubin"` and
+                    `"laplacian"`), `alpha`/`beta` (`"humphrey"`), `weights`,
+                    `preserve_border`, `lock`, `volume_correction` and
+                    `threads`. Two worth knowing about: `weights="cotangent"`
+                    moves vertices along the surface normal rather than sliding
+                    them around within the surface, which is usually what you
+                    want on meshes out of EM segmentation; and `lock` pins the
+                    given vertices so they come back at bitwise the same
+                    coordinates.
 
     Returns
     -------
     smoothed
                     Smoothed object.
 
+    See Also
+    --------
+    [`navis.simplify_mesh`][]
+                    Reduce a mesh's face count.
+
     """
-    if not isinstance(backend, str):
-        raise TypeError(f'`backend` must be string, got "{type(backend)}"')
+    if backend is not None:
+        warnings.warn(_deprecated_backend('smooth_mesh'),
+                      DeprecationWarning, stacklevel=_MAPPED)
 
-    backend = backend.lower()
-    backends = smoothing_backends()
+    if L is not None:
+        if 'lamb' in kwargs:
+            raise TypeError('`L` and `lamb` are the same argument - pass '
+                            '`lamb` only.')
+        warnings.warn(
+            "`smooth_mesh(L=...)` is deprecated - it is `lamb` now, which is "
+            "what `navis_fastcore.smooth_mesh` calls it and leaves room for "
+            "the `mu` it pairs with. Rename the argument.",
+            DeprecationWarning,
+            stacklevel=_MAPPED,
+        )
+        kwargs['lamb'] = L
 
-    if backend == 'auto':
-        backend = backends[0]
-    elif backend not in backends:
-        raise ValueError(f'Backend "{backend}" appears to not be available. '
-                         'Please choose one of the available backends: '
-                         f'{", ".join(backends)}')
+    if not utils.is_mesh(x):
+        raise TypeError(f'Expected mesh-like, got "{type(x)}"')
 
     if not inplace:
         x = x.copy()
 
-    if backend == 'open3d':
-        _ = smooth_mesh_open3d(x, iterations=iterations, L=L, inplace=True)
-    elif backend == 'blender':
-        _ = smooth_mesh_blender(x, iterations=iterations, L=L, inplace=True)
-    elif backend == 'trimesh':
-        _ = smooth_mesh_trimesh(x, iterations=iterations, L=L, inplace=True)
+    # `preserve_border=True` is navis' own default rather than fastcore's, for
+    # the same reason it is in `simplify_mesh`: meshes here are routinely
+    # fragments cut out of a larger volume. A boundary vertex's one-ring lies
+    # entirely to one side of it, so without this every iteration rolls the cut
+    # face a little further inwards. Closed meshes have no border and don't care.
+    defaults = dict(preserve_border=True)
+    defaults.update(kwargs)
+
+    # Assigning rather than writing in place: the setter is what tells the
+    # neuron its coordinates moved, so the cached trimesh, graphs and skeleton
+    # go with them. It also checks the vertex count, which is how anything
+    # aligned to the vertices survives this - see `BaseNeuron._orphan_aligned`.
+    x.vertices = utils.fastcore.smooth_mesh(
+        np.asarray(x.faces), np.asarray(x.vertices),
+        method=method, iterations=iterations, **defaults
+    )
 
     return x

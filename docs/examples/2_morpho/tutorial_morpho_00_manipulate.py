@@ -215,11 +215,16 @@ plt.tight_layout()
 #     ```
 #
 # === "mesh"
-#     [`navis.smooth_mesh`][] applies iterative rounds of Laplacian smoothing:
+#     [`navis.smooth_mesh`][] runs a filter over each vertex's neighbours, by default
+#     Taubin's - which alternates a shrinking pass with an inflating one so that the
+#     mesh does not deflate as it smooths:
 #     ```python
 #     me = navis.example_neurons(n=1, kind="mesh")
 #     me_smoothed = navis.smooth_mesh(me, iterations=5, inplace=False)
 #     ```
+#     `method="laplacian"` gets you the plain diffusion step (simpler, and it shrinks -
+#     pair it with `volume_correction=True`) and `method="humphrey"` the HC filter,
+#     which is the gentlest of the three on fine detail.
 #
 # === "voxels"
 #     [`navis.smooth_voxels`][] applies a Gaussian filter to the voxel grid:

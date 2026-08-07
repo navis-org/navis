@@ -5,5 +5,4 @@ include navis/data/swc/*.swc
 include navis/data/synapses/*.csv
 include navis/data/volumes/*.obj
 include navis/data/ply/*.ply
-include navis/meshes/templates/*
 include navis/nbl/score_mats/*
