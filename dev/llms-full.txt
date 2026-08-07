@@ -15203,7 +15203,7 @@ Examples
 >>> # Get info by Name
 >>> info = nm.get_neuron_info('cnic_001')
 
-### navis.interfaces.neuromorpho.get_neuron(x, parallel=True, max_threads=4, **kwargs)
+### navis.interfaces.neuromorpho.get_neuron(x, parallel=True, max_threads=4, errors=None, **kwargs)
 
 *function*
 
@@ -15219,12 +15219,17 @@ parallel :      bool
                 If True, will use threads to fetch data.
 max_threads :   int
                 Max number of parallel threads to use.
+errors :        "raise" | "log" | "ignore", optional
+                Only relevant when `x` is a DataFrame. What to do if an
+                individual neuron fails to fetch. Defaults to "log", or to
+                "raise" under `navis.config.strict`.
 **kwargs
                 Keyword arguments passed on to navis.read_swc.
 
 Returns
 -------
 Skeleton
+                Or a NeuronList if `x` is a DataFrame.
 
 Examples
 --------
@@ -15301,7 +15306,7 @@ Returns
 -------
 navis.Volume
 
-### navis.interfaces.neuprint.fetch_skeletons(x, *, with_synapses=False, dedup=True, heal=False, missing_swc='raise', parallel=True, max_threads=5, client=None)
+### navis.interfaces.neuprint.fetch_skeletons(x, *, with_synapses=False, dedup=True, heal=False, missing_swc='raise', parallel=True, max_threads=5, errors=None, client=None)
 
 *function*
 
@@ -15340,6 +15345,11 @@ parallel :      bool
                 If True, will use parallel threads to fetch data.
 max_threads :   int
                 Max number of parallel threads to use.
+errors :        "raise" | "log" | "ignore", optional
+                What to do if an individual neuron fails to fetch. Defaults
+                to "log", or to "raise" under `navis.config.strict`. Note
+                this governs *failures*; a body that simply has no SWC is
+                governed by `missing_swc`.
 client :        neuprint.Client, optional
                 If `None` will try using global client.
 
@@ -15347,7 +15357,7 @@ Returns
 -------
 navis.Neuronlist
 
-### navis.interfaces.neuprint.fetch_mesh_neuron(x, *, lod=1, with_synapses=False, dedup=True, missing_mesh='raise', parallel=True, max_threads=5, seg_source=None, client=None, **kwargs)
+### navis.interfaces.neuprint.fetch_mesh_neuron(x, *, lod=1, with_synapses=False, dedup=True, missing_mesh='raise', parallel=True, max_threads=5, errors=None, seg_source=None, client=None, **kwargs)
 
 *function*
 
@@ -15395,6 +15405,11 @@ parallel :      bool
                 If True, will use parallel threads to fetch data.
 max_threads :   int
                 Max number of parallel threads to use.
+errors :        "raise" | "log" | "ignore", optional
+                What to do if an individual neuron fails to fetch. Defaults
+                to "log", or to "raise" under `navis.config.strict`. Note
+                this governs *failures*; a body that simply has no mesh is
+                governed by `missing_mesh`.
 seg_source :    str | cloudvolume.CloudVolume, optional
                 Use this to override the segmentation source specified by
                 neuPrint.
@@ -15477,7 +15492,7 @@ token :         str, optional
                 A token. If provided you don't need to provide username +
                 password.
 
-### navis.interfaces.insectbrain_db.get_brain_meshes(species, combine=False, max_threads=4)
+### navis.interfaces.insectbrain_db.get_brain_meshes(species, combine=False, max_threads=4, errors=None)
 
 *function*
 
@@ -15493,6 +15508,9 @@ combine :       bool, optional
                 a single navis.Volume - else will return list with volumes.
 max_threads :   int
                 Number of parallel threads to use for fetching meshes.
+errors :        "raise" | "log" | "ignore", optional
+                What to do if an individual mesh fails to fetch. Defaults to
+                "log", or to "raise" under `navis.config.strict`.
 
 Returns
 -------
@@ -15542,7 +15560,7 @@ Examples
 >>> import navis.interfaces.insectbrain_db as ibdb
 >>> species = ibdb.get_available_species()
 
-### navis.interfaces.insectbrain_db.get_skeletons(x, max_threads=4)
+### navis.interfaces.insectbrain_db.get_skeletons(x, max_threads=4, errors=None)
 
 *function*
 
@@ -15554,6 +15572,9 @@ x :             str | int | list thereof
                 Name(s) or ID(s) of neurons you want to fetch.
 max_threads :   int
                 Number of parallel threads to use for fetching skeletons.
+errors :        "raise" | "log" | "ignore", optional
+                What to do if an individual skeleton fails to fetch.
+                Defaults to "log", or to "raise" under `navis.config.strict`.
 
 Returns
 -------
@@ -15564,7 +15585,7 @@ Examples
 >>> import navis.interfaces.insectbrain_db as ibdb
 >>> neurons = ibdb.get_skeletons('TUps2-2')
 
-### navis.interfaces.insectbrain_db.get_skeletons_species(species, max_threads=4)
+### navis.interfaces.insectbrain_db.get_skeletons_species(species, max_threads=4, errors=None)
 
 *function*
 
@@ -15579,6 +15600,9 @@ species :       str | int
                 Name or ID of a species to fetch skeletons for.
 max_threads :   int
                 Number of parallel threads to use for fetching skeletons.
+errors :        "raise" | "log" | "ignore", optional
+                What to do if an individual skeleton fails to fetch.
+                Defaults to "log", or to "raise" under `navis.config.strict`.
 
 Returns
 -------
@@ -15912,6 +15936,9 @@ Examples
 
 Clear the in-process metadata cache.
 
+Also cleared by navis.interfaces.clear_cache, along with every other
+interface cache.
+
 ## Blender API
 
 ### navis.interfaces.blender.Handler(scaling=0.0001, axes_order=[0, 1, 2], ax_translate=[1, 1, 1])
@@ -16219,16 +16246,6 @@ Hide everything BUT these objects.
 
 Delete neurons in the selection.
 
-## Cytoscape API
-
-### navis.interfaces.cytoscape.generate_network
-
-Requires the optional `navis.interfaces.cytoscape` dependencies, which were not installed when these docs were built.
-
-### navis.interfaces.cytoscape.get_client
-
-Requires the optional `navis.interfaces.cytoscape` dependencies, which were not installed when these docs were built.
-
 ## Allen MICrONS datasets
 
 ### navis.interfaces.microns.get_cave_client(datastack='cortex65')
@@ -16244,7 +16261,7 @@ datastack :     "cortex65" | "cortex35" | "layer 2/3" | str
                 are internally mapped to the corresponding sources: for example,
                 "minnie65_public" for "cortex65"
 
-### navis.interfaces.microns.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='cortex65', materialization='auto', parallel=True, max_threads=4, **kwargs)
+### navis.interfaces.microns.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='cortex65', materialization='auto', parallel=True, max_threads=4, errors=None, **kwargs)
 
 *function*
 
@@ -16277,6 +16294,9 @@ parallel :      bool
                 If True, will use parallel threads to fetch data.
 max_threads :   int
                 Max number of parallel threads to use.
+errors :        "raise" | "log" | "ignore", optional
+                What to do if an individual neuron fails to fetch. Defaults
+                to "log", or to "raise" under `navis.config.strict`.
 **kwargs
                 Keyword arguments are passed through to the initialization
                 of the ``navis.Meshes``.
@@ -16294,7 +16314,7 @@ navis.Neuronlist
 
 Get caveclient for H01 dataset.
 
-### navis.interfaces.h01.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='h01_c3_flat', materialization='auto', parallel=True, max_threads=4, **kwargs)
+### navis.interfaces.h01.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='h01_c3_flat', materialization='auto', parallel=True, max_threads=4, errors=None, **kwargs)
 
 *function*
 
@@ -16325,6 +16345,9 @@ parallel :      bool
                 If True, will use parallel threads to fetch data.
 max_threads :   int
                 Max number of parallel threads to use.
+errors :        "raise" | "log" | "ignore", optional
+                What to do if an individual neuron fails to fetch. Defaults
+                to "log", or to "raise" under `navis.config.strict`.
 **kwargs
                 Keyword arguments are passed through to the initialization
                 of the ``navis.Meshes``.

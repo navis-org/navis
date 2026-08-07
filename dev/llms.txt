@@ -649,25 +649,25 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-interfaces.txt
 #### NeuroMorpho API
 
 - `navis.interfaces.neuromorpho.get_neuron_info(x)` - Fetch neuron info by ID or by name.
-- `navis.interfaces.neuromorpho.get_neuron(x, parallel=True, max_threads=4, **kwargs)` - Fetch neuron by ID or by name.
+- `navis.interfaces.neuromorpho.get_neuron(x, parallel=True, max_threads=4, errors=None, **kwargs)` - Fetch neuron by ID or by name.
 - `navis.interfaces.neuromorpho.get_neuron_fields()` - List all available neuron fields.
 - `navis.interfaces.neuromorpho.get_available_field_values(field)` - List all possible values for given neuron field.
 
 #### neuPrint API
 
 - `navis.interfaces.neuprint.fetch_roi(roi, *, client=None)` - Fetch given ROI.
-- `navis.interfaces.neuprint.fetch_skeletons(x, *, with_synapses=False, dedup=True, heal=False, missing_swc='raise', parallel=True, max_threads=5, client=None)` - Fetch neuron skeletons as navis.Skeletons.
-- `navis.interfaces.neuprint.fetch_mesh_neuron(x, *, lod=1, with_synapses=False, dedup=True, missing_mesh='raise', parallel=True, max_threads=5, seg_source=None, client=None, **kwargs)` - Fetch neuron meshes as navis.Mesh.
+- `navis.interfaces.neuprint.fetch_skeletons(x, *, with_synapses=False, dedup=True, heal=False, missing_swc='raise', parallel=True, max_threads=5, errors=None, client=None)` - Fetch neuron skeletons as navis.Skeletons.
+- `navis.interfaces.neuprint.fetch_mesh_neuron(x, *, lod=1, with_synapses=False, dedup=True, missing_mesh='raise', parallel=True, max_threads=5, errors=None, seg_source=None, client=None, **kwargs)` - Fetch neuron meshes as navis.Mesh.
 - `navis.interfaces.neuprint.fetch_synapses(neuron_criteria, synapse_criteria=None, batch_size=10, *, dedup=True, nt=None, client=None)` - Fetch synapses for a neuron or selection of neurons.
 
 #### InsectBrain DB API
 
 - `navis.interfaces.insectbrain_db.authenticate(username=None, password=None, token=None)` - Authenticate against Insect Brain DB.
-- `navis.interfaces.insectbrain_db.get_brain_meshes(species, combine=False, max_threads=4)` - Fetch brain meshes for given species.
+- `navis.interfaces.insectbrain_db.get_brain_meshes(species, combine=False, max_threads=4, errors=None)` - Fetch brain meshes for given species.
 - `navis.interfaces.insectbrain_db.get_species_info(species)` - Get all info for given species.
 - `navis.interfaces.insectbrain_db.get_available_species()` - Get all info for given species.
-- `navis.interfaces.insectbrain_db.get_skeletons(x, max_threads=4)` - Fetch skeletons for given neuron(s).
-- `navis.interfaces.insectbrain_db.get_skeletons_species(species, max_threads=4)` - Fetch all skeletons for given species.
+- `navis.interfaces.insectbrain_db.get_skeletons(x, max_threads=4, errors=None)` - Fetch skeletons for given neuron(s).
+- `navis.interfaces.insectbrain_db.get_skeletons_species(species, max_threads=4, errors=None)` - Fetch all skeletons for given species.
 - `navis.interfaces.insectbrain_db.search_neurons(name=None, short_name=None, species=None, sex=None, arborization=None, partial_match=True)` - Search for neurons matching given parameters.
 
 #### Brain Image Library API
@@ -707,20 +707,15 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-interfaces.txt
 - `navis.interfaces.blender.ObjectList.hide_others()` - Hide everything BUT these objects.
 - `navis.interfaces.blender.ObjectList.delete()` - Delete neurons in the selection.
 
-#### Cytoscape API
-
-- `navis.interfaces.cytoscape.generate_network` - requires the optional `navis.interfaces.cytoscape` dependencies
-- `navis.interfaces.cytoscape.get_client` - requires the optional `navis.interfaces.cytoscape` dependencies
-
 #### Allen MICrONS datasets
 
 - `navis.interfaces.microns.get_cave_client(datastack='cortex65')` - Get caveclient for given datastack.
-- `navis.interfaces.microns.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='cortex65', materialization='auto', parallel=True, max_threads=4, **kwargs)` - Fetch neuron meshes.
+- `navis.interfaces.microns.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='cortex65', materialization='auto', parallel=True, max_threads=4, errors=None, **kwargs)` - Fetch neuron meshes.
 
 #### H01 dataset
 
 - `navis.interfaces.h01.get_cave_client(datastack='h01_c3_flat')` - Get caveclient for H01 dataset.
-- `navis.interfaces.h01.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='h01_c3_flat', materialization='auto', parallel=True, max_threads=4, **kwargs)` - Fetch neuron meshes.
+- `navis.interfaces.h01.fetch_neurons(x, *, lod=2, with_synapses=True, datastack='h01_c3_flat', materialization='auto', parallel=True, max_threads=4, errors=None, **kwargs)` - Fetch neuron meshes.
 
 ### Neuron types and functions
 

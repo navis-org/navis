@@ -301,6 +301,10 @@
          <lastmod>2026-08-07</lastmod>
     </url>
     <url>
+         <loc>https://navis-org.github.io/navis/stable/reference/navis/interfaces/</loc>
+         <lastmod>2026-08-07</lastmod>
+    </url>
+    <url>
          <loc>https://navis-org.github.io/navis/stable/reference/navis/meshes/</loc>
          <lastmod>2026-08-07</lastmod>
     </url>
@@ -390,6 +394,10 @@
     </url>
     <url>
          <loc>https://navis-org.github.io/navis/stable/reference/navis/graph/graph_utils/</loc>
+         <lastmod>2026-08-07</lastmod>
+    </url>
+    <url>
+         <loc>https://navis-org.github.io/navis/stable/reference/navis/interfaces/base/</loc>
          <lastmod>2026-08-07</lastmod>
     </url>
     <url>
@@ -622,6 +630,10 @@
     </url>
     <url>
          <loc>https://navis-org.github.io/navis/stable/reference/navis/utils/decorators/</loc>
+         <lastmod>2026-08-07</lastmod>
+    </url>
+    <url>
+         <loc>https://navis-org.github.io/navis/stable/reference/navis/utils/http/</loc>
          <lastmod>2026-08-07</lastmod>
     </url>
 </urlset>
