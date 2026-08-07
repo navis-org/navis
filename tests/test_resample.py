@@ -391,6 +391,81 @@ def test_dtypes_preserved(neuron):
     assert np.issubdtype(res.nodes.parent_id.dtype, np.integer)
 
 
+@pytest.mark.parametrize("resample_to", [0, -5, float("nan")])
+def test_rejects_non_positive_resolution(neuron, resample_to):
+    """`resample_to` is a distance; anything but a positive one is an error.
+
+    These used to surface from inside numpy as "negative dimensions are not
+    allowed" (or, on the fastcore path, abort a Rust worker).
+    """
+    with pytest.raises(ValueError, match="must be positive"):
+        navis.resample_skeleton(neuron, resample_to=resample_to, inplace=False)
+
+
+def test_infinite_resolution_keeps_only_the_fix_points(neuron):
+    """`inf` asks for the coarsest sampling there is: one edge per segment."""
+    res = navis.resample_skeleton(neuron, resample_to=float("inf"), inplace=False)
+
+    fix = set(navis.utils.make_iterable(neuron.root))
+    fix |= set(neuron.branch_points.node_id.values) | set(neuron.ends.node_id.values)
+    assert set(res.nodes.node_id.values) == fix
+    # Every node kept its original position - nothing was interpolated
+    orig = neuron.nodes.set_index("node_id")
+    assert np.allclose(
+        res.nodes.set_index("node_id")[["x", "y", "z"]].values,
+        orig.loc[res.nodes.node_id.values, ["x", "y", "z"]].values,
+    )
+
+
+@pytest.mark.parametrize("method", ["linear", "nearest"])
+def test_fastcore_methods_place_nodes_on_the_original_path(method):
+    """The fast path must not invent geometry: every node sits on the input.
+
+    "linear" interpolates along an edge and "nearest" picks one of its ends, so
+    either way a new node lies on a straight line between two original ones.
+    """
+    coords = np.array([[0, 0, 0], [10, 0, 0], [10, 10, 0], [10, 10, 10]], dtype=float)
+    n = toy_neuron(coords, [-1, 0, 1, 2])
+
+    res = navis.resample_skeleton(n, resample_to=3, inplace=False, method=method)
+
+    for x, y, z in res.nodes[["x", "y", "z"]].values:
+        # Distance from the point to the nearest original edge must be zero
+        d = []
+        for a, b in zip(coords[:-1], coords[1:]):
+            ab = b - a
+            t = np.clip(np.dot([x, y, z] - a, ab) / np.dot(ab, ab), 0, 1)
+            d.append(np.linalg.norm(a + t * ab - [x, y, z]))
+        assert min(d) == pytest.approx(0, abs=1e-6)
+
+
+def test_nearest_snaps_onto_original_nodes():
+    """"nearest" picks an original node rather than placing one between two."""
+    n = line(11)  # 10 units long, nodes at every integer x
+
+    res = navis.resample_skeleton(n, resample_to=2.5, inplace=False, method="nearest")
+
+    # Every output coordinate must be one of the input coordinates
+    assert set(np.round(res.nodes.x.values, 6)) <= set(np.arange(11, dtype=float))
+
+
+def test_fastcore_and_scipy_agree_on_linear(neuron):
+    """The fastcore path must reproduce what `interp1d(kind="linear")` gave.
+
+    "slinear" is a first-order spline, i.e. the same interpolation by a
+    different route - and it still goes through scipy, so it pins the fast path
+    to the implementation it replaced.
+    """
+    fast = navis.resample_skeleton(neuron, 125, inplace=False, method="linear")
+    slow = navis.resample_skeleton(neuron, 125, inplace=False, method="slinear")
+
+    assert fast.n_nodes == slow.n_nodes
+    for col in ("x", "y", "z", "radius"):
+        assert np.allclose(
+            np.sort(fast.nodes[col].values), np.sort(slow.nodes[col].values), atol=1e-3
+        )
+
+
 def test_skip_errors():
     """`skip_errors` falls back to the original nodes instead of raising."""
     # "quadratic" needs >= 3 points; a 2-node segment can't be fitted

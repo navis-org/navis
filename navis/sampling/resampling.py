@@ -42,6 +42,13 @@ INTERP_METHODS = (
     "next",
 )
 
+# The methods `navis-fastcore` answers on its own. Both are *local*: a new node's
+# value depends only on the two original nodes it landed between, which is
+# exactly what fastcore reports back (see `_resample_fastcore`) - so navis can
+# carry any column across without fastcore having to know what the column means.
+# The rest need the whole segment in hand and stay on `scipy.interpolate`.
+_FASTCORE_METHODS = ("linear", "nearest")
+
 # Set up logging
 logger = config.get_logger(__name__)
 
@@ -89,6 +96,12 @@ def resample_skeleton(x: 'core.NeuronObject',
     method :            str, optional
                         See `scipy.interpolate.interp1d` for possible
                         options. By default, we're using linear interpolation.
+                        "linear" and "nearest" run in `navis-fastcore` and are
+                        several times faster than the rest, which are fitted
+                        per segment in scipy. Note "nearest" does not place a
+                        node *between* two originals - it picks whichever is
+                        closer, coordinates and all - so it moves nodes onto the
+                        original ones rather than resampling the geometry.
     map_columns :       list of str, optional
                         Names of additional columns to carry over to the resampled
                         neuron. Numerical columns will be interpolated according to
@@ -99,7 +112,9 @@ def resample_skeleton(x: 'core.NeuronObject',
                         resampled copy is returned.
     skip_errors :       bool, optional
                         If True, will skip errors during interpolation and
-                        only print summary.
+                        only print summary. Only the scipy methods can fail
+                        this way, so this has no effect for "linear" and
+                        "nearest".
     preserve_volume :   bool, optional
                         By default, radii are interpolated point-wise like any
                         other numeric column, which does *not* conserve a
@@ -159,6 +174,17 @@ def resample_skeleton(x: 'core.NeuronObject',
     # Map units (non-str are just passed through)
     resample_to = x.map_units(resample_to, on_error="raise")
 
+    # Checked here rather than left to whichever backend runs: scipy surfaces a
+    # zero or a NaN from inside `np.repeat` as "negative dimensions are not
+    # allowed", which names neither navis nor the parameter, and fastcore aborts
+    # a Rust worker thread on a non-finite spacing instead of raising. `inf` is
+    # let through - it already means "one edge per segment", see
+    # `_resample_fastcore` - so this rejects exactly 0, negatives and NaN.
+    if not resample_to > 0:
+        raise ValueError(
+            f"`resample_to` is a distance and must be positive, got {resample_to}."
+        )
+
     if not inplace:
         x = x.copy()
 
@@ -183,9 +209,18 @@ def resample_skeleton(x: 'core.NeuronObject',
     # and topology - we restore them onto the resampled neuron further down.
     orig_vols = _segment_volumes(x) if preserve_volume else None
 
-    new_nodes = _resample_segments(
-        x, resample_to, method, num_cols, non_num_cols, skip_errors
-    )
+    # `node_map` - where each *old* node's references should now point - comes
+    # back only from fastcore; the scipy path has to fall back on a spatial query
+    # further down.
+    if method in _FASTCORE_METHODS:
+        new_nodes, node_map = _resample_fastcore(
+            x, resample_to, method, num_cols, non_num_cols
+        )
+    else:
+        new_nodes = _resample_segments(
+            x, resample_to, method, num_cols, non_num_cols, skip_errors
+        )
+        node_map = None
 
     # At this point, new node and parent IDs will be 64 bit integers and x/y/z columns will
     # be float 64. We will convert them back to the original dtypes but we have to
@@ -239,13 +274,26 @@ def resample_skeleton(x: 'core.NeuronObject',
     # Only the nodes something actually names: the query is priced per point,
     # and a skeleton with no soma, connectors or tags has nothing to ask about.
     named = schema.referenced_values(x, schema.get_axis(x, "nodes"))
-    if len(named):
+    if not len(named):
+        snap = None
+    elif node_map is not None:
+        # fastcore measures "closest" *along the neurite* rather than through
+        # space, which is the question actually being asked: a reference cannot
+        # be handed to a node on some other branch that merely happens to pass
+        # nearby. It rarely comes to that - on the example neurons 98% of the
+        # nodes the two disagree about are neighbours on the same stretch of
+        # cable - but the query below has no way to rule it out.
+        snap = (
+            named,
+            pd.Series(node_map, index=x.nodes.node_id.values)
+            .loc[named]
+            .values.astype(new_nodes.node_id.dtype),
+        )
+    else:
         tree = scipy.spatial.cKDTree(new_nodes[["x", "y", "z"]].values)
         old_pos = x.nodes.set_index("node_id", inplace=False)
         _, ix = tree.query(old_pos.loc[named, ["x", "y", "z"]].values)
         snap = (named, new_nodes.node_id.values[ix])
-    else:
-        snap = None
 
     # The soma comes out of the way for the swap. `_clear_temp_attr` drops one
     # whose node is not in the table, and that is exactly the state a rebuild
@@ -440,9 +488,90 @@ def _solve_scale(a, b, c, lo=0.1, hi=10.0):
     return np.clip(chosen, lo, hi)              # NaN (no positive root) stays NaN
 
 
-def _resample_segments(x, resample_to, method, num_cols, non_num_cols, skip_errors):
-    """Build the resampled node table for `x`.
+def _resample_fastcore(x, resample_to, method, num_cols, non_num_cols):
+    """Build the resampled node table with `navis-fastcore`.
 
+    fastcore resamples the whole skeleton in one call and reports, for each node
+    it hands back, the edge it was interpolated on - as a pair of row indices
+    into the *old* node table - and how far along that edge it sits. Those two
+    numbers are all it takes to carry a per-node column across, so radius, a
+    label and whatever `map_columns` names all follow from the same expression
+    and fastcore never has to know what a radius is. Nodes carried over
+    unchanged name themselves at a fraction of zero, so they need no special
+    case here.
+
+    Only the methods in `_FASTCORE_METHODS` come this way - see there.
+
+    Returns `(new_nodes, node_map)`. The latter points the other way - for each
+    *old* node, the new node closest to it along the neurite - and is what the
+    caller moves connectors, tags and the soma by. The two are not inverses: an
+    old node that ended up between two new ones has no row of its own.
+    """
+    nodes = x.nodes
+
+    # int64 rather than the table's own dtype: fastcore mints the new node IDs in
+    # whatever integer type it is handed and raises rather than wrap around,
+    # where navis' contract - see the overflow check in the caller - is to widen
+    # and carry on.
+    node_ids = nodes.node_id.values.astype(np.int64, copy=False)
+    parent_ids = nodes.parent_id.values.astype(np.int64, copy=False)
+    coords = nodes[["x", "y", "z"]].values.astype(np.float64, copy=False)
+
+    # `inf` asks for the coarsest sampling there is - one edge per segment - and
+    # has always been answered that way. fastcore takes a distance and rejects a
+    # non-finite one, so it is brought down to a distance that means the same
+    # thing: no segment is longer than the whole neuron, so at twice the cable
+    # length every segment rounds to a single division. Exact, not approximate.
+    spacing = resample_to
+    if not np.isfinite(spacing):
+        spacing = 2 * float(x.cable_length) + 1
+
+    new_ids, new_parents, new_coords, source, alpha, node_map = (
+        utils.fastcore.resample_skeleton(node_ids, parent_ids, coords, spacing)
+    )
+
+    # The two ends of the edge each new node landed on, and whichever of them it
+    # ended up nearer. `<=` breaks a tie towards the distal end, which is what
+    # `scipy.interpolate.interp1d(kind="nearest")` does - and hence `_nearest`,
+    # which the other methods still go through.
+    child, parent = source[:, 0], source[:, 1]
+    nearest = np.where(alpha <= 0.5, child, parent)
+
+    # "nearest" does not place a node *between* two others - it picks one of
+    # them, coordinates and all - so it takes the original positions rather than
+    # the interpolated ones fastcore hands back.
+    xyz = coords[nearest] if method == "nearest" else new_coords
+    data = {
+        "node_id": new_ids,
+        "parent_id": new_parents,
+        "x": xyz[:, 0],
+        "y": xyz[:, 1],
+        "z": xyz[:, 2],
+    }
+
+    for col in num_cols:
+        if col in ("x", "y", "z"):
+            continue
+        v = nodes[col].values.astype(np.float64)
+        data[col] = (
+            v[nearest]
+            if method == "nearest"
+            else v[child] * (1 - alpha) + v[parent] * alpha
+        )
+
+    # Non-numerical columns have nothing to interpolate between and take the
+    # nearest node's value whatever `method` says - as they do on the scipy path,
+    # which routes them through `_nearest` rather than through the interpolator.
+    for col in non_num_cols:
+        data[col] = nodes[col].values[nearest]
+
+    return pd.DataFrame(data), node_map
+
+
+def _resample_segments(x, resample_to, method, num_cols, non_num_cols, skip_errors):
+    """Build the resampled node table for `x` with `scipy.interpolate`.
+
+    The path for the methods fastcore cannot answer - see `_FASTCORE_METHODS`.
     Each of the neuron's small segments is resampled independently at
     `resample_to` intervals. The first and last node of a segment are always
     kept, which is what preserves roots, leafs and branch points.
@@ -499,8 +628,7 @@ def _resample_segments(x, resample_to, method, num_cols, non_num_cols, skip_erro
         if method == "cubic":
             keep |= seg_n_nodes <= 3
 
-        resampler = _resample_linear if method == "linear" else _resample_nonlinear
-        new_nodes = resampler(
+        new_nodes = _resample_nonlinear(
             flat, vals_flat, dist, seg_cable, seg_n_nodes, offsets, keep,
             resample_to, nodes, cols, n_num, method, skip_errors
         )
@@ -580,97 +708,18 @@ def _new_ids(first_id, last_id, n_pts, max_id):
     return node_id, parent_id
 
 
-def _resample_linear(flat, vals_flat, dist, seg_cable, seg_n_nodes, offsets, keep,
-                     resample_to, nodes, cols, n_num, method, skip_errors):
-    """Resample all segments at once using linear interpolation.
-
-    Rather than fitting an interpolator per segment, we map the segments onto a
-    single, strictly monotonic axis - segment `i` occupies `[i, i + 0.5]`, which
-    leaves a gap before segment `i + 1` - and interpolate each column with a
-    single `np.interp` call across the whole neuron.
-
-    Note this only works because linear interpolation is *local*: only the two
-    knots bracketing a sample contribute to it, so no segment can bleed into its
-    neighbours across the gaps. See `_resample_nonlinear` for the methods where
-    that does not hold.
-    """
-    resample = ~keep
-    n_pts = _sample_counts(seg_cable[resample], resample_to)
-    n_rows = n_pts - 1
-
-    # Rows are laid out in segment order (i.e. short and resampled segments
-    # interleaved) so that the row order matches the order of `.small_segments`
-    rows_per_seg = np.ones(len(seg_n_nodes), dtype=np.int64)
-    rows_per_seg[resample] = n_rows
-    seg_row_off = np.concatenate(([0], np.cumsum(rows_per_seg)))
-
-    node_id = np.empty(seg_row_off[-1], dtype=np.int64)
-    parent_id = np.empty(seg_row_off[-1], dtype=np.int64)
-    values = np.empty((seg_row_off[-1], len(cols)), dtype=np.float64)
-
-    first_id = flat[offsets[:-1]]
-    last_id = flat[offsets[1:] - 1]
-
-    # Segments that are too short collapse into a single row
-    short = seg_row_off[:-1][keep]
-    node_id[short] = first_id[keep]
-    parent_id[short] = last_id[keep]
-    values[short] = vals_flat[offsets[:-1][keep]]
-
-    if resample.any():
-        # Normalised sampling axis. N.B. we normalise by segment length rather
-        # than offsetting by the cumulative cable length: the latter grows large
-        # enough to eat into float64's mantissa, which would shift the
-        # tie-breaking of the nearest-neighbour interpolation below.
-        base = np.arange(len(seg_n_nodes), dtype=np.float64)
-        safe_cable = np.where(seg_cable > 0, seg_cable, 1)
-        xp = np.repeat(base, seg_n_nodes) + 0.5 * dist / np.repeat(safe_cable, seg_n_nodes)
-
-        # Sample points, i.e. `base + 0.5 * linspace(0, 1, n_pts)` per segment
-        pt_off = np.concatenate(([0], np.cumsum(n_pts)))
-        within = np.arange(pt_off[-1]) - np.repeat(pt_off[:-1], n_pts)
-        x_new = np.repeat(base[resample], n_pts) + 0.5 * within / np.repeat(n_pts - 1, n_pts)
-
-        samples = np.empty((pt_off[-1], len(cols)), dtype=np.float64)
-        for i in range(n_num):
-            samples[:, i] = np.interp(x_new, xp, vals_flat[:, i])
-
-        # Non-numerical columns are mapped by nearest neighbour, on the raw (i.e.
-        # un-normalised) distances and one segment at a time. That's a hair slower
-        # but reproduces scipy's tie-breaking at coincident nodes exactly, which
-        # the normalised axis would not.
-        if n_num < len(cols):
-            starts, ends = offsets[:-1][resample], offsets[1:][resample]
-            for i in range(len(n_pts)):
-                s, e = starts[i], ends[i]
-                samples[pt_off[i]:pt_off[i + 1], n_num:] = _nearest(
-                    dist[s:e],
-                    vals_flat[s:e, n_num:],
-                    np.linspace(0, seg_cable[resample][i], n_pts[i]),
-                )
-
-        # Each segment's last sample is only ever used as a parent, never as a
-        # node in its own right - so drop its values
-        not_last = np.ones(pt_off[-1], dtype=bool)
-        not_last[pt_off[1:] - 1] = False
-
-        rows = _rows_for(seg_row_off[:-1][resample], n_rows)
-        node_id[rows], parent_id[rows] = _new_ids(
-            first_id[resample], last_id[resample], n_pts, nodes.node_id.max() + 1
-        )
-        values[rows] = samples[not_last]
-
-    return {"node_id": node_id, "parent_id": parent_id, "values": values}
-
-
 def _resample_nonlinear(flat, vals_flat, dist, seg_cable, seg_n_nodes, offsets, keep,
                         resample_to, nodes, cols, n_num, method, skip_errors):
-    """Resample all segments using a non-linear interpolation method.
+    """Resample all segments with `scipy.interpolate.interp1d`.
 
-    Unlike linear (and nearest) interpolation, methods such as "cubic" are
-    *global*: the fitted curve is continuous across all knots. We must therefore
-    fit them one segment at a time - but we can at least fit all numerical
-    columns in one go by interpolating along `axis=0`.
+    Everything `_resample_fastcore` cannot answer comes here. Some of these
+    methods - "cubic" and the higher spline orders - are *global*: the fitted
+    curve is continuous across all knots, so they have to be fitted one segment
+    at a time rather than in a single pass over the neuron. The rest are local
+    but scipy-specific enough not to be worth reproducing, and ride along.
+
+    We can at least fit all numerical columns in one go, by interpolating along
+    `axis=0`.
     """
     resample = ~keep
     n_pts = _sample_counts(seg_cable[resample], resample_to)
@@ -734,14 +783,6 @@ def _resample_nonlinear(flat, vals_flat, dist, seg_cable, seg_n_nodes, offsets, 
         "parent_id": np.concatenate([c[1] for c in chunks]).astype(np.int64),
         "values": np.vstack([c[2] for c in chunks]),
     }
-
-
-def _rows_for(row_starts, n_rows):
-    """Row indices occupied by each segment, flattened."""
-    off = np.concatenate(([0], np.cumsum(n_rows)))
-    return np.repeat(row_starts, n_rows) + (
-        np.arange(off[-1]) - np.repeat(off[:-1], n_rows)
-    )
 
 
 def _nearest(dist, values, new_dist):
