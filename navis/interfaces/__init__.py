@@ -15,8 +15,8 @@ from .base import clear_cache, get_session  # noqa: F401
 
 __all__ = ["clear_cache", "get_session"]
 
-# The rpy2-based R interface was retired - point people at the file-based
-# replacement rather than letting them hit a bare ImportError.
+# Interfaces that have been retired - point people at the replacement rather
+# than letting them hit a bare ImportError.
 _RETIRED = {
     "r": (
         "The `rpy2`-based R interface (`navis.interfaces.r`) has been retired. "
@@ -27,7 +27,16 @@ _RETIRED = {
         "`navis.xform_brain`/`navis.mirror_brain` with navis-flybrains (were "
         "`r.xform_brain`/`r.mirror_brain`) and `navis.read_rda` (was "
         "`r.load_rda`)."
-    )
+    ),
+    "cytoscape": (
+        "The Cytoscape interface (`navis.interfaces.cytoscape`) has been "
+        "retired. It pushed a network into a running Cytoscape desktop over "
+        "cyREST via `py2cytoscape`, which is no longer maintained. Build the "
+        "graph with `navis.network2nx` and hand it to Cytoscape as a file "
+        "instead - `networkx.write_graphml(g, 'network.graphml')` - or drive "
+        "cyREST yourself; `navis.network2nx` produces a plain `networkx` "
+        "Graph, so nothing here was navis-specific."
+    ),
 }
 
 

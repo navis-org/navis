@@ -34,7 +34,6 @@ In addition {{ navis }} has interfaces to various external datasets and tools:
 - [neuPrint](#neuprint-api)
 - [InsectBrain DB](#insectbrain-db-api)
 - [Blender 3D](#blender-api)
-- [Cytoscape](#cytoscape-api)
 - [Allen MICrONS datasets](#allen-microns-datasets)
 <!-- - [Allen Cell Type Atlas]() -->
 
@@ -959,25 +958,6 @@ then returns [`ObjectList`][navis.interfaces.blender.ObjectList] which can be us
 | [`blender.ObjectList.unhide()`][navis.interfaces.blender.ObjectList.unhide] | {{ autosummary("navis.interfaces.blender.ObjectList.unhide") }} |
 | [`blender.ObjectList.hide_others()`][navis.interfaces.blender.ObjectList.hide_others] | {{ autosummary("navis.interfaces.blender.ObjectList.hide_others") }} |
 | [`blender.ObjectList.delete()`][navis.interfaces.blender.ObjectList.delete] | {{ autosummary("navis.interfaces.blender.ObjectList.delete") }} |
-
-### Cytoscape API
-
-!!! warning Deprecated
-    The Cytoscape API is depcrecated and will be removed in a future version of {{ navis }}.
-
-Functions to use [Cytoscape](https://cytoscape.org) via the cyREST API.
-
-_Not imported at top level! Must be imported explicitly:_
-
-```python
-from navis.interfaces import cytoscape
-```
-
-| Function                            | Description                            |
-|-------------------------------------|----------------------------------------|
-| [`cytoscape.generate_network()`][navis.interfaces.cytoscape.generate_network] | {{ autosummary("navis.interfaces.cytoscape.generate_network") }} |
-| [`cytoscape.get_client()`][navis.interfaces.cytoscape.get_client] | {{ autosummary("navis.interfaces.cytoscape.get_client") }} |
-
 
 ### Allen MICrONS datasets
 

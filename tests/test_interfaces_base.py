@@ -233,8 +233,8 @@ def test_missing_module_survives_copy_and_pickle():
 def test_interfaces_import_without_their_dependencies():
     """Every data-source interface must import on a bare install.
 
-    `vfb`, `allen_celltypes` and `cytoscape` used to raise at import - and `vfb`
-    additionally opened a connection to VFB's servers while doing so.
+    `vfb` and `allen_celltypes` used to raise at import - and `vfb` additionally
+    opened a connection to VFB's servers while doing so.
     """
     import importlib
 
@@ -247,9 +247,34 @@ def test_interfaces_import_without_their_dependencies():
         "insectbrain_db",
         "allen_celltypes",
         "vfb",
-        "cytoscape",
     ):
         importlib.import_module(f"navis.interfaces.{name}")
+
+
+# -----------------------------------------------------------------------------
+# retired interfaces
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["r", "cytoscape"])
+def test_retired_interface_points_at_the_replacement(name):
+    """A retired interface must say what to do instead, not just fail."""
+    from navis import interfaces
+
+    with pytest.raises(ImportError) as excinfo:
+        getattr(interfaces, name)
+
+    # An `AttributeError` would be swallowed by `hasattr`, and the import
+    # machinery would then report a bare "cannot import name".
+    assert not isinstance(excinfo.value, AttributeError)
+    assert name in str(excinfo.value)
+
+
+def test_unknown_interface_still_raises_attributeerror():
+    from navis import interfaces
+
+    with pytest.raises(AttributeError):
+        interfaces.not_a_real_interface
 
 
 # -----------------------------------------------------------------------------
