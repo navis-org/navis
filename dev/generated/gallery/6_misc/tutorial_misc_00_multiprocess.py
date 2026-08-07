@@ -75,6 +75,87 @@ time_func(nl.resample, 125, parallel=True, n_cores=2)
 #     but doing so will likely over-subscribe the CPU and end up slowing things down.
 
 # %%
+# ## How many threads each worker gets
+#
+# `n_cores` is only half the story. {{ navis }} spreads work over *processes*, but several
+# of the libraries underneath it - [navis-fastcore](https://github.com/schlegelp/fastcore-rs)
+# above all, plus the BLAS/OpenMP pools under numpy - spread work over *threads*, and
+# by default each takes every core it can see. Nothing tells a worker process that it
+# is one of twenty, so without help the two multiply:
+#
+# ```python
+# # 20 workers on a 224-core node, each building a 224-thread pool:
+# # 4480 threads over 224 cores.
+# navis.heal_skeleton(nl, parallel=True, n_cores=20)
+# ```
+#
+# That is not a theoretical cost. Measured on exactly that node, healing 40 skeletons
+# of 200k nodes each:
+#
+# | | wall | CPU |
+# |---|---|---|
+# | 1 worker, unlimited threads | 5.10 s | 1x |
+# | 20 workers, unlimited threads | 6.71 s | 2.3x |
+# | 20 workers, 1 thread each | 3.60 s | 0.4x |
+#
+# Parallelising made it *slower* than not parallelising at all, at more than double
+# the CPU.
+#
+# {{ navis }} handles this for you: each worker is told how many threads it may use, and
+# by default that is `cpu_count() // n_cores` - the machine divided up rather than
+# handed to each worker whole. Override it with `inner_max_num_threads`:
+
+# %%
+# ```python
+# # One thread per worker
+# with navis.set_parallel_backend(inner_max_num_threads=1):
+#     navis.heal_skeleton(nl, parallel=True, n_cores=20)
+#
+# # ... or globally, alongside the backend
+# navis.set_parallel_backend("joblib", inner_max_num_threads=1)
+# ```
+#
+# !!! tip "When *you* are the one running the pool"
+#     {{ navis }} can only cap workers it started. If you are running your own
+#     `multiprocessing.Pool` with {{ navis }} inside it, call
+#     [`navis.set_num_threads`][] in each worker - it does the same thing for the
+#     current process:
+#
+#     ```python
+#     def work(neuron):
+#         navis.set_num_threads(1)     # or once, in the pool's `initializer`
+#         return navis.heal_skeleton(neuron)
+#     ```
+#
+# !!! note "Cluster backends are left alone"
+#     `cpu_count() // n_cores` is arithmetic about *your* machine and says nothing
+#     about the node a SLURM job lands on. On the `dask` and `submitit` backends the
+#     automatic cap is skipped - a worker's core budget was set by whatever allocated
+#     it. An explicit `inner_max_num_threads` still applies.
+
+# %%
+# ## Is it worth parallelizing at all?
+#
+# Not always, and the answer is not a property of {{ navis }} - it depends on the
+# function, on your data and on the machine. Three things to weigh:
+#
+# - **The profile shifts with the work.** Many small tasks want *fewer* threads per
+#   worker: there is not enough parallel work inside one neuron to fill the threads it
+#   claims, and the hand-off costs more than it saves. A few large tasks want more.
+#   A 224-core node behaves nothing like an 8-core laptop, so no default is right
+#   everywhere - which is why `inner_max_num_threads` exists.
+# - **Some functions are not worth parallelizing, period.** If a function is already
+#   threaded internally - anything fastcore-backed, which is most of the graph and
+#   geodesic machinery - `parallel=True` adds a layer of concurrency on top of one
+#   that was already using your cores. And if a function is fast relative to the cost
+#   of moving a neuron in and out of a worker, that transfer *is* the runtime. The
+#   timings at the top of this page show both effects on small example neurons.
+# - **Measure before committing.** `%timeit` on a slice of your own data, at two or
+#   three settings, will tell you more than any rule of thumb.
+#
+# The case that reliably pays is [`navis.Pipeline`][] - which is next.
+
+# %%
 # ## Parallelizing generic functions
 #
 # For non-{{ navis }} functions you can use [`NeuronList.apply`][navis.NeuronList.apply] to parallelize them.
@@ -122,7 +203,14 @@ time_func (
 #
 # A [`navis.Pipeline`][] is that, made readable. It fuses consecutive per-neuron steps
 # into a *single* task, so each neuron makes the trip once no matter how many steps
-# there are. Build one by naming {{ navis }} functions directly:
+# there are.
+#
+# That is also why pipelines are the case where parallelism reliably pays: the transfer
+# cost is fixed per neuron, so fusing steps buys you more work against the same
+# overhead. The more steps you chain, the better the trade gets - which is the opposite
+# of calling each function with `parallel=True` in turn.
+#
+# Build one by naming {{ navis }} functions directly:
 
 pipe = (
     navis.Pipeline()

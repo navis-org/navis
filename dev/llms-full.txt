@@ -320,8 +320,13 @@ Examples
 
 Return estimated memory usage of this neuron.
 
-Works by going over attached data (numpy arrays and pandas DataFrames
-such as vertices, nodes, etc) and summing up their size in memory.
+Works by going over the data the neuron holds - numpy arrays and pandas
+DataFrames such as vertices, nodes, anything you attached - and summing
+up their size in memory. Data held *inside* something else counts too:
+a mesh's skeleton, the snapshot a masked neuron will be restored from,
+and the arrays provenance keeps per axis. Caches built by other
+libraries (`trimesh`, igraph, networkx) do not - they are temporary and
+rebuilt on demand.
 
 Parameters
 ----------
@@ -421,6 +426,253 @@ inplace :   bool
 Returns
 -------
 Neuron
+
+### navis.BaseNeuron.attach(name, data, axis=None, *, ids=None, on_rebuild='drop')
+
+*function*
+
+Attach data that selections should carry along.
+
+Anything attached this way is subset, filtered and re-indexed by
+`subset_neuron`, `mask` and everything built on them, exactly as the
+neuron's own tables are - it is the same declaration
+(`navis/core/schema.py`), just made per-neuron instead of per-class.
+
+Parameters
+----------
+name :      str
+            Attribute to hang the data off, e.g. `n.compartment`.
+data :      array | DataFrame | None
+            One entry per element of `axis`. `None` detaches.
+axis :      str, optional
+            Axis the data is aligned to - `"vertices"`, `"nodes"`,
+            `"connectors"`, ... Must be one the neuron has; a name that
+            is not there raises rather than declaring it, since nothing
+            would ever select it. Leave it out for data that brings its
+            own elements and becomes an axis in its own right.
+ids :       str, optional
+            Column of `data` holding stable element IDs, when it is a
+            new axis. Without it elements are identified by position,
+            which is fine but means references to them have to be
+            remapped rather than merely filtered.
+on_rebuild : "drop" | "carry"
+            What happens when a function *rebuilds* the axis instead of
+            selecting from it - navis.resample_skeleton
+            and friends. Some of the elements are then new, and there is
+            no value to carry onto them, so the default is to let the
+            data go with a warning. `"carry"` keeps the values of the
+            elements the rebuild says it kept, and still drops if any
+            element turns out to be genuinely new.
+
+Examples
+--------
+Carry a per-vertex label through a mask
+
+>>> import navis, numpy as np
+>>> n = navis.example_neurons(1, kind='mesh')
+>>> n.attach('compartment', np.arange(n.n_vertices), axis='vertices')
+>>> with navis.masked(n, np.arange(100)):
+...     len(n.compartment) == n.n_vertices < 100
+True
+
+See Also
+--------
+navis.BaseNeuron.attach_link
+            For data that *names* elements of another axis.
+
+### navis.BaseNeuron.attach_link(name, mapping, *, source, target_axis, target='', column=None, cascade='propagate', dangling='drop', on_rebuild='drop')
+
+*function*
+
+Declare that some of this neuron's data names elements of an axis.
+
+A link is one array wearing two hats: aligned to `source`, so a
+selection there carries it, and naming elements of `target_axis`, so a
+selection *there* filters and re-indexes it. See
+`navis/core/schema.py`.
+
+Parameters
+----------
+name :          str
+                Names the far end, for `get_mapping` and friends.
+mapping :       str
+                Attribute the values live in - `"vertex_id"`, or the
+                table they are a column of when `column` is given.
+source :        str
+                Axis the mapping is aligned to.
+target_axis :   str
+                Axis its values name.
+target :        str, optional
+                Attribute holding the object that owns `target_axis`.
+                Empty means this neuron.
+column :        str, optional
+                Column of `mapping` holding the values, when it is a
+                table rather than an array of its own.
+cascade :       "propagate" | "keep"
+                What a selection of `source` does to the far end.
+dangling :      "drop" | "blank"
+                What becomes of a source element whose target is gone.
+on_rebuild :    "drop" | "snap"
+                What happens when a function *rebuilds* the target axis
+                instead of selecting from it. A different question from
+                `dangling`: the target is not gone, it moved, and
+                `"snap"` follows it to wherever the rebuild says
+                references should now point. This is what keeps a
+                connector on its branch through
+                navis.resample_skeleton.
+
+Examples
+--------
+A mitochondria table that sits on the nodes, and goes when they do
+
+>>> import navis, numpy as np, pandas as pd
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> mito = pd.DataFrame({'mito_id': np.arange(20),
+...                      'node_id': n.nodes.node_id.values[:20]})
+>>> n.attach('mito', mito, ids='mito_id')
+>>> n.attach_link('nodes', 'mito', column='node_id',
+...               source='mito', target_axis='nodes', cascade='keep')
+
+See Also
+--------
+navis.BaseNeuron.attach
+            For data that is merely aligned to an axis.
+
+### navis.BaseNeuron.detach(name)
+
+*function*
+
+Drop attached data, and any links or declarations that named it.
+
+### navis.BaseNeuron.attached()
+
+*function*
+
+What `attach` and `attach_link` have put on this neuron.
+
+Only what *this* neuron carries beyond its type: the axes every
+navis.Skeleton has are a property of the class, not
+something to report per neuron. Attached data is otherwise invisible -
+it is a plain attribute, and nothing in the summary mentions it.
+
+Returns
+-------
+pandas.DataFrame
+            One row per attachment, with columns:
+
+            - `name`: the attribute it hangs off, or - for a link -
+              the `source->target` key `get_mapping` addresses it by
+            - `kind`: `"aligned"` (one value per element of `axis`),
+              `"axis"` (elements of its own), or `"link"`
+            - `axis`: the axis it is aligned to
+            - `names`: for a link, the axis its values name
+            - `shape`: shape of the data, `None` if it is not set -
+              which for a link is what says it cannot be followed yet
+
+Examples
+--------
+>>> import navis, numpy as np
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> n.attach('score', np.arange(n.n_nodes), axis='nodes')
+>>> n.attached()[['name', 'kind', 'axis']]
+    name     kind   axis
+0  score  aligned  nodes
+
+See Also
+--------
+navis.NeuronList.attached
+            The same, summarised over a list of neurons.
+
+### navis.BaseNeuron.get_mapping(source, target)
+
+*function*
+
+Map every element of one endpoint onto an element of another.
+
+Composes links, so a correspondence nobody declared directly - a mesh's
+connectors onto its skeleton's nodes, via the vertices they sit on - is
+still available. Links describe what is there; they do not build it, so
+this raises rather than generating a mapping that is missing.
+
+Parameters
+----------
+source :    str
+            Endpoint to map *from*: one of this neuron's axes, or the
+            name of a link on it.
+target :    str
+            Endpoint to map *to*.
+
+Returns
+-------
+np.ndarray
+            One entry per `source` element, in its order, naming a
+            `target` element - an ID where the target axis has IDs, an
+            index where it does not. `-1` where it maps to nothing.
+
+Raises
+------
+navis.core.schema.MappingError
+            If the mapping is not there, or describes elements that have
+            changed since.
+
+Examples
+--------
+Which skeleton node does each of a mesh's vertices belong to? Note the
+skeleton has to exist before there is a mapping onto it to read.
+
+>>> import navis
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> m.skeleton is not None
+True
+>>> len(m.get_mapping('vertices', 'skeleton')) == m.n_vertices
+True
+
+See Also
+--------
+navis.BaseNeuron.select_across
+            For the other direction, which is a selection rather than a
+            mapping.
+
+### navis.BaseNeuron.select_across(source, target, selection)
+
+*function*
+
+Which `source` elements map into a selection of `target` elements.
+
+Links are directed and only followed forwards - a mesh vertex has one
+skeleton node, but a node has many vertices, so backwards is not a
+mapping at all. As a *selection* it is perfectly well defined, and that
+is what this answers.
+
+Parameters
+----------
+source :    str
+            Endpoint to select *on*, i.e. what the mask is over.
+target :    str
+            Endpoint `selection` refers to.
+selection : list | np.ndarray
+            Anything navis.subset_neuron accepts for `target`:
+            element IDs, indices, or a boolean mask.
+
+Returns
+-------
+np.ndarray
+            Boolean mask over `source`, ready to hand to
+            navis.subset_neuron or navis.masked.
+
+Examples
+--------
+Which vertices belong to the first 50 nodes of a mesh's skeleton?
+
+>>> import navis
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> nodes = m.skeleton.nodes.node_id.values[:50]
+>>> int(m.select_across('vertices', 'skeleton', nodes).sum())
+364
+
+See Also
+--------
+navis.BaseNeuron.get_mapping
 
 ## General Neuron properties
 
@@ -2487,6 +2739,39 @@ Examples
 >>> # Apply resampling function
 >>> nl_rs = nl.apply(navis.resample_skeleton, resample_to=1000, inplace=False)
 
+### navis.NeuronList.attached()
+
+*function*
+
+Summarise what `attach` and `attach_link` have put on these neurons.
+
+Attached data is per *neuron*, so a list can perfectly well be ragged -
+half its neurons carrying a `mito` table and half not, or the same name
+aligned to different axes. This says so rather than hiding it: one row
+per distinct attachment, and `neurons` counts how many carry it.
+
+Returns
+-------
+pandas.DataFrame
+            Columns as navis.BaseNeuron.attached, with `shape`
+            replaced by `neurons` - the number carrying that attachment.
+            Empty if nothing is attached to anything.
+
+Examples
+--------
+>>> import navis, numpy as np
+>>> nl = navis.example_neurons(3, kind='skeleton')
+>>> for n in nl[:2]:
+...     n.attach('score', np.arange(n.n_nodes), axis='nodes')
+>>> nl.attached()
+    name     kind   axis names  neurons
+0  score  aligned  nodes              2
+
+See Also
+--------
+navis.BaseNeuron.attached
+            The per-neuron version, which also gives you the shapes.
+
 ### navis.NeuronList.head(N=5)
 
 *function*
@@ -4253,7 +4538,7 @@ SomaEllipsoid(center=[...], radii=[...], inscribed_radius=..., n_vertices=...)
 >>> m.soma_pos is not None
 True
 
-### navis.form_factor(x, start=-3, stop=3, num=601, parallel=False, n_cores=2, progress=True)
+### navis.form_factor(x, start=-3, stop=3, num=601, parallel=False, n_cores=None, progress=True)
 
 *function*
 
@@ -4280,12 +4565,12 @@ start/stop/num : int
             be `np.logspace(start, stop, num)`.
 parallel :  bool
             Whether to use multiple cores when `x` is a NeuronList.
-n_cores :   bool
+n_cores :   int, optional
             Number of cores to use when `x` is a NeuronList and
-            `parallel=True`. Even on a single core this function makes
-            heavy use of numpy which itself uses multiple threads - it is
-            therefore not advisable to use all your cores as this would
-            create a bottleneck.
+            `parallel=True`. Defaults to half the available cores. Even on
+            a single core this function makes heavy use of numpy which
+            itself uses multiple threads - it is therefore not advisable to
+            use all your cores as this would create a bottleneck.
 progress :  bool
             Whether to show a progress bar.
 
@@ -6015,7 +6300,7 @@ Examples
 >>> # Keep everything but the longest neurite
 >>> ln3 = navis.longest_neurite(n, n=slice(1, None), reroot_soma=True)
 
-### navis.prune_by_strahler(x, to_prune, inplace=False, reroot_soma=True, force_strahler_update=False, relocate_connectors=False)
+### navis.prune_by_strahler(x, to_prune, inplace=False, reroot_soma=True, force_strahler_update=False)
 
 *function*
 
@@ -6042,10 +6327,6 @@ inplace :       bool, optional
 force_strahler_update : bool, optional
                         If True, will force update of Strahler order even
                         if already exists in node table.
-relocate_connectors : bool, optional
-                      If True, connectors on removed nodes will be
-                      reconnected to the closest still existing node.
-                      Works only in child->parent direction.
 parallel :      bool
                 If True and input is NeuronList, distribute the
                 work across multiple processes. See
@@ -7566,7 +7847,7 @@ navis.meshes.simplify_mesh_blender
 
 ## Comparing morphology
 
-### navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})
+### navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
 
 *function*
 
@@ -7635,7 +7916,7 @@ approx_nn :     bool
                 Impact depends on the use case - testing highly recommended!
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`.
+                half the available cores.
 precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                 Precision for scores. Defaults to 64 bit (double) floats.
                 This is useful to reduce the memory footprint for very large
@@ -7690,7 +7971,7 @@ navis.nblast_smart
 navis.synblast
             A synapse-based variant of NBLAST.
 
-### navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', limit_dist='auto', approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})
+### navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', limit_dist='auto', approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
 
 *function*
 
@@ -7777,7 +8058,7 @@ precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                 sufficient.
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`.
+                half the available cores.
 progress :      bool
                 Whether to show progress bars.
 backend :       str, optional
@@ -7827,7 +8108,7 @@ navis.nblast_allbyall
 navis.synblast
             A synapse-based variant of NBLAST.
 
-### navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})
+### navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
 
 *function*
 
@@ -7843,7 +8124,7 @@ x :             Dotprops | NeuronList
                 similar sampling resolutions.
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`.
+                half the available cores.
 use_alpha :     bool, optional
                 Emphasizes neurons' straight parts (backbone) over parts
                 that have lots of branches.
@@ -7928,7 +8209,7 @@ See Also
 navis.nblast
             For generic query -> target nblasts.
 
-### navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', limit_dist=None, precision=64, n_cores=2, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})
+### navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', limit_dist=None, precision=64, n_cores=None, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})
 
 *function*
 
@@ -8075,7 +8356,7 @@ navis.nblast_smart
 navis.nbl.extract_matches
             Pulls top matches out of an existing score matrix.
 
-### navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})
+### navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})
 
 *function*
 
@@ -8157,7 +8438,7 @@ approx_nn :     bool
                 Impact depends on the use case - testing highly recommended!
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`. This should ideally be an even
+                half the available cores. This should ideally be an even
                 number as that allows optimally splitting queries onto
                 individual processes. Also note that due to multiple layers
                 of concurrency using all available cores might not be the
@@ -8225,7 +8506,7 @@ navis.nblast_smart
 navis.synblast
             A synapse-based variant of NBLAST.
 
-### navis.synblast(query, target, by_type=False, cn_types=None, scores='forward', normalized=True, smat='auto', n_cores=2, progress=True, backend=None)
+### navis.synblast(query, target, by_type=False, cn_types=None, scores='forward', normalized=True, smat='auto', n_cores=None, progress=True, backend=None)
 
 *function*
 
@@ -8260,7 +8541,7 @@ scores :        'forward' | 'mean' | 'min' | 'max'
 
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`.
+                half the available cores.
 normalized :    bool, optional
                 Whether to return normalized SynBLAST scores.
 smat :          str | pd.DataFrame, optional
@@ -11737,7 +12018,7 @@ See the `to_(multi)digraph` method for output.
 
 ## Connectivity metrics
 
-### navis.connectivity_similarity(adjacency, metric='vertex_normalized', threshold=None, n_cores=2, **kwargs)
+### navis.connectivity_similarity(adjacency, metric='vertex_normalized', threshold=None, n_cores=None, **kwargs)
 
 *function*
 
@@ -11786,7 +12067,7 @@ metric :            'cosine' | 'rank_index'| 'matching_index' | 'matching_index_
                     detailed explanation.
 threshold :         int, optional
                     Connections weaker than this will be set to zero.
-n_cores :           int
+n_cores :           int, optional
                     Number of parallel processes to use. Defaults to half
                     the available cores.
 **kwargs
@@ -11932,7 +12213,7 @@ Examples
 >>> # Get overlapping cable within 2 microns
 >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
 
-### navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=2)
+### navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=None)
 
 *function*
 
@@ -11981,7 +12262,7 @@ restrict_cn :       int | list | None
                     If None, will use all connector types. Use either
                     single integer or list. E.g. `restrict_cn=[0, 1]`
                     to use only pre- and postsynapses.
-n_cores :           int
+n_cores :           int, optional
                     Number of parallel processes to use. Defaults to half
                     the available cores.
 
@@ -12044,7 +12325,7 @@ parallel :          "auto" | bool | int
                      - "auto" (default): will use parallel processing if
                         more than 200 SWCs are imported.
                       - Integers will be interpreted as the number of
-                        processes to use. Defaults to `os.cpu_count() // 2`.
+                        processes to use. Defaults to half the available cores.
                       - False will use a single process.
                     Ignored for tar archives. Please note that spawning
                     processes incurs an overhead and might not be faster
@@ -12182,7 +12463,7 @@ parallel :          "auto" | bool | int,
                     Spawning and joining processes causes overhead and is
                     considerably slower for imports of small numbers of
                     neurons. Integer will be interpreted as the number of
-                    cores (otherwise defaults to `os.cpu_count() - 2`).
+                    cores (otherwise defaults to half the available cores).
 fmt :               str
                     Formatter to specify how filenames are parsed into neuron
                     attributes. Some illustrative examples:
@@ -12275,7 +12556,7 @@ parallel :          "auto" | bool | int,
                     Spawning and joining processes causes overhead and is
                     considerably slower for imports of small numbers of
                     neurons. Integer will be interpreted as the number of
-                    cores (otherwise defaults to `os.cpu_count() - 2`).
+                    cores (otherwise defaults to half the available cores).
 output :            "neuron" | "volume" | "trimesh"
                     Determines function's output - see `Returns`.
 errors :            "raise" | "log" | "ignore"
@@ -12373,7 +12654,7 @@ parallel :          "auto" | bool | int,
                     Spawning and joining processes causes overhead and is
                     considerably slower for imports of small numbers of
                     neurons. Integer will be interpreted as the number of
-                    cores (otherwise defaults to `os.cpu_count() - 2`).
+                    cores (otherwise defaults to half the available cores).
 fmt :               str
                     Formatter to specify how filenames are parsed into neuron
                     attributes. Some illustrative examples:
@@ -12459,7 +12740,7 @@ parallel :          "auto" | bool | int
                     considerably slower for imports of small numbers of
                     neurons. Integer will be interpreted as the
                     number of cores (otherwise defaults to
-                    `os.cpu_count() // 2`).
+                    half the available cores).
 precision :         int [8, 16, 32, 64] | None
                     Precision for data. Defaults to 32 bit integers/floats.
                     If `None` will let pandas infer data types - this
@@ -12514,7 +12795,7 @@ parallel :          "auto" | bool | int
                     considerably slower for imports of small numbers of
                     neurons. Integer will be interpreted as the
                     number of cores (otherwise defaults to
-                    `os.cpu_count() // 2`).
+                    half the available cores).
 precision :         int [8, 16, 32, 64] | None
                     Precision for data. Defaults to 32 bit integers/floats.
                     If `None` will let pandas infer data types - this
@@ -12716,7 +12997,7 @@ parallel :          "auto" | bool | int
                     considerably slower for imports of small numbers of
                     neurons. Integer will be interpreted as the
                     number of cores (otherwise defaults to
-                    `os.cpu_count() // 2`).
+                    half the available cores).
 errors :            "raise" | "log" | "ignore"
                     If "log" or "ignore", errors will not be raised and the
                     mesh will be skipped. Can result in empty output.
@@ -13454,7 +13735,7 @@ Examples
 >>> # Revert to old level
 >>> set_loggers(lvl)
 
-### navis.set_parallel_backend(backend=None, *, n_workers=None, isolated=None, pickles_by_value=None, chunks_per_worker=None, marshals_exceptions=None)
+### navis.set_parallel_backend(backend=None, *, n_workers=None, inner_max_num_threads=None, isolated=None, pickles_by_value=None, chunks_per_worker=None, shares_machine=None, marshals_exceptions=None)
 
 *function*
 
@@ -13476,6 +13757,20 @@ backend :   str | ParallelBackend | executor, optional
             parameters of its own.
 n_workers : int, optional
             Default number of workers. `None` leaves it unchanged.
+inner_max_num_threads : int | "auto", optional
+            How many threads each worker may use for its *own* native
+            parallelism - navis-fastcore's thread pool, and the BLAS/OpenMP
+            pools under numpy. navis spreads work over processes and those
+            libraries spread it over threads; left alone both take the
+            whole machine, and the two multiply.
+
+            `"auto"` (the default) divides the machine up:
+            `cpu_count() // n_cores` threads apiece. Pass a number to
+            override that, or `0` to cap nothing at all. `None` - the
+            default *here* - leaves the setting as it is.
+
+            Only applies to workers on this machine; what a cluster worker
+            may use was decided by whatever allocated it.
 isolated :  bool, optional
             Only for a bare executor: whether its workers have their own
             address space. Inferred where we recognise the executor,
@@ -13489,6 +13784,13 @@ chunks_per_worker : int, optional
             right on one machine and wasteful across a network - recognised
             remote executors are bundled automatically, so this is for
             tuning that or for an executor we don't recognise.
+shares_machine : bool, optional
+            Only for a bare executor: whether its workers compete with each
+            other for this machine's cores, which is what lets navis divide
+            the thread budget between them. Inferred for the stdlib pools
+            and loky; assumed False for an executor we don't recognise,
+            since capping a cluster's workers to a slice of this machine
+            would be a real loss.
 marshals_exceptions : bool, optional
             Only for a bare executor: whether an exception raised in a
             worker arrives here as itself. Set False for a transport that
@@ -13500,6 +13802,12 @@ Returns
 -------
 A restorer that can be used as a context manager to scope the change.
 
+See Also
+--------
+navis.set_num_threads
+            Cap the threads used by *this* process - for when you are the
+            one running the pool and navis is inside it.
+
 Examples
 --------
 >>> import navis
@@ -13509,6 +13817,12 @@ Examples
 >>> with navis.set_parallel_backend('serial'):
 ...     nl = navis.example_neurons(2)
 >>> _ = navis.set_parallel_backend('auto')
+
+Give each worker a single thread, for work that has little internal
+parallelism to spread over more:
+
+>>> with navis.set_parallel_backend(n_workers=2, inner_max_num_threads=1):
+...     nl = navis.example_neurons(2)
 
 ### navis.list_parallel_backends()
 
@@ -13525,6 +13839,56 @@ Examples
 >>> import navis
 >>> 'serial' in navis.list_parallel_backends()
 True
+
+### navis.set_num_threads(n)
+
+*function*
+
+Cap the number of threads navis and its dependencies use.
+
+Applies to *this* process: navis-fastcore's thread pool, and the BLAS /
+OpenMP pools underneath numpy and friends.
+
+You do not need this for `parallel=True` - navis caps its own workers (see
+navis.set_parallel_backend). It is for the other direction: when
+**you** are the one running the pool and navis is the thing inside it,
+nothing tells a worker that it is one of twenty, so it has to be told.
+
+```python
+import multiprocessing as mp
+
+def work(neuron):
+    navis.set_num_threads(1)      # or once, in the pool's `initializer`
+    return navis.heal_skeleton(neuron)
+
+with mp.Pool(20) as pool:
+    healed = pool.map(work, neurons)
+```
+
+Call it before doing any real work. Thread pools are built once, lazily, by
+whatever needs one first; this can size a pool that does not exist yet but
+cannot resize one that does. Repeating the same value is free, which is what
+makes it safe in a worker initializer that fires more than once.
+
+Parameters
+----------
+n :         int
+            Maximum number of threads. Must be >= 1.
+
+See Also
+--------
+navis.set_parallel_backend
+            Where `parallel=True` runs its work, and how many threads each
+            of its workers may use.
+
+Examples
+--------
+>>> import navis
+>>> navis.set_num_threads(1)                          # doctest: +SKIP
+
+Skipped rather than run: thread pools are built once per process, so a
+doctest that really capped this one would hand every later test a
+single-threaded interpreter and no way to get it back.
 
 ### navis.set_default_connector_colors(x)
 

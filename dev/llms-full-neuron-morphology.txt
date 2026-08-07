@@ -208,7 +208,7 @@ SomaEllipsoid(center=[...], radii=[...], inscribed_radius=..., n_vertices=...)
 >>> m.soma_pos is not None
 True
 
-### navis.form_factor(x, start=-3, stop=3, num=601, parallel=False, n_cores=2, progress=True)
+### navis.form_factor(x, start=-3, stop=3, num=601, parallel=False, n_cores=None, progress=True)
 
 *function*
 
@@ -235,12 +235,12 @@ start/stop/num : int
             be `np.logspace(start, stop, num)`.
 parallel :  bool
             Whether to use multiple cores when `x` is a NeuronList.
-n_cores :   bool
+n_cores :   int, optional
             Number of cores to use when `x` is a NeuronList and
-            `parallel=True`. Even on a single core this function makes
-            heavy use of numpy which itself uses multiple threads - it is
-            therefore not advisable to use all your cores as this would
-            create a bottleneck.
+            `parallel=True`. Defaults to half the available cores. Even on
+            a single core this function makes heavy use of numpy which
+            itself uses multiple threads - it is therefore not advisable to
+            use all your cores as this would create a bottleneck.
 progress :  bool
             Whether to show a progress bar.
 
@@ -1970,7 +1970,7 @@ Examples
 >>> # Keep everything but the longest neurite
 >>> ln3 = navis.longest_neurite(n, n=slice(1, None), reroot_soma=True)
 
-### navis.prune_by_strahler(x, to_prune, inplace=False, reroot_soma=True, force_strahler_update=False, relocate_connectors=False)
+### navis.prune_by_strahler(x, to_prune, inplace=False, reroot_soma=True, force_strahler_update=False)
 
 *function*
 
@@ -1997,10 +1997,6 @@ inplace :       bool, optional
 force_strahler_update : bool, optional
                         If True, will force update of Strahler order even
                         if already exists in node table.
-relocate_connectors : bool, optional
-                      If True, connectors on removed nodes will be
-                      reconnected to the closest still existing node.
-                      Works only in child->parent direction.
 parallel :      bool
                 If True and input is NeuronList, distribute the
                 work across multiple processes. See
@@ -3521,7 +3517,7 @@ navis.meshes.simplify_mesh_blender
 
 ## Comparing morphology
 
-### navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})
+### navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
 
 *function*
 
@@ -3590,7 +3586,7 @@ approx_nn :     bool
                 Impact depends on the use case - testing highly recommended!
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`.
+                half the available cores.
 precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                 Precision for scores. Defaults to 64 bit (double) floats.
                 This is useful to reduce the memory footprint for very large
@@ -3645,7 +3641,7 @@ navis.nblast_smart
 navis.synblast
             A synapse-based variant of NBLAST.
 
-### navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', limit_dist='auto', approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})
+### navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', limit_dist='auto', approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
 
 *function*
 
@@ -3732,7 +3728,7 @@ precision :     int [16, 32, 64] | str [e.g. "float64"] | np.dtype
                 sufficient.
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`.
+                half the available cores.
 progress :      bool
                 Whether to show progress bars.
 backend :       str, optional
@@ -3782,7 +3778,7 @@ navis.nblast_allbyall
 navis.synblast
             A synapse-based variant of NBLAST.
 
-### navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})
+### navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
 
 *function*
 
@@ -3798,7 +3794,7 @@ x :             Dotprops | NeuronList
                 similar sampling resolutions.
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`.
+                half the available cores.
 use_alpha :     bool, optional
                 Emphasizes neurons' straight parts (backbone) over parts
                 that have lots of branches.
@@ -3883,7 +3879,7 @@ See Also
 navis.nblast
             For generic query -> target nblasts.
 
-### navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', limit_dist=None, precision=64, n_cores=2, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})
+### navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', limit_dist=None, precision=64, n_cores=None, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})
 
 *function*
 
@@ -4030,7 +4026,7 @@ navis.nblast_smart
 navis.nbl.extract_matches
             Pulls top matches out of an existing score matrix.
 
-### navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})
+### navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})
 
 *function*
 
@@ -4112,7 +4108,7 @@ approx_nn :     bool
                 Impact depends on the use case - testing highly recommended!
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`. This should ideally be an even
+                half the available cores. This should ideally be an even
                 number as that allows optimally splitting queries onto
                 individual processes. Also note that due to multiple layers
                 of concurrency using all available cores might not be the
@@ -4180,7 +4176,7 @@ navis.nblast_smart
 navis.synblast
             A synapse-based variant of NBLAST.
 
-### navis.synblast(query, target, by_type=False, cn_types=None, scores='forward', normalized=True, smat='auto', n_cores=2, progress=True, backend=None)
+### navis.synblast(query, target, by_type=False, cn_types=None, scores='forward', normalized=True, smat='auto', n_cores=None, progress=True, backend=None)
 
 *function*
 
@@ -4215,7 +4211,7 @@ scores :        'forward' | 'mean' | 'min' | 'max'
 
 n_cores :       int, optional
                 Max number of cores to use for nblasting. Default is
-                `os.cpu_count() // 2`.
+                half the available cores.
 normalized :    bool, optional
                 Whether to return normalized SynBLAST scores.
 smat :          str | pd.DataFrame, optional

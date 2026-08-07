@@ -19,7 +19,7 @@ See the `to_(multi)digraph` method for output.
 
 ## Connectivity metrics
 
-### navis.connectivity_similarity(adjacency, metric='vertex_normalized', threshold=None, n_cores=2, **kwargs)
+### navis.connectivity_similarity(adjacency, metric='vertex_normalized', threshold=None, n_cores=None, **kwargs)
 
 *function*
 
@@ -68,7 +68,7 @@ metric :            'cosine' | 'rank_index'| 'matching_index' | 'matching_index_
                     detailed explanation.
 threshold :         int, optional
                     Connections weaker than this will be set to zero.
-n_cores :           int
+n_cores :           int, optional
                     Number of parallel processes to use. Defaults to half
                     the available cores.
 **kwargs
@@ -214,7 +214,7 @@ Examples
 >>> # Get overlapping cable within 2 microns
 >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
 
-### navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=2)
+### navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=None)
 
 *function*
 
@@ -263,7 +263,7 @@ restrict_cn :       int | list | None
                     If None, will use all connector types. Use either
                     single integer or list. E.g. `restrict_cn=[0, 1]`
                     to use only pre- and postsynapses.
-n_cores :           int
+n_cores :           int, optional
                     Number of parallel processes to use. Defaults to half
                     the available cores.
 

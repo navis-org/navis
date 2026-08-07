@@ -314,8 +314,13 @@ Examples
 
 Return estimated memory usage of this neuron.
 
-Works by going over attached data (numpy arrays and pandas DataFrames
-such as vertices, nodes, etc) and summing up their size in memory.
+Works by going over the data the neuron holds - numpy arrays and pandas
+DataFrames such as vertices, nodes, anything you attached - and summing
+up their size in memory. Data held *inside* something else counts too:
+a mesh's skeleton, the snapshot a masked neuron will be restored from,
+and the arrays provenance keeps per axis. Caches built by other
+libraries (`trimesh`, igraph, networkx) do not - they are temporary and
+rebuilt on demand.
 
 Parameters
 ----------
@@ -415,6 +420,253 @@ inplace :   bool
 Returns
 -------
 Neuron
+
+### navis.BaseNeuron.attach(name, data, axis=None, *, ids=None, on_rebuild='drop')
+
+*function*
+
+Attach data that selections should carry along.
+
+Anything attached this way is subset, filtered and re-indexed by
+`subset_neuron`, `mask` and everything built on them, exactly as the
+neuron's own tables are - it is the same declaration
+(`navis/core/schema.py`), just made per-neuron instead of per-class.
+
+Parameters
+----------
+name :      str
+            Attribute to hang the data off, e.g. `n.compartment`.
+data :      array | DataFrame | None
+            One entry per element of `axis`. `None` detaches.
+axis :      str, optional
+            Axis the data is aligned to - `"vertices"`, `"nodes"`,
+            `"connectors"`, ... Must be one the neuron has; a name that
+            is not there raises rather than declaring it, since nothing
+            would ever select it. Leave it out for data that brings its
+            own elements and becomes an axis in its own right.
+ids :       str, optional
+            Column of `data` holding stable element IDs, when it is a
+            new axis. Without it elements are identified by position,
+            which is fine but means references to them have to be
+            remapped rather than merely filtered.
+on_rebuild : "drop" | "carry"
+            What happens when a function *rebuilds* the axis instead of
+            selecting from it - navis.resample_skeleton
+            and friends. Some of the elements are then new, and there is
+            no value to carry onto them, so the default is to let the
+            data go with a warning. `"carry"` keeps the values of the
+            elements the rebuild says it kept, and still drops if any
+            element turns out to be genuinely new.
+
+Examples
+--------
+Carry a per-vertex label through a mask
+
+>>> import navis, numpy as np
+>>> n = navis.example_neurons(1, kind='mesh')
+>>> n.attach('compartment', np.arange(n.n_vertices), axis='vertices')
+>>> with navis.masked(n, np.arange(100)):
+...     len(n.compartment) == n.n_vertices < 100
+True
+
+See Also
+--------
+navis.BaseNeuron.attach_link
+            For data that *names* elements of another axis.
+
+### navis.BaseNeuron.attach_link(name, mapping, *, source, target_axis, target='', column=None, cascade='propagate', dangling='drop', on_rebuild='drop')
+
+*function*
+
+Declare that some of this neuron's data names elements of an axis.
+
+A link is one array wearing two hats: aligned to `source`, so a
+selection there carries it, and naming elements of `target_axis`, so a
+selection *there* filters and re-indexes it. See
+`navis/core/schema.py`.
+
+Parameters
+----------
+name :          str
+                Names the far end, for `get_mapping` and friends.
+mapping :       str
+                Attribute the values live in - `"vertex_id"`, or the
+                table they are a column of when `column` is given.
+source :        str
+                Axis the mapping is aligned to.
+target_axis :   str
+                Axis its values name.
+target :        str, optional
+                Attribute holding the object that owns `target_axis`.
+                Empty means this neuron.
+column :        str, optional
+                Column of `mapping` holding the values, when it is a
+                table rather than an array of its own.
+cascade :       "propagate" | "keep"
+                What a selection of `source` does to the far end.
+dangling :      "drop" | "blank"
+                What becomes of a source element whose target is gone.
+on_rebuild :    "drop" | "snap"
+                What happens when a function *rebuilds* the target axis
+                instead of selecting from it. A different question from
+                `dangling`: the target is not gone, it moved, and
+                `"snap"` follows it to wherever the rebuild says
+                references should now point. This is what keeps a
+                connector on its branch through
+                navis.resample_skeleton.
+
+Examples
+--------
+A mitochondria table that sits on the nodes, and goes when they do
+
+>>> import navis, numpy as np, pandas as pd
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> mito = pd.DataFrame({'mito_id': np.arange(20),
+...                      'node_id': n.nodes.node_id.values[:20]})
+>>> n.attach('mito', mito, ids='mito_id')
+>>> n.attach_link('nodes', 'mito', column='node_id',
+...               source='mito', target_axis='nodes', cascade='keep')
+
+See Also
+--------
+navis.BaseNeuron.attach
+            For data that is merely aligned to an axis.
+
+### navis.BaseNeuron.detach(name)
+
+*function*
+
+Drop attached data, and any links or declarations that named it.
+
+### navis.BaseNeuron.attached()
+
+*function*
+
+What `attach` and `attach_link` have put on this neuron.
+
+Only what *this* neuron carries beyond its type: the axes every
+navis.Skeleton has are a property of the class, not
+something to report per neuron. Attached data is otherwise invisible -
+it is a plain attribute, and nothing in the summary mentions it.
+
+Returns
+-------
+pandas.DataFrame
+            One row per attachment, with columns:
+
+            - `name`: the attribute it hangs off, or - for a link -
+              the `source->target` key `get_mapping` addresses it by
+            - `kind`: `"aligned"` (one value per element of `axis`),
+              `"axis"` (elements of its own), or `"link"`
+            - `axis`: the axis it is aligned to
+            - `names`: for a link, the axis its values name
+            - `shape`: shape of the data, `None` if it is not set -
+              which for a link is what says it cannot be followed yet
+
+Examples
+--------
+>>> import navis, numpy as np
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> n.attach('score', np.arange(n.n_nodes), axis='nodes')
+>>> n.attached()[['name', 'kind', 'axis']]
+    name     kind   axis
+0  score  aligned  nodes
+
+See Also
+--------
+navis.NeuronList.attached
+            The same, summarised over a list of neurons.
+
+### navis.BaseNeuron.get_mapping(source, target)
+
+*function*
+
+Map every element of one endpoint onto an element of another.
+
+Composes links, so a correspondence nobody declared directly - a mesh's
+connectors onto its skeleton's nodes, via the vertices they sit on - is
+still available. Links describe what is there; they do not build it, so
+this raises rather than generating a mapping that is missing.
+
+Parameters
+----------
+source :    str
+            Endpoint to map *from*: one of this neuron's axes, or the
+            name of a link on it.
+target :    str
+            Endpoint to map *to*.
+
+Returns
+-------
+np.ndarray
+            One entry per `source` element, in its order, naming a
+            `target` element - an ID where the target axis has IDs, an
+            index where it does not. `-1` where it maps to nothing.
+
+Raises
+------
+navis.core.schema.MappingError
+            If the mapping is not there, or describes elements that have
+            changed since.
+
+Examples
+--------
+Which skeleton node does each of a mesh's vertices belong to? Note the
+skeleton has to exist before there is a mapping onto it to read.
+
+>>> import navis
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> m.skeleton is not None
+True
+>>> len(m.get_mapping('vertices', 'skeleton')) == m.n_vertices
+True
+
+See Also
+--------
+navis.BaseNeuron.select_across
+            For the other direction, which is a selection rather than a
+            mapping.
+
+### navis.BaseNeuron.select_across(source, target, selection)
+
+*function*
+
+Which `source` elements map into a selection of `target` elements.
+
+Links are directed and only followed forwards - a mesh vertex has one
+skeleton node, but a node has many vertices, so backwards is not a
+mapping at all. As a *selection* it is perfectly well defined, and that
+is what this answers.
+
+Parameters
+----------
+source :    str
+            Endpoint to select *on*, i.e. what the mask is over.
+target :    str
+            Endpoint `selection` refers to.
+selection : list | np.ndarray
+            Anything navis.subset_neuron accepts for `target`:
+            element IDs, indices, or a boolean mask.
+
+Returns
+-------
+np.ndarray
+            Boolean mask over `source`, ready to hand to
+            navis.subset_neuron or navis.masked.
+
+Examples
+--------
+Which vertices belong to the first 50 nodes of a mesh's skeleton?
+
+>>> import navis
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> nodes = m.skeleton.nodes.node_id.values[:50]
+>>> int(m.select_across('vertices', 'skeleton', nodes).sum())
+364
+
+See Also
+--------
+navis.BaseNeuron.get_mapping
 
 ## General Neuron properties
 
@@ -2480,6 +2732,39 @@ Examples
 >>> nl = navis.example_neurons()
 >>> # Apply resampling function
 >>> nl_rs = nl.apply(navis.resample_skeleton, resample_to=1000, inplace=False)
+
+### navis.NeuronList.attached()
+
+*function*
+
+Summarise what `attach` and `attach_link` have put on these neurons.
+
+Attached data is per *neuron*, so a list can perfectly well be ragged -
+half its neurons carrying a `mito` table and half not, or the same name
+aligned to different axes. This says so rather than hiding it: one row
+per distinct attachment, and `neurons` counts how many carry it.
+
+Returns
+-------
+pandas.DataFrame
+            Columns as navis.BaseNeuron.attached, with `shape`
+            replaced by `neurons` - the number carrying that attachment.
+            Empty if nothing is attached to anything.
+
+Examples
+--------
+>>> import navis, numpy as np
+>>> nl = navis.example_neurons(3, kind='skeleton')
+>>> for n in nl[:2]:
+...     n.attach('score', np.arange(n.n_nodes), axis='nodes')
+>>> nl.attached()
+    name     kind   axis names  neurons
+0  score  aligned  nodes              2
+
+See Also
+--------
+navis.BaseNeuron.attached
+            The per-neuron version, which also gives you the shapes.
 
 ### navis.NeuronList.head(N=5)
 

@@ -74,7 +74,7 @@ Examples
 >>> # Revert to old level
 >>> set_loggers(lvl)
 
-### navis.set_parallel_backend(backend=None, *, n_workers=None, isolated=None, pickles_by_value=None, chunks_per_worker=None, marshals_exceptions=None)
+### navis.set_parallel_backend(backend=None, *, n_workers=None, inner_max_num_threads=None, isolated=None, pickles_by_value=None, chunks_per_worker=None, shares_machine=None, marshals_exceptions=None)
 
 *function*
 
@@ -96,6 +96,20 @@ backend :   str | ParallelBackend | executor, optional
             parameters of its own.
 n_workers : int, optional
             Default number of workers. `None` leaves it unchanged.
+inner_max_num_threads : int | "auto", optional
+            How many threads each worker may use for its *own* native
+            parallelism - navis-fastcore's thread pool, and the BLAS/OpenMP
+            pools under numpy. navis spreads work over processes and those
+            libraries spread it over threads; left alone both take the
+            whole machine, and the two multiply.
+
+            `"auto"` (the default) divides the machine up:
+            `cpu_count() // n_cores` threads apiece. Pass a number to
+            override that, or `0` to cap nothing at all. `None` - the
+            default *here* - leaves the setting as it is.
+
+            Only applies to workers on this machine; what a cluster worker
+            may use was decided by whatever allocated it.
 isolated :  bool, optional
             Only for a bare executor: whether its workers have their own
             address space. Inferred where we recognise the executor,
@@ -109,6 +123,13 @@ chunks_per_worker : int, optional
             right on one machine and wasteful across a network - recognised
             remote executors are bundled automatically, so this is for
             tuning that or for an executor we don't recognise.
+shares_machine : bool, optional
+            Only for a bare executor: whether its workers compete with each
+            other for this machine's cores, which is what lets navis divide
+            the thread budget between them. Inferred for the stdlib pools
+            and loky; assumed False for an executor we don't recognise,
+            since capping a cluster's workers to a slice of this machine
+            would be a real loss.
 marshals_exceptions : bool, optional
             Only for a bare executor: whether an exception raised in a
             worker arrives here as itself. Set False for a transport that
@@ -120,6 +141,12 @@ Returns
 -------
 A restorer that can be used as a context manager to scope the change.
 
+See Also
+--------
+navis.set_num_threads
+            Cap the threads used by *this* process - for when you are the
+            one running the pool and navis is inside it.
+
 Examples
 --------
 >>> import navis
@@ -129,6 +156,12 @@ Examples
 >>> with navis.set_parallel_backend('serial'):
 ...     nl = navis.example_neurons(2)
 >>> _ = navis.set_parallel_backend('auto')
+
+Give each worker a single thread, for work that has little internal
+parallelism to spread over more:
+
+>>> with navis.set_parallel_backend(n_workers=2, inner_max_num_threads=1):
+...     nl = navis.example_neurons(2)
 
 ### navis.list_parallel_backends()
 
@@ -145,6 +178,56 @@ Examples
 >>> import navis
 >>> 'serial' in navis.list_parallel_backends()
 True
+
+### navis.set_num_threads(n)
+
+*function*
+
+Cap the number of threads navis and its dependencies use.
+
+Applies to *this* process: navis-fastcore's thread pool, and the BLAS /
+OpenMP pools underneath numpy and friends.
+
+You do not need this for `parallel=True` - navis caps its own workers (see
+navis.set_parallel_backend). It is for the other direction: when
+**you** are the one running the pool and navis is the thing inside it,
+nothing tells a worker that it is one of twenty, so it has to be told.
+
+```python
+import multiprocessing as mp
+
+def work(neuron):
+    navis.set_num_threads(1)      # or once, in the pool's `initializer`
+    return navis.heal_skeleton(neuron)
+
+with mp.Pool(20) as pool:
+    healed = pool.map(work, neurons)
+```
+
+Call it before doing any real work. Thread pools are built once, lazily, by
+whatever needs one first; this can size a pool that does not exist yet but
+cannot resize one that does. Repeating the same value is free, which is what
+makes it safe in a worker initializer that fires more than once.
+
+Parameters
+----------
+n :         int
+            Maximum number of threads. Must be >= 1.
+
+See Also
+--------
+navis.set_parallel_backend
+            Where `parallel=True` runs its work, and how many threads each
+            of its workers may use.
+
+Examples
+--------
+>>> import navis
+>>> navis.set_num_threads(1)                          # doctest: +SKIP
+
+Skipped rather than run: thread pools are built once per process, so a
+doctest that really capped this one would hand every later test a
+single-threaded interpreter and no way to get it back.
 
 ### navis.set_default_connector_colors(x)
 

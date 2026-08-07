@@ -182,6 +182,12 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 - `navis.BaseNeuron.mask(mask, inplace=False, warn_cut=True)` - Restrict this neuron to part of itself.
 - `navis.BaseNeuron.unmask(reset=True, warn_cut=True)` - Undo the innermost mask, in place.
 - `navis.BaseNeuron.apply_mask(inplace=False)` - Make the innermost mask permanent.
+- `navis.BaseNeuron.attach(name, data, axis=None, *, ids=None, on_rebuild='drop')` - Attach data that selections should carry along.
+- `navis.BaseNeuron.attach_link(name, mapping, *, source, target_axis, target='', column=None, cascade='propagate', dangling='drop', on_rebuild='drop')` - Declare that some of this neuron's data names elements of an axis.
+- `navis.BaseNeuron.detach(name)` - Drop attached data, and any links or declarations that named it.
+- `navis.BaseNeuron.attached()` - What `attach` and `attach_link` have put on this neuron.
+- `navis.BaseNeuron.get_mapping(source, target)` - Map every element of one endpoint onto an element of another.
+- `navis.BaseNeuron.select_across(source, target, selection)` - Which `source` elements map into a selection of `target` elements.
 
 #### General Neuron properties
 
@@ -306,6 +312,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 #### NeuronList methods
 
 - `navis.NeuronList.apply(func, *, parallel=False, n_cores=None, chunksize=None, backend=None, progress=True, omit_failures=False, **kwargs)` - Apply function across all neurons in this NeuronList.
+- `navis.NeuronList.attached()` - Summarise what `attach` and `attach_link` have put on these neurons.
 - `navis.NeuronList.head(N=5)` - Return summary for top N neurons.
 - `navis.NeuronList.itertuples()` - Helper to mimic `pandas.DataFrame.itertuples()`.
 - `navis.NeuronList.mean()` - Return mean numeric and boolean values over all neurons.
@@ -359,7 +366,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.find_main_branchpoint(x, method='betweenness', threshold=0.95, reroot_soma=False)` - Find main branch point of unipolar (e.g. insect) neurons.
 - `navis.find_soma(x, *, dist_factor=3.0)` - Try finding a neuron's soma.
 - `navis.find_soma_mesh(x, *, min_soma_radius='1 micron', dist_factor=3.0, min_vertices=20, max_points=200000, n_rays=10, inplace=False)` - Detect the soma of a Mesh from its geometry.
-- `navis.form_factor(x, start=-3, stop=3, num=601, parallel=False, n_cores=2, progress=True)` - Calculate form factor for given neuron.
+- `navis.form_factor(x, start=-3, stop=3, num=601, parallel=False, n_cores=None, progress=True)` - Calculate form factor for given neuron.
 - `navis.persistence_points(x, descriptor='root_dist', remove_cbf=False)` - Calculate points for a persistence diagram.
 - `navis.persistence_vectors(x, threshold=None, samples=100, bw=0.2, center=False, **kwargs)` - Produce vectors from persistence points.
 - `navis.strahler_index(x, method='standard', to_ignore=[], min_twig_size=None)` - Calculate Strahler Index (SI).
@@ -388,7 +395,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.heal_skeleton(x, method='ALL', max_dist=None, min_size=None, use_radius=False, drop_disc=False, mask=None, inplace=False)` - Heal fragmented skeleton(s).
 - `navis.heal_mesh(x, max_dist=None, min_size=None, drop_disc=False, mask=None, inplace=False)` - Heal fragmented mesh(es).
 - `navis.longest_neurite(x, n=1, reroot_soma=False, from_root=True, inverse=False, inplace=False)` - Return a neuron consisting of only the longest neurite(s).
-- `navis.prune_by_strahler(x, to_prune, inplace=False, reroot_soma=True, force_strahler_update=False, relocate_connectors=False)` - Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
+- `navis.prune_by_strahler(x, to_prune, inplace=False, reroot_soma=True, force_strahler_update=False)` - Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 - `navis.prune_twigs(x, size, exact=False, mask=None, inplace=False, recursive=False)` - Prune terminal twigs under a given size.
 - `navis.prune_at_depth(x, depth, *, source=None, inplace=False)` - Prune all neurites past a given distance from a source.
 - `navis.reroot_skeleton(x, new_root, inplace=False)` - Reroot neuron to new root.
@@ -414,12 +421,12 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 
 #### Comparing morphology
 
-- `navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})` - NBLAST query against target neurons.
-- `navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', limit_dist='auto', approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})` - Smart(er) NBLAST query against target neurons.
-- `navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, backend=None, smat_kwargs={})` - All-by-all NBLAST of inputs neurons.
-- `navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', limit_dist=None, precision=64, n_cores=2, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})` - Find the `k` nearest neighbours of each neuron, without the full matrix.
-- `navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=2, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})` - Run NBLAST on pairwise-aligned neurons.
-- `navis.synblast(query, target, by_type=False, cn_types=None, scores='forward', normalized=True, smat='auto', n_cores=2, progress=True, backend=None)` - Synapsed-based variant of NBLAST.
+- `navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})` - NBLAST query against target neurons.
+- `navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', limit_dist='auto', approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})` - Smart(er) NBLAST query against target neurons.
+- `navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})` - All-by-all NBLAST of inputs neurons.
+- `navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', limit_dist=None, precision=64, n_cores=None, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})` - Find the `k` nearest neighbours of each neuron, without the full matrix.
+- `navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})` - Run NBLAST on pairwise-aligned neurons.
+- `navis.synblast(query, target, by_type=False, cn_types=None, scores='forward', normalized=True, smat='auto', n_cores=None, progress=True, backend=None)` - Synapsed-based variant of NBLAST.
 - `navis.persistence_distances(q, t=None, augment=True, normalize=True, bw=0.2, **persistence_kwargs)` - Calculate morphological similarity using persistence diagrams.
 - `navis.nbl.smat.Lookup2d(axis0, axis1, cells)` - Convenience class inheriting from LookupNd for the common 2D float case.
 - `navis.nbl.smat.Digitizer(boundaries, clip=(True, True), right=False)` - Class converting continuous values into discrete indices.
@@ -524,10 +531,10 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-connectivity.txt
 
 #### Connectivity metrics
 
-- `navis.connectivity_similarity(adjacency, metric='vertex_normalized', threshold=None, n_cores=2, **kwargs)` - Calculate connectivity similarity.
+- `navis.connectivity_similarity(adjacency, metric='vertex_normalized', threshold=None, n_cores=None, **kwargs)` - Calculate connectivity similarity.
 - `navis.connectivity_sparseness(x, which='LTS')` - Calculate sparseness.
 - `navis.cable_overlap(a, b, dist=2, method='min')` - Calculate the amount of cable of neuron A within distance of neuron B.
-- `navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=2)` - Cluster neurons based on their synapse placement.
+- `navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=None)` - Cluster neurons based on their synapse placement.
 
 ### Import/Export
 
@@ -561,8 +568,9 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-utility.txt
 - `navis.health_check(x, verbose=True)` - Run a health check on Skeletons and flag potential issues.
 - `navis.set_pbars(hide=None, leave=None, jupyter=None)` - Set global progress bar behaviors.
 - `navis.set_loggers(level='INFO')` - Set levels for all associated module loggers.
-- `navis.set_parallel_backend(backend=None, *, n_workers=None, isolated=None, pickles_by_value=None, chunks_per_worker=None, marshals_exceptions=None)` - Set where `parallel=True` runs its work.
+- `navis.set_parallel_backend(backend=None, *, n_workers=None, inner_max_num_threads=None, isolated=None, pickles_by_value=None, chunks_per_worker=None, shares_machine=None, marshals_exceptions=None)` - Set where `parallel=True` runs its work.
 - `navis.list_parallel_backends()` - List the parallel backends that can be used on this machine.
+- `navis.set_num_threads(n)` - Cap the number of threads navis and its dependencies use.
 - `navis.set_default_connector_colors(x)` - Set/update default connector colors.
 - `navis.config.remove_log_handlers()` - Remove all handlers from the `navis` logger.
 - `navis.patch_cloudvolume()` - Monkey patch cloud-volume to return navis neurons.
