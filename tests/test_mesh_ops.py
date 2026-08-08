@@ -1,5 +1,5 @@
-"""Tests for the mesh operations that are not rebuilds - `fix_mesh` and
-`smooth_mesh`.
+"""Tests for the mesh operations that are not rebuilds - `fix_mesh`,
+`smooth_mesh` and `points_to_mesh`.
 
 For `fix_mesh` the thing worth pinning is the trimesh-version gate:
 `Trimesh.remove_duplicate_faces`/`.remove_degenerate_faces` were replaced by
@@ -11,6 +11,9 @@ machinery: it moves vertices and replaces none of them, so the faces, the vertex
 count and the vertex order all come back untouched and everything indexed by
 vertex is still valid. `navis.simplify_mesh`, which does replace them, is
 covered in `test_links.py` alongside the rest of the repair system.
+
+For `points_to_mesh` it is the two backends: that the sparse one lands where the
+voxels actually are, and that the dense one is still reachable and unchanged.
 """
 
 import warnings
@@ -18,9 +21,16 @@ import warnings
 import navis
 import numpy as np
 import pytest
+import sparsecubes
 import trimesh as tm
 
-from navis.meshes.mesh_utils import TRIMESH_HAS_FACE_FILTERS, _version_tuple
+from scipy import ndimage
+
+from navis.meshes.mesh_utils import (
+    TRIMESH_HAS_FACE_FILTERS,
+    _version_tuple,
+    points_to_mesh,
+)
 
 
 @pytest.fixture
@@ -345,3 +355,172 @@ def test_smooth_mesh_L_is_lamb(neuron):
 
     with pytest.raises(TypeError, match="same argument"):
         navis.smooth_mesh(neuron, L=0.3, lamb=0.5)
+
+
+# ---------------------------------------------------------------------------
+# points_to_mesh
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def cloud():
+    """A solid ball of points, radius 50, centred on the origin.
+
+    Off-grid on purpose (radius is not a multiple of any `res` used below) so
+    that a backend which is half a voxel out has nowhere to hide.
+    """
+    rng = np.random.default_rng(0)
+    p = rng.normal(size=(20_000, 3))
+    p /= np.linalg.norm(p, axis=1)[:, None]
+    return p * 50 * rng.random(20_000)[:, None] ** (1 / 3)
+
+
+@pytest.mark.parametrize("smooth", [True, False])
+def test_points_to_mesh_is_centred_on_its_voxels(cloud, smooth):
+    """The mesh must wrap the voxels it was given, half a voxel either side.
+
+    `sparsecubes` meshes in index space with two different conventions - voxel
+    `v` spans `[v, v + 1]` blocky but `[v - .5, v + .5]` smooth - so this is
+    what pins the re-centering onto our (rounded) binning.
+    """
+    res = 5
+    mesh = points_to_mesh(cloud, res=res, denoise=False, smooth=smooth)
+
+    voxels = np.unique((cloud / res).round().astype(int), axis=0)
+    assert np.allclose(mesh.bounds[0], (voxels.min(axis=0) - 0.5) * res)
+    assert np.allclose(mesh.bounds[1], (voxels.max(axis=0) + 0.5) * res)
+
+
+def test_points_to_mesh_contains_its_points(cloud):
+    """Half a voxel of slack either side means every point is inside.
+
+    Blocky only: SurfaceNets pulls the surface in towards the voxel centre
+    wherever the neighbourhood is one-sided, so a lone protruding voxel is
+    shaved and the odd point on it ends up outside.
+    """
+    mesh = points_to_mesh(cloud, res=5, denoise=False, smooth=False)
+    assert mesh.contains(cloud).all()
+
+    smoothed = points_to_mesh(cloud, res=5, denoise=False, smooth=True)
+    assert smoothed.contains(cloud).mean() > 0.999
+
+
+def test_points_to_mesh_survives_a_full_grid(cloud):
+    """A cloud that fills its own bounding box has no background to mesh.
+
+    Marching cubes at `level=0` needs a value below it somewhere in the volume,
+    so this is the case the dense backend cannot do at all - the sparse one has
+    no opinion on how full the bounding box is.
+    """
+    box = np.mgrid[0:11, 0:11, 0:11].reshape(3, -1).T * 10.0
+
+    mesh = points_to_mesh(box, res=10, denoise=False)
+    assert np.allclose(mesh.bounds, [[-5, -5, -5], [105, 105, 105]])
+
+    pytest.importorskip("skimage")
+    with pytest.raises(ValueError, match="within volume data range"):
+        points_to_mesh(box, res=10, denoise=False, backend="skimage")
+
+
+def test_points_to_mesh_translation_is_exact(cloud):
+    """No rebasing to a zero-based grid, so a shift is just a shift."""
+    shift = np.array([-1e5, 3e4, -7e3])
+    here = points_to_mesh(cloud, res=5)
+    there = points_to_mesh(cloud + shift, res=5)
+
+    assert np.allclose(here.vertices + shift, there.vertices)
+
+
+def test_points_to_mesh_anisotropic_res(cloud):
+    """`res` per axis: the half-voxel padding has to follow each axis."""
+    res = np.array([5, 10, 20])
+    mesh = points_to_mesh(cloud, res=res, denoise=False)
+
+    voxels = np.unique((cloud / res).round().astype(int), axis=0)
+    assert np.allclose(mesh.bounds[0], (voxels.min(axis=0) - 0.5) * res)
+    assert np.allclose(mesh.bounds[1], (voxels.max(axis=0) + 0.5) * res)
+
+
+def test_points_to_mesh_threshold(cloud):
+    """Thresholding drops sparsely populated voxels, i.e. the outer shell."""
+    dense_core = points_to_mesh(cloud, res=5, denoise=False, threshold=5)
+    everything = points_to_mesh(cloud, res=5, denoise=False)
+
+    assert dense_core.volume < everything.volume
+
+    with pytest.raises(ValueError, match="No voxel contains"):
+        points_to_mesh(cloud, res=5, threshold=10**9)
+
+
+def test_points_to_mesh_denoise_matches_the_dense_filters(cloud):
+    """The sparse binary ops must do what `scipy.ndimage`'s do.
+
+    They agree exactly except at the canvas edge, where the dense erosion eats
+    the outer shell (`border_value=0`) and the dense dilation clips whatever
+    spreads past the array - neither of which a sparse voxel set has.
+    """
+    res = 5
+    voxels = np.unique((cloud / res).round().astype(int), axis=0)
+
+    sparse = sparsecubes.binary.erode(voxels)
+    sparse = sparsecubes.binary.dilate(sparse, iterations=2)
+    sparse = sparsecubes.binary.fill_cavities(sparse)
+    sparse = sparsecubes.binary.erode(sparse)
+
+    # Pad the dense grid so the border effects have somewhere to go
+    pad = 3
+    rebased = voxels - voxels.min(axis=0) + pad
+    mat = np.zeros(rebased.max(axis=0) + pad + 1, dtype=bool)
+    mat[rebased[:, 0], rebased[:, 1], rebased[:, 2]] = True
+    dense = ndimage.binary_erosion(mat)
+    dense = ndimage.binary_dilation(dense, iterations=2)
+    dense = ndimage.binary_fill_holes(dense)
+    dense = ndimage.binary_erosion(dense)
+
+    dense = np.argwhere(dense) + voxels.min(axis=0) - pad
+    assert np.array_equal(sparse[np.lexsort(sparse.T)], dense[np.lexsort(dense.T)])
+
+
+def test_points_to_mesh_denoise_can_leave_nothing_behind():
+    """Isolated voxels do not survive the erosion - say so, don't hand back air."""
+    scattered = np.arange(30).reshape(10, 3) * 1000.0
+
+    with pytest.raises(ValueError, match="Denoising removed all voxels"):
+        points_to_mesh(scattered, res=1, denoise=True)
+
+    assert len(points_to_mesh(scattered, res=1, denoise=False).faces)
+
+
+def test_points_to_mesh_skimage_backend_still_works(cloud):
+    """The dense path stays reachable - and stays one `res` off, as it always was.
+
+    Marching cubes is run at `level=0`, i.e. at the value of the *background*,
+    so every crossing lands on the empty sample rather than between the two.
+    The result is a surface on the grid corners which the old code then shifted
+    down by one `res` wholesale - correcting the top of the mesh and doubling
+    the error at the bottom. Pinned here because meshes made with the old navis
+    have it baked in.
+    """
+    pytest.importorskip("skimage")
+    mesh = points_to_mesh(cloud, res=5, denoise=False, backend="skimage")
+    assert len(mesh.faces)
+
+    voxels = np.unique((cloud / 5).round().astype(int), axis=0)
+    assert np.allclose(mesh.bounds[0], voxels.min(axis=0) * 5 - 5)
+    assert np.allclose(mesh.bounds[1], voxels.max(axis=0) * 5 - 5)
+
+    # ... where the sparse backend sits on the voxels it was given
+    sparse = points_to_mesh(cloud, res=5, denoise=False)
+    assert np.allclose(sparse.bounds - mesh.bounds, [[2.5, 2.5, 2.5], [7.5, 7.5, 7.5]])
+
+
+def test_points_to_mesh_rejects_bad_input(cloud):
+    with pytest.raises(ValueError, match="backend"):
+        points_to_mesh(cloud, res=5, backend="marching_cubes")
+
+    with pytest.raises(ValueError, match=r"shape \(N, 3\)"):
+        points_to_mesh(cloud[:, :2], res=5)
+
+    # The sparse path would otherwise hand back an empty mesh without a word
+    with pytest.raises(ValueError, match="empty point cloud"):
+        points_to_mesh(np.zeros((0, 3)), res=5)

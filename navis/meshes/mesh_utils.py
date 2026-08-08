@@ -15,6 +15,7 @@
 import multiprocessing as mp
 import numpy as np
 import pandas as pd
+import sparsecubes
 import trimesh as tm
 
 from typing import Union
@@ -27,7 +28,7 @@ try:
 except ModuleNotFoundError:
     skimage = None
 
-from .. import core, config, intersection, graph, morpho
+from .. import core, config, intersection, graph, morpho, utils
 from ..compute.dispatch import default_n_workers, worker_initializer
 
 
@@ -147,60 +148,143 @@ def fix_mesh(
     return mesh
 
 
-def points_to_mesh(points, res, threshold=None, denoise=True):
+def points_to_mesh(
+    points, res, threshold=None, denoise=True, backend="sparsecubes", smooth=True
+):
     """Generate mesh from point cloud.
 
     Briefly, the workflow is this:
       1. Partition the point cloud into voxels of size `res`.
       2. (Optional) Discard voxels with less than `threshold` points inside.
-      3. Turn voxels into a (M, N, K) matrix.
-      4. (Optional) Denoise the matrix by a round of binary erosion + dilation
+      3. (Optional) Denoise the voxels by a round of binary erosion + dilation
          and fill holes.
-      5. Use marching cubes to produce a mesh.
+      4. Turn the voxels into a mesh (see `backend`).
 
     Parameters
     ----------
     points :    (N, 3) array
                 Point cloud.
-    res :       int
+    res :       int | (3, ) array
                 Resolution of the voxels.
     threshold : int, optional
                 Use this to ignore voxels with very few points inside.
     denoise :   bool
                 Whether to use binary filters to reduce noise and smoothen
                 the mesh.
-
+    backend :   "sparsecubes" | "skimage"
+                Which implementation to use:
+                  - "sparsecubes" (default) filters and meshes the sparse
+                    voxels directly and never allocates the dense grid. Since
+                    a point cloud's voxels are typically a tiny fraction of
+                    their bounding box, this is both much faster and
+                    dramatically lighter on memory.
+                  - "skimage" is the historical path: it rasterizes the voxels
+                    into a dense grid, denoises with `scipy.ndimage` and meshes
+                    with marching cubes. Requires scikit-image.
+                Note that the two do not produce the same mesh: "skimage" sits
+                one `res` off the voxels it was given (the dense path's surface
+                is drawn on the *background* voxels and then shifted back by
+                `res`, which only corrects one side), whereas "sparsecubes" is
+                centred on them.
+    smooth :    bool
+                Only for the "sparsecubes" backend - how vertices are placed:
+                  - True (default) uses SurfaceNets: one vertex per surface
+                    cell, placed at the centroid of the surface crossings
+                    around it. This smooths the staircase you would otherwise
+                    get on diagonal surfaces.
+                  - False gives blocky, axis-aligned quads.
 
     Returns
     -------
     trimesh.Trimesh
 
     """
-    if not skimage:
-        raise ModuleNotFoundError(
-            "Meshing requires `skimage`:\n  pip3 install scikit-image"
-        )
+    utils.eval_param(backend, name="backend", allowed_values=("sparsecubes", "skimage"))
 
     points = np.asarray(points)
 
     if points.ndim != 2 or points.shape[1] != 3:
         raise ValueError(f"Points must be of shape (N, 3), got {points.shape}")
 
-    # Generate counts per voxel
-    vxl, cnt = np.unique((points / res).round().astype(int), return_counts=True, axis=0)
+    if not len(points):
+        raise ValueError("Unable to mesh an empty point cloud")
 
-    # Turn into a DataFrame
-    voxels = pd.DataFrame(np.vstack(vxl), columns=["x", "y", "z"])
-    voxels["count"] = cnt
+    # Bin points into voxels, counting how many landed in each
+    voxels, cnt = np.unique(
+        (points / res).round().astype(int), return_counts=True, axis=0
+    )
 
     if threshold:
-        voxels = voxels[voxels["count"] >= threshold]
+        voxels = voxels[cnt >= threshold]
 
-    vx = voxels[["x", "y", "z"]].values
+        if not len(voxels):
+            raise ValueError(
+                f"No voxel contains the required {threshold} points - try "
+                "lowering `threshold` or increasing `res`."
+            )
+
+    if backend == "sparsecubes":
+        return _points_to_mesh_sparsecubes(voxels, res, denoise=denoise, smooth=smooth)
+
+    return _points_to_mesh_skimage(voxels, res, denoise=denoise)
+
+
+def _points_to_mesh_sparsecubes(voxels, res, denoise=True, smooth=True):
+    """Mesh binned points straight off the sparse voxels."""
+    if denoise:
+        # Denoise by a round of erosion...
+        voxels = sparsecubes.binary.erode(voxels)
+
+        # ... followed by two rounds of dilation to smoothen things out...
+        voxels = sparsecubes.binary.dilate(voxels, iterations=2)
+
+        # ... followed by a round of fill holes
+        # (note this fills voids up to `max_depth=8` voxels thick, which is
+        # ample for the pockets the erosion/dilation above leaves behind)
+        voxels = sparsecubes.binary.fill_cavities(voxels)
+
+        # And a final round of erosion to get back to the correct scale
+        voxels = sparsecubes.binary.erode(voxels)
+
+        if not len(voxels):
+            raise ValueError(
+                "Denoising removed all voxels - the point cloud is too sparse "
+                "at this resolution. Try increasing `res` or `denoise=False`."
+            )
+
+    # `res` may be a scalar; `sparsecubes` wants one spacing per axis. Note the
+    # cast: on the blocky path the vertices inherit the spacing's dtype, and we
+    # shift them by half a voxel below.
+    spacing = np.broadcast_to(res, (3,)).astype(np.float64)
+
+    mesh = sparsecubes.mesh(voxels, spacing=spacing, smooth=smooth)
+
+    # `sparsecubes` meshes in voxel index space, where voxel `v` spans
+    # `[v, v + 1]` on the blocky path but `[v - .5, v + .5]` on the smooth
+    # (SurfaceNets) one. Our binning rounds, i.e. voxel `v` covers the points in
+    # `[(v - .5) * res, (v + .5) * res]` - so the blocky vertices need
+    # re-centering onto the voxel, the smooth ones already are.
+    if not smooth:
+        mesh.vertices = mesh.vertices - spacing / 2
+
+    # Need to fix normals (the blocky path winds its quads inwards)
+    mesh.fix_normals()
+
+    return mesh
+
+
+def _points_to_mesh_skimage(voxels, res, denoise=True):
+    """Mesh binned points via a dense grid + marching cubes."""
+    if not skimage:
+        raise ModuleNotFoundError(
+            "Meshing with the scikit-image backend requires `skimage`:\n"
+            "  pip3 install scikit-image"
+        )
+
     # Rebase voxel indices to start at 0 so negative or large coordinates
     # don't wrap around (negative indexing) or allocate a huge sparse grid
-    offset = vx.min(axis=0)
-    vx = vx - offset
+    offset = voxels.min(axis=0)
+    vx = voxels - offset
 
     # Generate empty matrix and fill it
     mat = np.zeros(tuple(vx.max(axis=0) + 1))
