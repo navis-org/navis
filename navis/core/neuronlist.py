@@ -13,7 +13,6 @@
 
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-import random
 import re
 import types
 import uuid
@@ -821,15 +820,72 @@ class NeuronList:
             columns=[*cols, "neurons"],
         )
 
-    def sample(self, N: Union[int, float] = 1) -> 'NeuronList':
-        """Return random subset of neurons."""
-        if N < 1 and N > 0:
-            N = int(len(self.neurons) * N)
+    def sample(self,
+               N: Union[int, float] = 1,
+               random_state: Optional[Union[int, np.random.Generator]] = None
+               ) -> 'NeuronList':
+        """Return a random subset of neurons.
 
-        indices = list(range(len(self.neurons)))
-        random.shuffle(indices)
-        keep = set(indices[:N])
-        return self.__class__([n for i, n in enumerate(self.neurons) if i in keep],
+        Parameters
+        ----------
+        N :             int | float
+                        How many neurons to draw - the type decides how this is
+                        read:
+
+                          - an `int` is a count: `1` (the default) gives a single
+                            neuron, `10` gives ten
+                          - a `float` is a fraction of the list: `.1` gives a
+                            tenth of the neurons, `1.0` gives all of them
+
+                        Sampling is without replacement, so an integer `N` must
+                        not exceed the number of neurons.
+        random_state :  int | np.random.Generator, optional
+                        Seed/generator for the draw. Omit for a fresh sample each
+                        call; pass a seed for reproducibility.
+
+        Returns
+        -------
+        NeuronList
+                        The sampled neurons, in random order - `sample(1.0)` is
+                        therefore a shuffle of the whole list.
+
+        Examples
+        --------
+        >>> import navis
+        >>> nl = navis.example_neurons(5, kind='skeleton')
+        >>> len(nl.sample(2, random_state=0))
+        2
+        >>> len(nl.sample(.5, random_state=0))
+        2
+        >>> shuffled = nl.sample(1.0, random_state=0)
+        >>> len(shuffled) == len(nl)
+        True
+        >>> sorted(shuffled.id) == sorted(nl.id)
+        True
+
+        """
+        n_neurons = len(self.neurons)
+
+        if isinstance(N, (float, np.floating)):
+            if not 0 <= N <= 1:
+                raise ValueError('A float `N` is a fraction of the list and must '
+                                 f'be between 0 and 1, got {N}. For a count, pass '
+                                 'an integer.')
+            # Round rather than truncate: `int(.7 * 10)` is 6, not 7
+            N = round(N * n_neurons)
+        elif isinstance(N, (int, np.integer)):
+            if N < 0:
+                raise ValueError(f'`N` must not be negative, got {N}')
+            if N > n_neurons:
+                raise ValueError(f'Cannot sample {N} neurons from a list of '
+                                 f'{n_neurons} - sampling is without replacement.')
+        else:
+            raise TypeError('`N` must be an integer (count) or a float '
+                            f'(fraction), got {type(N)}')
+
+        rng = np.random.default_rng(random_state)
+        indices = rng.permutation(n_neurons)[:N]
+        return self.__class__([self.neurons[i] for i in indices],
                               make_copy=self.copy_on_subset)
 
     def plot3d(self, **kwargs):

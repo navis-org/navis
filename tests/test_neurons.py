@@ -297,3 +297,41 @@ def test_neuronlist_repr_survives_a_broken_neuron():
     assert "NeuronList" in str(nl)
     with pytest.raises(RuntimeError, match="no idea"):
         nl.memory_usage(estimate=True)
+
+
+def test_neuronlist_sample_reads_int_as_count_and_float_as_fraction():
+    nl = navis.example_neurons(5, kind="skeleton")
+
+    assert len(nl.sample(1)) == 1                    # int -> one neuron
+    assert len(nl.sample(1.0)) == len(nl)            # float -> the whole list
+    assert len(nl.sample(3)) == 3
+    assert len(nl.sample(0.4)) == 2
+    assert len(nl.sample(0)) == len(nl.sample(0.0)) == 0
+
+
+def test_neuronlist_full_sample_is_a_shuffle():
+    """1.0 keeps every neuron but must not hand them back in the old order."""
+    nl = navis.example_neurons(5, kind="skeleton")
+
+    # Fix the seed so this can't flake on the shuffle that happens to be identity
+    shuffled = nl.sample(1.0, random_state=1)
+
+    assert sorted(shuffled.id) == sorted(nl.id)
+    assert list(shuffled.id) != list(nl.id)
+
+
+def test_neuronlist_sample_random_state_is_reproducible():
+    nl = navis.example_neurons(5, kind="skeleton")
+
+    assert list(nl.sample(3, random_state=0).id) == list(nl.sample(3, random_state=0).id)
+    assert list(nl.sample(3, random_state=0).id) != list(nl.sample(3, random_state=1).id)
+    # A Generator works just as well as a seed
+    assert len(nl.sample(2, random_state=np.random.default_rng(0))) == 2
+
+
+@pytest.mark.parametrize("N", [6, -1, 1.5, -0.5, "2"])
+def test_neuronlist_sample_rejects_impossible_N(N):
+    nl = navis.example_neurons(5, kind="skeleton")
+
+    with pytest.raises((ValueError, TypeError)):
+        nl.sample(N)
