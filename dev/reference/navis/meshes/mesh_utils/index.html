@@ -17,80 +17,80 @@
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="navis">navis</span>.<a class="autorefs autorefs-internal" title="&lt;code&gt;navis.Mesh&lt;/code&gt;" href="../../#navis.Mesh">Mesh</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <p><span class="doc-section-title">Examples:</span></p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">navis</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">example_neurons</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">'mesh'</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">meshes</span><span class="o">.</span><span class="n">mesh_utils</span><span class="o">.</span><span class="n">face_dist_sorting</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">from_</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">soma_pos</span><span class="p">)</span>
-</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">546</span>
-<span class="normal">547</span>
-<span class="normal">548</span>
-<span class="normal">549</span>
-<span class="normal">550</span>
-<span class="normal">551</span>
-<span class="normal">552</span>
-<span class="normal">553</span>
-<span class="normal">554</span>
-<span class="normal">555</span>
-<span class="normal">556</span>
-<span class="normal">557</span>
-<span class="normal">558</span>
-<span class="normal">559</span>
-<span class="normal">560</span>
-<span class="normal">561</span>
-<span class="normal">562</span>
-<span class="normal">563</span>
-<span class="normal">564</span>
-<span class="normal">565</span>
-<span class="normal">566</span>
-<span class="normal">567</span>
-<span class="normal">568</span>
-<span class="normal">569</span>
-<span class="normal">570</span>
-<span class="normal">571</span>
-<span class="normal">572</span>
-<span class="normal">573</span>
-<span class="normal">574</span>
-<span class="normal">575</span>
-<span class="normal">576</span>
-<span class="normal">577</span>
-<span class="normal">578</span>
-<span class="normal">579</span>
-<span class="normal">580</span>
-<span class="normal">581</span>
-<span class="normal">582</span>
-<span class="normal">583</span>
-<span class="normal">584</span>
-<span class="normal">585</span>
-<span class="normal">586</span>
-<span class="normal">587</span>
-<span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span>
-<span class="normal">595</span>
-<span class="normal">596</span>
-<span class="normal">597</span>
-<span class="normal">598</span>
-<span class="normal">599</span>
-<span class="normal">600</span>
-<span class="normal">601</span>
-<span class="normal">602</span>
-<span class="normal">603</span>
-<span class="normal">604</span>
-<span class="normal">605</span>
-<span class="normal">606</span>
-<span class="normal">607</span>
-<span class="normal">608</span>
-<span class="normal">609</span>
-<span class="normal">610</span>
-<span class="normal">611</span>
-<span class="normal">612</span>
-<span class="normal">613</span>
-<span class="normal">614</span>
-<span class="normal">615</span>
-<span class="normal">616</span>
-<span class="normal">617</span>
-<span class="normal">618</span>
-<span class="normal">619</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">face_dist_sorting</span><span class="p">(</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">630</span>
+<span class="normal">631</span>
+<span class="normal">632</span>
+<span class="normal">633</span>
+<span class="normal">634</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span>
+<span class="normal">676</span>
+<span class="normal">677</span>
+<span class="normal">678</span>
+<span class="normal">679</span>
+<span class="normal">680</span>
+<span class="normal">681</span>
+<span class="normal">682</span>
+<span class="normal">683</span>
+<span class="normal">684</span>
+<span class="normal">685</span>
+<span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span>
+<span class="normal">695</span>
+<span class="normal">696</span>
+<span class="normal">697</span>
+<span class="normal">698</span>
+<span class="normal">699</span>
+<span class="normal">700</span>
+<span class="normal">701</span>
+<span class="normal">702</span>
+<span class="normal">703</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">face_dist_sorting</span><span class="p">(</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">from_</span><span class="p">,</span> <span class="n">strahler_weight</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">heal_method</span><span class="o">=</span><span class="s2">"ALL"</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Sort faces by distance from given point.</span>
@@ -183,91 +183,7 @@
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> Volume | Trimesh</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>n_cores</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Number of cores to use for parallel processing. Each unique
     label will be processed on a separate core. Defaults to half
     the available cores.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>meshes</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>List of <code>navis.Volume</code>. Their names correspond to unique <code>labels</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">249</span>
-<span class="normal">250</span>
-<span class="normal">251</span>
-<span class="normal">252</span>
-<span class="normal">253</span>
-<span class="normal">254</span>
-<span class="normal">255</span>
-<span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
-<span class="normal">259</span>
-<span class="normal">260</span>
-<span class="normal">261</span>
-<span class="normal">262</span>
-<span class="normal">263</span>
-<span class="normal">264</span>
-<span class="normal">265</span>
-<span class="normal">266</span>
-<span class="normal">267</span>
-<span class="normal">268</span>
-<span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span>
-<span class="normal">272</span>
-<span class="normal">273</span>
-<span class="normal">274</span>
-<span class="normal">275</span>
-<span class="normal">276</span>
-<span class="normal">277</span>
-<span class="normal">278</span>
-<span class="normal">279</span>
-<span class="normal">280</span>
-<span class="normal">281</span>
-<span class="normal">282</span>
-<span class="normal">283</span>
-<span class="normal">284</span>
-<span class="normal">285</span>
-<span class="normal">286</span>
-<span class="normal">287</span>
-<span class="normal">288</span>
-<span class="normal">289</span>
-<span class="normal">290</span>
-<span class="normal">291</span>
-<span class="normal">292</span>
-<span class="normal">293</span>
-<span class="normal">294</span>
-<span class="normal">295</span>
-<span class="normal">296</span>
-<span class="normal">297</span>
-<span class="normal">298</span>
-<span class="normal">299</span>
-<span class="normal">300</span>
-<span class="normal">301</span>
-<span class="normal">302</span>
-<span class="normal">303</span>
-<span class="normal">304</span>
-<span class="normal">305</span>
-<span class="normal">306</span>
-<span class="normal">307</span>
-<span class="normal">308</span>
-<span class="normal">309</span>
-<span class="normal">310</span>
-<span class="normal">311</span>
-<span class="normal">312</span>
-<span class="normal">313</span>
-<span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span>
-<span class="normal">321</span>
-<span class="normal">322</span>
-<span class="normal">323</span>
-<span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span>
-<span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>meshes</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>List of <code>navis.Volume</code>. Their names correspond to unique <code>labels</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">333</span>
 <span class="normal">334</span>
 <span class="normal">335</span>
 <span class="normal">336</span>
@@ -472,7 +388,91 @@
 <span class="normal">535</span>
 <span class="normal">536</span>
 <span class="normal">537</span>
-<span class="normal">538</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">pointlabels_to_meshes</span><span class="p">(</span>
+<span class="normal">538</span>
+<span class="normal">539</span>
+<span class="normal">540</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span>
+<span class="normal">550</span>
+<span class="normal">551</span>
+<span class="normal">552</span>
+<span class="normal">553</span>
+<span class="normal">554</span>
+<span class="normal">555</span>
+<span class="normal">556</span>
+<span class="normal">557</span>
+<span class="normal">558</span>
+<span class="normal">559</span>
+<span class="normal">560</span>
+<span class="normal">561</span>
+<span class="normal">562</span>
+<span class="normal">563</span>
+<span class="normal">564</span>
+<span class="normal">565</span>
+<span class="normal">566</span>
+<span class="normal">567</span>
+<span class="normal">568</span>
+<span class="normal">569</span>
+<span class="normal">570</span>
+<span class="normal">571</span>
+<span class="normal">572</span>
+<span class="normal">573</span>
+<span class="normal">574</span>
+<span class="normal">575</span>
+<span class="normal">576</span>
+<span class="normal">577</span>
+<span class="normal">578</span>
+<span class="normal">579</span>
+<span class="normal">580</span>
+<span class="normal">581</span>
+<span class="normal">582</span>
+<span class="normal">583</span>
+<span class="normal">584</span>
+<span class="normal">585</span>
+<span class="normal">586</span>
+<span class="normal">587</span>
+<span class="normal">588</span>
+<span class="normal">589</span>
+<span class="normal">590</span>
+<span class="normal">591</span>
+<span class="normal">592</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span>
+<span class="normal">600</span>
+<span class="normal">601</span>
+<span class="normal">602</span>
+<span class="normal">603</span>
+<span class="normal">604</span>
+<span class="normal">605</span>
+<span class="normal">606</span>
+<span class="normal">607</span>
+<span class="normal">608</span>
+<span class="normal">609</span>
+<span class="normal">610</span>
+<span class="normal">611</span>
+<span class="normal">612</span>
+<span class="normal">613</span>
+<span class="normal">614</span>
+<span class="normal">615</span>
+<span class="normal">616</span>
+<span class="normal">617</span>
+<span class="normal">618</span>
+<span class="normal">619</span>
+<span class="normal">620</span>
+<span class="normal">621</span>
+<span class="normal">622</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">pointlabels_to_meshes</span><span class="p">(</span>
     <span class="n">points</span><span class="p">,</span>
     <span class="n">labels</span><span class="p">,</span>
     <span class="n">res</span><span class="p">,</span>
@@ -762,13 +762,32 @@
         <span class="n">meshes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">core</span><span class="o">.</span><span class="n">Volume</span><span class="p">(</span><span class="n">new_mesh</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">l</span><span class="p">))</span>
 
     <span class="k">return</span> <span class="n">meshes</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.meshes.mesh_utils.points_to_mesh" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">meshes</span><span class="o">.</span><span class="n">mesh_utils</span><span class="o">.</span><span class="n">points_to_mesh</span></code> <a href="#navis.meshes.mesh_utils.points_to_mesh" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Generate mesh from point cloud.</p> <p>Briefly, the workflow is this: 1. Partition the point cloud into voxels of size <code>res</code>. 2. (Optional) Discard voxels with less than <code>threshold</code> points inside. 3. Turn voxels into a (M, N, K) matrix. 4. (Optional) Denoise the matrix by a round of binary erosion + dilation and fill holes. 5. Use marching cubes to produce a mesh.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>points</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Point cloud.
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.meshes.mesh_utils.points_to_mesh" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">meshes</span><span class="o">.</span><span class="n">mesh_utils</span><span class="o">.</span><span class="n">points_to_mesh</span></code> <a href="#navis.meshes.mesh_utils.points_to_mesh" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Generate mesh from point cloud.</p> <p>Briefly, the workflow is this: 1. Partition the point cloud into voxels of size <code>res</code>. 2. (Optional) Discard voxels with less than <code>threshold</code> points inside. 3. (Optional) Denoise the voxels by a round of binary erosion + dilation and fill holes. 4. Turn the voxels into a mesh (see <code>backend</code>).</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>points</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Point cloud.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> (N, 3) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>res</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Resolution of the voxels.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>threshold</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Use this to ignore voxels with very few points inside.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int | (3, ) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>threshold</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Use this to ignore voxels with very few points inside.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>denoise</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Whether to use binary filters to reduce noise and smoothen
     the mesh.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="trimesh">trimesh</span>.<span title="trimesh.Trimesh">Trimesh</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">150</span>
-<span class="normal">151</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>backend</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Which implementation to use:
+      - "sparsecubes" (default) filters and meshes the sparse
+        voxels directly and never allocates the dense grid. Since
+        a point cloud's voxels are typically a tiny fraction of
+        their bounding box, this is both much faster and
+        dramatically lighter on memory.
+      - "skimage" is the historical path: it rasterizes the voxels
+        into a dense grid, denoises with `scipy.ndimage` and meshes
+        with marching cubes. Requires scikit-image.
+    Note that the two do not produce the same mesh: "skimage" sits
+    one `res` off the voxels it was given (the dense path's surface
+    is drawn on the *background* voxels and then shifted back by
+    `res`, which only corrects one side), whereas "sparsecubes" is
+    centred on them.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> "sparsecubes" | "skimage"</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>'sparsecubes'</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>smooth</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Only for the "sparsecubes" backend - how vertices are placed:
+      - True (default) uses SurfaceNets: one vertex per surface
+        cell, placed at the centroid of the surface crossings
+        around it. This smooths the staircase you would otherwise
+        get on diagonal surfaces.
+      - False gives blocky, axis-aligned quads.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="trimesh">trimesh</span>.<span title="trimesh.Trimesh">Trimesh</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">151</span>
 <span class="normal">152</span>
 <span class="normal">153</span>
 <span class="normal">154</span>
@@ -846,120 +865,85 @@
 <span class="normal">226</span>
 <span class="normal">227</span>
 <span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">points_to_mesh</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">denoise</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="normal">229</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">points_to_mesh</span><span class="p">(</span>
+    <span class="n">points</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">denoise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">"sparsecubes"</span><span class="p">,</span> <span class="n">smooth</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Generate mesh from point cloud.</span>
 
 <span class="sd">    Briefly, the workflow is this:</span>
 <span class="sd">      1. Partition the point cloud into voxels of size `res`.</span>
 <span class="sd">      2. (Optional) Discard voxels with less than `threshold` points inside.</span>
-<span class="sd">      3. Turn voxels into a (M, N, K) matrix.</span>
-<span class="sd">      4. (Optional) Denoise the matrix by a round of binary erosion + dilation</span>
+<span class="sd">      3. (Optional) Denoise the voxels by a round of binary erosion + dilation</span>
 <span class="sd">         and fill holes.</span>
-<span class="sd">      5. Use marching cubes to produce a mesh.</span>
+<span class="sd">      4. Turn the voxels into a mesh (see `backend`).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    points :    (N, 3) array</span>
 <span class="sd">                Point cloud.</span>
-<span class="sd">    res :       int</span>
+<span class="sd">    res :       int | (3, ) array</span>
 <span class="sd">                Resolution of the voxels.</span>
 <span class="sd">    threshold : int, optional</span>
 <span class="sd">                Use this to ignore voxels with very few points inside.</span>
 <span class="sd">    denoise :   bool</span>
 <span class="sd">                Whether to use binary filters to reduce noise and smoothen</span>
 <span class="sd">                the mesh.</span>
-
+<span class="sd">    backend :   "sparsecubes" | "skimage"</span>
+<span class="sd">                Which implementation to use:</span>
+<span class="sd">                  - "sparsecubes" (default) filters and meshes the sparse</span>
+<span class="sd">                    voxels directly and never allocates the dense grid. Since</span>
+<span class="sd">                    a point cloud's voxels are typically a tiny fraction of</span>
+<span class="sd">                    their bounding box, this is both much faster and</span>
+<span class="sd">                    dramatically lighter on memory.</span>
+<span class="sd">                  - "skimage" is the historical path: it rasterizes the voxels</span>
+<span class="sd">                    into a dense grid, denoises with `scipy.ndimage` and meshes</span>
+<span class="sd">                    with marching cubes. Requires scikit-image.</span>
+<span class="sd">                Note that the two do not produce the same mesh: "skimage" sits</span>
+<span class="sd">                one `res` off the voxels it was given (the dense path's surface</span>
+<span class="sd">                is drawn on the *background* voxels and then shifted back by</span>
+<span class="sd">                `res`, which only corrects one side), whereas "sparsecubes" is</span>
+<span class="sd">                centred on them.</span>
+<span class="sd">    smooth :    bool</span>
+<span class="sd">                Only for the "sparsecubes" backend - how vertices are placed:</span>
+<span class="sd">                  - True (default) uses SurfaceNets: one vertex per surface</span>
+<span class="sd">                    cell, placed at the centroid of the surface crossings</span>
+<span class="sd">                    around it. This smooths the staircase you would otherwise</span>
+<span class="sd">                    get on diagonal surfaces.</span>
+<span class="sd">                  - False gives blocky, axis-aligned quads.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    trimesh.Trimesh</span>
 
 <span class="sd">    """</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">skimage</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ModuleNotFoundError</span><span class="p">(</span>
-            <span class="s2">"Meshing requires `skimage`:</span><span class="se">\n</span><span class="s2">  pip3 install scikit-image"</span>
-        <span class="p">)</span>
+    <span class="n">utils</span><span class="o">.</span><span class="n">eval_param</span><span class="p">(</span><span class="n">backend</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"backend"</span><span class="p">,</span> <span class="n">allowed_values</span><span class="o">=</span><span class="p">(</span><span class="s2">"sparsecubes"</span><span class="p">,</span> <span class="s2">"skimage"</span><span class="p">))</span>
 
     <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">points</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Points must be of shape (N, 3), got </span><span class="si">{</span><span class="n">points</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
-    <span class="c1"># Generate counts per voxel</span>
-    <span class="n">vxl</span><span class="p">,</span> <span class="n">cnt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">((</span><span class="n">points</span> <span class="o">/</span> <span class="n">res</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Unable to mesh an empty point cloud"</span><span class="p">)</span>
 
-    <span class="c1"># Turn into a DataFrame</span>
-    <span class="n">voxels</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">vxl</span><span class="p">),</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">])</span>
-    <span class="n">voxels</span><span class="p">[</span><span class="s2">"count"</span><span class="p">]</span> <span class="o">=</span> <span class="n">cnt</span>
+    <span class="c1"># Bin points into voxels, counting how many landed in each</span>
+    <span class="n">voxels</span><span class="p">,</span> <span class="n">cnt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span>
+        <span class="p">(</span><span class="n">points</span> <span class="o">/</span> <span class="n">res</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
+    <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">threshold</span><span class="p">:</span>
-        <span class="n">voxels</span> <span class="o">=</span> <span class="n">voxels</span><span class="p">[</span><span class="n">voxels</span><span class="p">[</span><span class="s2">"count"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">]</span>
+        <span class="n">voxels</span> <span class="o">=</span> <span class="n">voxels</span><span class="p">[</span><span class="n">cnt</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">]</span>
 
-    <span class="n">vx</span> <span class="o">=</span> <span class="n">voxels</span><span class="p">[[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
-    <span class="c1"># Rebase voxel indices to start at 0 so negative or large coordinates</span>
-    <span class="c1"># don't wrap around (negative indexing) or allocate a huge sparse grid</span>
-    <span class="n">offset</span> <span class="o">=</span> <span class="n">vx</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">vx</span> <span class="o">=</span> <span class="n">vx</span> <span class="o">-</span> <span class="n">offset</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">voxels</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"No voxel contains the required </span><span class="si">{</span><span class="n">threshold</span><span class="si">}</span><span class="s2"> points - try "</span>
+                <span class="s2">"lowering `threshold` or increasing `res`."</span>
+            <span class="p">)</span>
 
-    <span class="c1"># Generate empty matrix and fill it</span>
-    <span class="n">mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">vx</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
-    <span class="n">mat</span><span class="p">[</span><span class="n">vx</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">vx</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">vx</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">"sparsecubes"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_points_to_mesh_sparsecubes</span><span class="p">(</span><span class="n">voxels</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">denoise</span><span class="o">=</span><span class="n">denoise</span><span class="p">,</span> <span class="n">smooth</span><span class="o">=</span><span class="n">smooth</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">denoise</span><span class="p">:</span>
-        <span class="c1"># Denoise by a round of erosion...</span>
-        <span class="n">mat</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">binary_erosion</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
-
-        <span class="c1"># ... followed by two rounds of dilation to smoothen things out...</span>
-        <span class="n">mat</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">binary_dilation</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">iterations</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-
-        <span class="c1"># ... followed by a round of fill holes</span>
-        <span class="n">mat</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">binary_fill_holes</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
-
-        <span class="c1"># And a final round of erosion to get back to the correct scale</span>
-        <span class="n">mat</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">binary_erosion</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">iterations</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-
-    <span class="c1"># Run the marching cube algorithm</span>
-    <span class="c1"># (newer versions of skimage have a "marching cubes" function and</span>
-    <span class="c1"># the marching_cubes_lewiner is deprecreated)</span>
-    <span class="n">marching_cubes</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
-        <span class="n">measure</span><span class="p">,</span> <span class="s2">"marching_cubes"</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">measure</span><span class="p">,</span> <span class="s2">"marching_cubes_lewiner"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="p">)</span>
-    <span class="n">verts</span><span class="p">,</span> <span class="n">faces</span><span class="p">,</span> <span class="n">normals</span><span class="p">,</span> <span class="n">values</span> <span class="o">=</span> <span class="n">marching_cubes</span><span class="p">(</span>
-        <span class="n">mat</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
-        <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-        <span class="n">gradient_direction</span><span class="o">=</span><span class="s2">"ascent"</span><span class="p">,</span>
-        <span class="n">allow_degenerate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">step_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="c1"># Turn coordinates back into original units (undoing the rebasing offset)</span>
-    <span class="n">verts</span> <span class="o">=</span> <span class="p">(</span><span class="n">verts</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span> <span class="o">*</span> <span class="n">res</span>
-
-    <span class="c1"># Somehow we seem to have introduced an offset equal to our resolution</span>
-    <span class="n">verts</span> <span class="o">-=</span> <span class="n">res</span>
-
-    <span class="n">mesh</span> <span class="o">=</span> <span class="n">tm</span><span class="o">.</span><span class="n">Trimesh</span><span class="p">(</span><span class="n">vertices</span><span class="o">=</span><span class="n">verts</span><span class="p">,</span> <span class="n">faces</span><span class="o">=</span><span class="n">faces</span><span class="p">,</span> <span class="n">normals</span><span class="o">=</span><span class="n">normals</span><span class="p">)</span>
-
-    <span class="c1"># Need to fix normals</span>
-    <span class="n">mesh</span><span class="o">.</span><span class="n">fix_normals</span><span class="p">()</span>
-
-    <span class="k">return</span> <span class="n">mesh</span>
+    <span class="k">return</span> <span class="n">_points_to_mesh_skimage</span><span class="p">(</span><span class="n">voxels</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">denoise</span><span class="o">=</span><span class="n">denoise</span><span class="p">)</span>
 </code></pre></div></td></tr></tbody></table></div> </details> </div> </div> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class="md-footer"> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class="md-copyright"> Made with <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener"> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class="md-dialog" data-md-component="dialog"> <div class="md-dialog__inner md-typeset"></div> </div> <div class="md-progress" data-md-component="progress" role="progressbar"></div> <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["content.tabs.link", "content.code.annotate", "navigation.indexes", "navigation.instant", "navigation.instant.progress", "navigation.tabs", "navigation.tabs.sticky", "content.code.copy", "content.tooltips"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script> <script src="../../../../assets/javascripts/bundle.d7400e89.min.js"></script> <script src="../../../../assets/_markdown_exec_pyodide.js"></script> <script src="../../../../javascripts/katex.js"></script> <script src="../../../../assets/external/unpkg.com/katex@0/dist/katex.min.js"></script> <script src="../../../../assets/external/unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>  <script id="init-glightbox">document.querySelectorAll('.glightbox').forEach(function(element) {
     try {
         var img = element.querySelector('img');
