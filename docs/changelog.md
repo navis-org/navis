@@ -112,6 +112,19 @@ pip install git+https://github.com/navis-org/navis@master
 
 - **[`navis.downsample_neuron`][]'s `method` argument now applies to every type of neuron, and an inapplicable one is an error.** It used to be read only by `Dotprops` and silently ignored by everything else. That was harmless while it named a way of picking *points*; it is not harmless now that it also names a way of picking *nodes*, since quietly ignoring `method="rdp"` on a mesh would hand back something simplified by face count and call it shape-aware. `navis.downsample_neuron(mesh, 5, method="uniform")` now raises a `ValueError` naming the methods that type does understand.
 
+- **[`navis.ivscc_features`][] returns neurons as *rows***, like every other NeuronList-level function in {{ navis }}. It used to build its `DataFrame` straight out of a `{neuron_id: {feature: value}}` dict, which lands features on the index and neurons on the columns - so `.mean()` averaged across neurons per feature only after a transpose nobody remembered. The index is now named `id`, and neurons sharing an ID no longer collapse into one row. Add a `.T` to get the old layout.
+
+    Several features changed meaning at the same time (see Fixes below for the ones that were simply wrong):
+
+    | Old | New |
+    |---------|-------------|
+    | `mean_contraction` was tortuosity, `L / R >= 1` | contraction proper, `R / L <= 1` |
+    | `max_branch_order` was the branch point *count* | the number of bifurcations on the longest root-to-tip path |
+    | `basal_dendrite_calculate_number_of_stems` | `<compartment>_num_stems`, and computed for every compartment |
+    | `max_euclidean_distance` was the *summed* distance | the maximum distance |
+
+    Feature classes are now constructed from a shared `NeuronContext` rather than from a neuron - `feat(ctx)` instead of `feat(neuron, verbose=...)` - so that rerooting and the distance-to-soma pass happen once per neuron instead of once per feature class. Custom classes passed to `features=` need to subclass `Features` and take a context. `_check_compartments`, which was never called, is gone, and `from navis.morpho.ivscc import *` no longer raises (`__all__` named a function that does not exist).
+
 ##### Additions
 
 - **[`navis.downsample_neuron`][] can thin skeletons by *shape* rather than by counting**, via `method="rdp"` (Ramer-Douglas-Peucker) and `method="vw"` (Visvalingam-Whyatt), both from [navis-fastcore](https://github.com/schlegelp/fastcore-rs). RDP drops a node unless removing it would move the traced path by more than the tolerance, so long straight stretches collapse to their two ends while a tight curve keeps every node it needs; Visvalingam-Whyatt repeatedly removes whichever node adds least area, which sheds detail more evenly under aggressive simplification - RDP will happily keep one spike and flatten everything around it. Both spend the same node budget where the neuron actually curves, which buys a much better skeleton per node than a fixed factor does: on the example neuron `method="rdp"` at half a micron keeps 1362 nodes against `downsampling_factor=5`'s 1564, for a closer fit.
@@ -176,6 +189,23 @@ pip install git+https://github.com/navis-org/navis@master
 
     !!! warning "navis-fastcore does not distribute"
         The [navis-fastcore](https://github.com/schlegelp/fastcore-rs) NBLAST backend computes the whole matrix in one Rust call with its own threads, so it ignores the parallel backend entirely and runs everything locally. It is not the default (`navis.config.default_nblast_backend` is `"builtin"`), but it is what `"auto"` picks where it is installed - so leave that alone, or pass `backend="builtin"`, when you want a distributed NBLAST.
+
+- **[`navis.ivscc_features`][] gained the features it was missing**, mostly the ones that need a radius or a third dimension:
+
+    | New feature | Description |
+    |---------|-------------|
+    | `extent_z` | The depth extent. Only `x` and `y` were measured before, so a neuron's third dimension went unrecorded |
+    | `num_tips`, `num_branch_points` | Tip and branch point counts - `num_branches` (linear segments) was the only topology metric |
+    | `bifurcation_angle_local`, `bifurcation_angle_remote` | Mean angle between child branches, measured at the branch point and to the next branch/tip respectively |
+    | `mean_diameter`, `total_surface`, `total_volume` | Radius-derived size. `total_surface`/`total_volume` model the cable as tapered cylinders and match `Skeleton.surface_area`/[`.volume`][navis.Skeleton.volume] |
+    | `parent_daughter_ratio` | Mean ratio of daughter to parent radius across branch points |
+    | `early_branch_path` | Path length to the first branch point over the maximum path length - how early the arbor starts splitting |
+    | `soma_percentile_x`, `soma_percentile_y` | Fraction of the compartment's nodes above the soma |
+    | `soma_radius`, `soma_surface`, `num_stems` | Whole-cell features, from the new `SomaFeatures` |
+
+    `exit_distance` and `exit_theta` are no longer axon-only - every compartment gets them. Features needing a radius are skipped (`NaN`, plus a warning under `verbose=True`) where the node table has none: {{ navis }} fills a missing `radius` column with zeros, which used to come back as `total_surface = 0.0` rather than "not measured".
+
+    There is also a new [IVSCC tutorial](../generated/gallery/2_morpho/zzz_tutorial_morpho_05_ivscc) - the docstring used to point at one that did not exist. It works through 25 Patch-seq mouse cortical cells from the [Brain Image Library](https://www.brainimagelibrary.org), including the part that is easy to get wrong: these features read cortical depth off the `y` axis, and the same cells measured in their unaligned `_Raw` frame come back with `soma_percentile_y` of 0.07 instead of 0.97 and `bias_y` the wrong way round.
 
 ##### Improvements
 
@@ -348,6 +378,16 @@ pip install git+https://github.com/navis-org/navis@master
 
 - a mesh's unique edges now come from navis-fastcore (new `navis.utils.mesh_unique_edges`) instead of `trimesh.edges_unique`, which sorts an `(n_faces * 3, 2)` array to find them. This sits underneath [`neuron2nx`][navis.neuron2nx]/[`neuron2igraph`][navis.neuron2igraph] for `Meshes` and hence everything built on a mesh graph. The results are seeded into trimesh's own cache, so a mesh that has already computed its edges pays nothing
 ##### Fixes
+- **[`navis.ivscc_features`][] had six features that were quietly wrong.** Most of them came from the same place: a compartment is measured on a *subset* of the neuron, and the subset does not know about the cell it was cut out of.
+    - `max_euclidean_distance` was `.sum().max()` on the per-node distances. `.sum()` collapses the series to a scalar and `.max()` on a scalar is a no-op, so the feature was the **sum** of every node's distance to the soma - growing with node count rather than with reach
+    - `calculate_number_of_stems` was **always 0**. It counted nodes whose parent is the soma, but the soma is not in the compartment subset and [`subset_neuron`][navis.subset_neuron] had already rewired those stems into roots. Stems are now counted on the full neuron
+    - `max_branch_order` was `n_branch_points + 1`, which is a *count*, not an order: a balanced binary tree of depth 5 scored 32 instead of 5, and a 10-stem star 2 instead of 1
+    - `mean_contraction` recorded [`navis.tortuosity`][], i.e. `L / R`. Contraction is the reciprocal, `R / L`, and is now computed as such - and note that `mean(R / L)` is not `1 / mean(L / R)` (0.940 vs 0.931 on the example neuron)
+    - `exit_distance` and `exit_theta` could describe **different roots**: the distance took the `min` over all of the axon's roots, the angle whichever came first in the node table. Both now use the root closest to the soma. The distance is also clamped at 0 (it went negative for a root inside the soma sphere) and falls back to the soma centre where the radius is unknown, instead of returning `NaN`
+    - branch points, branch order, bifurcation angles and `parent_daughter_ratio` **missed a compartment's most proximal fork**. Those read the node table's `type` column, which types the subset's own root as `root` even where it has two children - so a dendrite splitting as it leaves the soma counted zero branch points. They now count children directly, excluding only the soma
+
+    Two crashes are gone with them: `BasicFeatures` on a neuron without a soma returned `None` from `extract_features` and blew up on `dict.update(None)`, and a neuron without a `label` column raised a bare `ValueError` that `missing_compartments` did not catch - so `"ignore"` and `"skip"` did not, in fact, ignore or skip it. `missing_compartments` and `x` are now validated up front rather than falling through to `raise`.
+
 - **[`navis.subset_neuron`][navis.subset_neuron] has been rewritten onto a declarative per-type schema** (`navis/core/schema.py`) that says which attributes are aligned to which axis - a skeleton's nodes, a mesh's vertices, a dotprops' points - and what references them. The three hand-written implementations had drifted apart in exactly the places nobody was looking; there is now one, plus a test that fails if any bulk field is undeclared. [`navis.masked`][navis.masked] (above) is built on the same schema. Four bugs came out of it:
     - `subset_neuron` **mis-mapped a `Mesh`'s connectors**: it built its old→new vertex index map from the vertex indices *requested*, but `submesh` returns the survivors in sorted order and additionally drops vertices left in no face - so unless the request happened to be sorted and complete, surviving connectors came back attached to the wrong vertex, silently
     - `subset_neuron` **left a `Dotprops`' soma pointing at whatever point had moved into that slot**. A dotprops soma is a point *index*, so a subset has to renumber it; it is now remapped, or dropped if the point did not survive
