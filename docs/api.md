@@ -666,6 +666,7 @@ Various utility functions.
 | [`navis.set_default_connector_colors()`][navis.set_default_connector_colors] | {{ autosummary("navis.set_default_connector_colors") }} |
 | [`navis.config.remove_log_handlers()`][navis.config.remove_log_handlers] | {{ autosummary("navis.config.remove_log_handlers") }} |
 | [`navis.patch_cloudvolume()`][navis.patch_cloudvolume] | {{ autosummary("navis.patch_cloudvolume") }} |
+| [`navis.patch_caveclient()`][navis.patch_caveclient] | {{ autosummary("navis.patch_caveclient") }} |
 | [`navis.example_neurons()`][navis.example_neurons] | {{ autosummary("navis.example_neurons") }} |
 | [`navis.example_volume()`][navis.example_volume] | {{ autosummary("navis.example_volume") }} |
 

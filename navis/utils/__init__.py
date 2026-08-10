@@ -23,6 +23,7 @@ from .eval import (eval_node_ids, eval_neurons, eval_id, eval_conditions,
                    is_mesh, is_numeric, eval_param, guess_connector_type)
 from .exceptions import (ConstructionError, VolumeError, CMTKError)
 from .cv import (patch_cloudvolume)
+from .cave import (patch_caveclient)
 from .decorators import (meshneuron_skeleton, map_neuronlist_df, map_neuronlist,
                          lock_neuron, rebuilds)
 
@@ -31,4 +32,4 @@ from .decorators import (meshneuron_skeleton, map_neuronlist_df, map_neuronlist,
 import navis_fastcore as fastcore  # noqa: F401
 
 __all__ = ['set_loggers', 'set_pbars', 'set_default_connector_colors',
-           'patch_cloudvolume']
+           'patch_cloudvolume', 'patch_caveclient']
