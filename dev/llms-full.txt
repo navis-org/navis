@@ -4930,27 +4930,109 @@ neuron
 
 Calculate IVSCC features for neuron(s).
 
-Please see the `IVSCC` tutorial for details.
+IVSCC features describe cortical neurons in terms of their compartments
+(axon, basal and apical dendrite) and how those compartments relate to the
+soma and to each other. Compartments are read off the `label` column of the
+node table, which accepts either SWC label IDs (`2` = axon, `3` = basal
+dendrite, `4` = apical dendrite) or their names.
+
+!!! important "Coordinate frame"
+    Features are computed in the neuron's native coordinate system and
+    units - nothing is normalized or rescaled. Crucially, the depth-related
+    features (`bias_y`, `soma_percentile_y` and everything produced by
+    `OverlapFeatures`) assume that neurons have been aligned such that **`y`
+    is the cortical depth axis** (i.e. perpendicular to the pia) and that
+    `y` increases in the same direction for all neurons. Feed in unaligned
+    neurons and those features will be meaningless. See
+    navis.xform / navis.Skeleton.reroot for getting there.
 
 Parameters
 ----------
 x :                     Skeleton | NeuronList
-                        Neuron(s) to calculate IVSCC for.
+                        Neuron(s) to calculate IVSCC features for.
 features :              Sequence[Features], optional
-                        Provide specific features to calculate.
-                        Must be subclasses of `BasicFeatures`.
-                        If `None`, will use default features.
+                        Provide specific features to calculate. Must be
+                        subclasses of `Features` (see `DEFAULT_FEATURES`
+                        in `navis.morpho.ivscc`). If `None`, will use the
+                        default features.
 missing_compartments : "ignore" | "skip" | "raise"
                         What to do if a neuron is missing a compartment
-                        (e.g. no axon or basal dendrite):
-                         - "ignore" (default): ignore that compartment
+                        (e.g. no axon or basal dendrite) or has no `label`
+                        column at all:
+                         - "ignore" (default): ignore that compartment. Its
+                           features are simply not recorded, which for a
+                           `NeuronList` means `NaN` in the columns other
+                           neurons contributed
                          - "skip": skip the entire neuron
-                         - "raise": raise an exception
+                         - "raise": raise a `CompartmentNotFoundError`
+verbose :               bool
+                        If True, will log a warning whenever a feature is
+                        skipped (e.g. because a neuron has no soma).
+progress :              bool
+                        Whether to show a progress bar.
 
 Returns
 -------
 ivscc :                 pd.DataFrame
-                        IVSCC features for the neuron(s).
+                        IVSCC features - one row per neuron, one column per
+                        feature. Features that could not be computed for a
+                        given neuron are `NaN`.
+
+Notes
+-----
+Features prefixed with a compartment name (e.g. `axon_total_length`) are
+computed on that compartment alone:
+
+| Feature                    | Description                                                                     |
+|----------------------------|---------------------------------------------------------------------------------|
+| `num_nodes`                | Number of nodes.                                                                  |
+| `total_length`             | Summed cable length.                                                              |
+| `extent_x/y/z`             | Extent along each axis.                                                           |
+| `num_branches`             | Number of linear segments between branch points, tips and roots.                  |
+| `num_branch_points`        | Number of branch points.                                                          |
+| `num_tips`                 | Number of terminal (leaf) nodes.                                                   |
+| `max_branch_order`         | Highest branch order; `1` for an unbranched neurite, `+1` at each branch point.   |
+| `mean_contraction`         | Mean ratio of end-to-end distance to geodesic length across segments.             |
+| `bifurcation_angle_local`  | Mean angle (degrees) between child branches, measured at the branch point.        |
+| `bifurcation_angle_remote` | Mean angle (degrees) between child branches, measured to the next branch/tip.     |
+| `mean_diameter`            | Mean node diameter.                                                               |
+| `total_surface`            | Lateral surface area, modelling the cable as tapered cylinders.                   |
+| `total_volume`             | Volume, modelling the cable as tapered cylinders.                                 |
+| `parent_daughter_ratio`    | Mean ratio of daughter to parent radius at branch points.                         |
+| `bias_x`                   | Asymmetry of the arbor around the soma along x (absolute).                        |
+| `bias_y`                   | Asymmetry of the arbor around the soma along y (signed).                          |
+| `soma_percentile_x/y`      | Fraction of nodes above the soma along x/y.                                       |
+| `max_euclidean_distance`   | Distance from the soma to the farthest node.                                      |
+| `max_path_length`          | Geodesic distance from the soma to the farthest node.                             |
+| `early_branch_path`        | Path length to the first branch point over `max_path_length`.                     |
+| `num_stems`                | Number of neurites of this compartment sprouting from the soma.                   |
+| `exit_distance`            | Distance between the soma surface and where the compartment leaves it.            |
+| `exit_theta`               | Radial position (radians) at which the compartment leaves the soma.               |
+
+Radius-based features require a `radius` column, and everything from
+`bias_x` onwards requires a soma; they are `NaN` otherwise.
+
+On top of those there are whole-cell features (`soma_radius`,
+`soma_surface`, `num_stems`) and, for each ordered pair of compartments,
+features describing how their depth distributions relate
+(`{c1}_frac_above_{c2}`, `_frac_intersect_`, `_frac_below_` and the
+earth mover's distance `{c1}_emd_with_{c2}`).
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> n = navis.example_neurons(1, kind='skeleton').copy()
+>>> # IVSCC features are computed per compartment, so the neuron needs a
+>>> # `label` column. Our example neurons don't have one, so we make it up -
+>>> # normally this would come from the SWC file.
+>>> n.nodes['label'] = np.where(n.nodes.y > n.soma_pos1,
+...                             'apical_dendrite', 'basal_dendrite')
+>>> feats = navis.ivscc_features(n, progress=False)
+>>> feats.index.tolist() == [n.id]
+True
+>>> bool(feats.apical_dendrite_max_branch_order.values[0] > 1)
+True
 
 ### navis.sholl_analysis(x, radii=10, center='centermass', geodesic=False)
 
@@ -14048,6 +14130,57 @@ Examples
 <class 'navis.core.neuronlist.NeuronList'>
 >>> # The same works for skeletons
 >>> skels = vol.skeleton.get_navis(ids)
+
+### navis.patch_caveclient()
+
+*function*
+
+Monkey patch caveclient to return navis neurons.
+
+Patches the skeleton service, i.e. the `client.skeleton` methods that
+return skeletons: [`get_skeleton`, `get_bulk_skeletons`, `fetch_skeletons`].
+Each gains an `as_navis=True` keyword argument, plus a `*_navis` twin that
+always converts. See examples for details.
+
+Both of the service's `output_format`s are understood and, importantly,
+they are **not in the same units**: `"dict"` (the default) is in nanometres
+and `"swc"` is in micrometres. The resulting neurons have their `.units` set
+accordingly. The service's per-vertex compartment (`1` soma, `2` axon,
+`3` dendrite) lands in the node table's `label` column, where the rest of
+navis - navis.ivscc_features, `color_by="label"`, ... - expects
+to find it.
+
+Unlike navis.patch_cloudvolume this can be run at any point: it
+patches the client *class*, so clients created earlier pick it up too.
+Patching twice is a no-op.
+
+Note that `get_bulk_skeletons` and `fetch_skeletons` return a limited number
+of skeletons per call (ten, at time of writing) and silently drop the rest -
+a truncated `NeuronList` looks a lot like a complete one, so navis warns
+when it gets back fewer skeletons than you asked for.
+
+See Also
+--------
+navis.patch_cloudvolume
+            Does the same for `cloud-volume`, which is what CAVE hands you
+            meshes through (`client.info.segmentation_cloudvolume()`).
+
+Examples
+--------
+>>> import navis
+>>> import caveclient                                       # doctest: +SKIP
+>>> # Monkey patch caveclient
+>>> navis.patch_caveclient()                                # doctest: +SKIP
+>>> client = caveclient.CAVEclient('minnie65_public')       # doctest: +SKIP
+>>> root_id = 864691135975633475                            # doctest: +SKIP
+>>> # Fetch as navis neuron using the newly added method or ...
+>>> n = client.skeleton.get_skeleton_navis(root_id)         # doctest: +SKIP
+>>> # ... alternatively use the `as_navis` keyword argument
+>>> n = client.skeleton.get_skeleton(root_id, as_navis=True)  # doctest: +SKIP
+>>> type(n)                                                 # doctest: +SKIP
+<class 'navis.core.skeleton.Skeleton'>
+>>> # Several at a time come back as a NeuronList
+>>> nl = client.skeleton.get_bulk_skeletons_navis([root_id])  # doctest: +SKIP
 
 ### navis.example_neurons(n=None, kind='skeleton', synapses=True, source='swc')
 

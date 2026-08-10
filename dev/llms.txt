@@ -574,6 +574,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-utility.txt
 - `navis.set_default_connector_colors(x)` - Set/update default connector colors.
 - `navis.config.remove_log_handlers()` - Remove all handlers from the `navis` logger.
 - `navis.patch_cloudvolume()` - Monkey patch cloud-volume to return navis neurons.
+- `navis.patch_caveclient()` - Monkey patch caveclient to return navis neurons.
 - `navis.example_neurons(n=None, kind='skeleton', synapses=True, source='swc')` - Load example neuron(s).
 - `navis.example_volume(name)` - Load an example volume.
 

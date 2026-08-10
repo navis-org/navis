@@ -284,6 +284,57 @@ Examples
 >>> # The same works for skeletons
 >>> skels = vol.skeleton.get_navis(ids)
 
+### navis.patch_caveclient()
+
+*function*
+
+Monkey patch caveclient to return navis neurons.
+
+Patches the skeleton service, i.e. the `client.skeleton` methods that
+return skeletons: [`get_skeleton`, `get_bulk_skeletons`, `fetch_skeletons`].
+Each gains an `as_navis=True` keyword argument, plus a `*_navis` twin that
+always converts. See examples for details.
+
+Both of the service's `output_format`s are understood and, importantly,
+they are **not in the same units**: `"dict"` (the default) is in nanometres
+and `"swc"` is in micrometres. The resulting neurons have their `.units` set
+accordingly. The service's per-vertex compartment (`1` soma, `2` axon,
+`3` dendrite) lands in the node table's `label` column, where the rest of
+navis - navis.ivscc_features, `color_by="label"`, ... - expects
+to find it.
+
+Unlike navis.patch_cloudvolume this can be run at any point: it
+patches the client *class*, so clients created earlier pick it up too.
+Patching twice is a no-op.
+
+Note that `get_bulk_skeletons` and `fetch_skeletons` return a limited number
+of skeletons per call (ten, at time of writing) and silently drop the rest -
+a truncated `NeuronList` looks a lot like a complete one, so navis warns
+when it gets back fewer skeletons than you asked for.
+
+See Also
+--------
+navis.patch_cloudvolume
+            Does the same for `cloud-volume`, which is what CAVE hands you
+            meshes through (`client.info.segmentation_cloudvolume()`).
+
+Examples
+--------
+>>> import navis
+>>> import caveclient                                       # doctest: +SKIP
+>>> # Monkey patch caveclient
+>>> navis.patch_caveclient()                                # doctest: +SKIP
+>>> client = caveclient.CAVEclient('minnie65_public')       # doctest: +SKIP
+>>> root_id = 864691135975633475                            # doctest: +SKIP
+>>> # Fetch as navis neuron using the newly added method or ...
+>>> n = client.skeleton.get_skeleton_navis(root_id)         # doctest: +SKIP
+>>> # ... alternatively use the `as_navis` keyword argument
+>>> n = client.skeleton.get_skeleton(root_id, as_navis=True)  # doctest: +SKIP
+>>> type(n)                                                 # doctest: +SKIP
+<class 'navis.core.skeleton.Skeleton'>
+>>> # Several at a time come back as a NeuronList
+>>> nl = client.skeleton.get_bulk_skeletons_navis([root_id])  # doctest: +SKIP
+
 ### navis.example_neurons(n=None, kind='skeleton', synapses=True, source='swc')
 
 *function*
