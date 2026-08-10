@@ -1,5 +1,6 @@
 import navis
 import pytest
+import struct
 import tempfile
 import numpy as np
 
@@ -63,6 +64,33 @@ def test_precomputed_skeleton_io(filename):
 
         # Assert that we loaded the same number of neurons
         assert len(n) == len(n2)
+
+
+@pytest.mark.parametrize("flip", [False, True])
+def test_precomputed_skeleton_edge_order(flip):
+    """Precomputed edges are undirected: both column orders must read the same.
+
+    A branch point repeats in whichever column holds the parents, and the reader
+    used to lose every repeat - so a file written "backwards" fell apart into as
+    many fragments as it had branches.
+
+    """
+    # A stick with a fork at node 2, written as (parent, child)
+    edges = np.array([[0, 1], [1, 2], [2, 3], [2, 4]], dtype=np.uint32)
+    if flip:
+        edges = edges[:, ::-1]
+    vertices = np.arange(15, dtype=np.float32).reshape(5, 3)
+
+    buf = struct.pack("<II", len(vertices), len(edges))
+    buf += vertices.tobytes() + edges.tobytes()
+
+    sk = navis.read_precomputed(buf, datatype="skeleton")
+
+    assert sk.n_trees == 1
+    assert len(sk.root) == 1
+    # Rooted at the free end of the stick, whichever way the file is written
+    assert sk.root[0] == 0
+    assert sk.n_branches == 1
 
 
 @pytest.mark.parametrize("filename", ["", "neurons.zip", "{neuron.id}@neurons.zip"])

@@ -205,13 +205,35 @@ class PrecomputedSkeletonReader(PrecomputedReader):
         swc = pd.DataFrame()
         swc["node_id"] = np.arange(len(nodes))
         swc["x"], swc["y"], swc["z"] = nodes[:, 0], nodes[:, 1], nodes[:, 2]
-
-        edge_dict = dict(zip(edges[:, 1], edges[:, 0]))
-        swc["parent_id"] = swc.node_id.map(lambda x: edge_dict.get(x, -1)).astype(
-            np.int32
-        )
+        swc["parent_id"] = self.parents_from_edges(edges, len(nodes))
 
         return swc
+
+    @staticmethod
+    def parents_from_edges(edges: np.ndarray, num_nodes: int) -> np.ndarray:
+        """Orient precomputed edges into a parent for every vertex.
+
+        The spec leaves edges undirected - neither column is promised to hold
+        the parent, and files in the wild use both orders. So we orient them by
+        traversal instead of trusting the columns.
+
+        Whichever column holds each vertex at most once *can* be the child
+        column, and the vertices missing from it are then the roots the file
+        intended. That is only a hint: the traversal still decides the actual
+        orientation, and files that are inconsistent or cyclic (where no column
+        qualifies) simply get each component rooted at its lowest vertex index.
+
+        """
+        roots = None
+        for child_col in (0, 1):
+            children = edges[:, child_col]
+            if len(np.unique(children)) == len(children):
+                roots = np.setdiff1d(np.arange(num_nodes), children)
+                break
+
+        return utils.fastcore.parents_from_edges(
+            edges.astype(np.int32), num_nodes, roots=roots
+        )[0]
 
 
 def read_precomputed(
