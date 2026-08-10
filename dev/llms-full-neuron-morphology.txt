@@ -2894,22 +2894,49 @@ navis.BaseNeuron.mask
             The underlying method, if you want to hold a mask open across
             function boundaries rather than in a block.
 
-### navis.smooth_skeleton(x, window=5, to_smooth=['x', 'y', 'z'], inplace=False)
+### navis.smooth_skeleton(x, window=None, sigma=None, truncate=4.0, to_smooth=['x', 'y', 'z'], inplace=False)
 
 *function*
 
-Smooth skeleton(s) using rolling windows.
+Smooth skeleton(s) along their linear segments.
+
+Two kernels, picked by which parameter you pass:
+
+- `window` (the default) is a moving average over a fixed number of nodes
+- `sigma` is a Gaussian whose width is a *distance* along the neurite, so
+  the amount of smoothing does not change when the skeleton is resampled
+
+Neither touches the topology: every node keeps its ID and its parent, and
+only its values move. Roots, branch points and leafs are pinned - a branch
+point that drifted would drag its neurites apart - which makes this safe to
+run before measuring angles, tortuosity or tangent vectors, all of which a
+raw traced skeleton overstates.
+
+Runs on navis-fastcore.
 
 Parameters
 ----------
 x :             Skeleton | NeuronList
                 Neuron(s) to be processed.
 window :        int, optional
-                Size (N observations) of the rolling window in number of
-                nodes.
+                Size of the moving average, in number of nodes and counting
+                the node itself. The window is centred and shrinks
+                symmetrically towards each segment's ends, so even values
+                round down to the odd value below, and `0`/`1` are no-ops.
+                Defaults to 5 if neither `window` nor `sigma` is given;
+                mutually exclusive with `sigma`.
+sigma :         float, optional
+                Width of the Gaussian kernel, as a distance along the
+                neurite in the neuron's units. Mutually exclusive with
+                `window`.
+truncate :      float
+                How many `sigma` out to keep summing - 4 covers all but
+                1e-4 of the kernel's mass. Ignored unless `sigma` is given.
 to_smooth :     list
-                Columns of the node table to smooth. Should work with any
-                numeric column (e.g. 'radius').
+                Columns of the node table to smooth. Works with any numeric
+                column (e.g. 'radius'). Note that `sigma`'s kernel is always
+                measured over the x/y/z coordinates, whatever is being
+                smoothed - a radius is a value, not a geometry.
 inplace :       bool, optional
                 If False, will use and return copy of original neuron(s).
 parallel :      bool
@@ -2949,6 +2976,20 @@ Smooth x/y/z locations (default):
 Smooth only radii:
 
 >>> rad_smoothed = navis.smooth_skeleton(nl, to_smooth='radius')
+
+Smooth with a Gaussian kernel two microns wide instead - these neurons are
+in nanometres:
+
+>>> gauss_smoothed = navis.smooth_skeleton(nl, sigma=2000)
+
+The ends of each segment stay exactly where they were:
+
+>>> import numpy as np
+>>> sk = navis.example_neurons(1)
+>>> ends = np.append(sk.leafs.node_id.values, sk.branch_points.node_id.values)
+>>> pos = lambda n: n.nodes.set_index('node_id').loc[ends, ['x', 'y', 'z']]
+>>> bool(np.allclose(pos(navis.smooth_skeleton(sk, window=5)), pos(sk)))
+True
 
 See Also
 --------

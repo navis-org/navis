@@ -344,6 +344,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-visualization.txt
 - `navis.plot2d(x, **kwargs)` - Generate 2D plots of neurons and neuropils.
 - `navis.plot1d(x, ax=None, color=None, color_by=None, palette=None, **kwargs)` - Plot neuron topology in 1D according to Cuntz et al. (2010).
 - `navis.plot_flat(x, layout='subway', connectors=False, highlight_connectors=None, shade_by_length=False, normalize_distance=False, reroot_soma=False, ax=None, **kwargs)` - Plot neuron as flat diagrams.
+- `navis.plot_collage(x=None, layout='grid', view=('x', '-y'), page_size=(8.27, 11.69), backend='matplotlib', color=None, placed=None, dpi=300, ax=None, cols=None, margin=0.05, uniform_scale=False, sort=False, drop_dangling=False, padding=0.02, allow_rotation=False, backfill=None, mask=None, occupancy=False, occupancy_res=100, occupancy_iterations=6, iterations=18, **kwargs)` - Arrange many neurons on a single page and plot them.
 - `navis.clear3d()` - Clear viewer 3D canvas.
 - `navis.close3d()` - Close and forget existing 3D viewer.
 - `navis.pop3d()` - Remove the last item added to the 3D canvas.
@@ -406,7 +407,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.subset_neuron(x, subset, inplace=False, keep_disc_cn=False, prevent_fragments=False, cap_holes=False, track=False)` - Subset a neuron to a given set of nodes/vertices.
 - `navis.merge_subset(x, subset, inplace=False)` - Fold a tracked subset back into the neuron it was taken from.
 - `navis.masked(x, mask, reset=True, warn_cut=True)` - Work on part of a neuron, then put it back.
-- `navis.smooth_skeleton(x, window=5, to_smooth=['x', 'y', 'z'], inplace=False)` - Smooth skeleton(s) using rolling windows.
+- `navis.smooth_skeleton(x, window=None, sigma=None, truncate=4.0, to_smooth=['x', 'y', 'z'], inplace=False)` - Smooth skeleton(s) along their linear segments.
 - `navis.smooth_mesh(x, iterations=5, L=None, method='taubin', backend=None, inplace=False, **kwargs)` - Smooth meshes (TriMesh, Mesh, Volume).
 - `navis.smooth_voxels(x, sigma=1, backend='sparsecubes', epsilon=0, truncate=4.0, inplace=False)` - Smooth voxel(s) using a Gaussian filter.
 - `navis.thin_voxels(x, backend='auto', inplace=False, **kwargs)` - Skeletonize image data to single voxel width.

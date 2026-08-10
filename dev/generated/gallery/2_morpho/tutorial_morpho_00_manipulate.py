@@ -208,11 +208,22 @@ plt.tight_layout()
 # function. Pick the tab for your neuron type:
 #
 # === "skeleton"
-#     [`navis.smooth_skeleton`][] uses a rolling window along the linear segments:
+#     [`navis.smooth_skeleton`][] averages along the linear segments, over a window of
+#     `window` nodes centred on each node:
 #     ```python
 #     sk = navis.example_neurons(n=1, kind="skeleton")
 #     sk_smoothed = navis.smooth_skeleton(sk, window=5, inplace=False)
 #     ```
+#     Pass `sigma` instead for a Gaussian kernel whose width is a *distance along the
+#     neurite* rather than a count of nodes - so the amount of smoothing stays the same
+#     if you resample the skeleton, which is usually what you want:
+#     ```python
+#     sk_smoothed = navis.smooth_skeleton(sk, sigma=2000, inplace=False)  # nm
+#     ```
+#     Either way the topology is untouched (every node keeps its ID and its parent) and
+#     roots, branch points and leafs are pinned - a branch point that drifted would drag
+#     its three neurites apart. Use `to_smooth` to smooth some other numeric column, e.g.
+#     `to_smooth="radius"`.
 #
 # === "mesh"
 #     [`navis.smooth_mesh`][] runs a filter over each vertex's neighbours, by default

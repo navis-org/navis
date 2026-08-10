@@ -3205,13 +3205,16 @@ shade_by :        str | array | list of arrays, default=None
                   a `smin` and/or `smax` parameter. Does not work with
                   `k3d` backend.
 
-radius :          bool | "auto", default=False
+radius :          bool | "auto" | "lw" (octarine-only), default=False
 
-                  If "auto" will plot neurites of `Skeletons` with radius
-                  if they have radii. If True, will try plotting neurites of
-                  `Skeletons` with radius regardless. The radius can be
-                  scaled by `linewidth`. Note that this will increase rendering
-                  time.
+                  Whether to plot neurites of `Skeletons` with a radius:
+                    - `False` plots neurites as lines (see also linewidth/linestyle)
+                    - `True` plots neurites as tubular meshes; requires a "radius" column
+                      in the node table of `Skeletons`
+                    - "auto" equates to `True` for neurons that have a radius and
+                      `False` for those that don't
+                    - "lw" plots radii using only line widths; this is much faster but
+                      only supported by the octarine backend
 
 soma :            bool, default=True
 
@@ -4165,6 +4168,149 @@ To close all figures (only for doctests)
 See the [plotting intro](../../generated/gallery/1a_plotting_general/tutorial_plotting_00_intro)
 and the [neuron topology tutorial](../../generated/gallery/1d_plotting_misc/tutorial_plotting_misc_01_topology)
 for more examples.
+
+### navis.plot_collage(x=None, layout='grid', view=('x', '-y'), page_size=(8.27, 11.69), backend='matplotlib', color=None, placed=None, dpi=300, ax=None, cols=None, margin=0.05, uniform_scale=False, sort=False, drop_dangling=False, padding=0.02, allow_rotation=False, backfill=None, mask=None, occupancy=False, occupancy_res=100, occupancy_iterations=6, iterations=18, **kwargs)
+
+*function*
+
+Arrange many neurons on a single page and plot them.
+
+Two layouts:
+
+- `"grid"` puts one neuron per cell of a regular grid.
+- `"dense"` packs them as tightly as they will go, keeping their relative
+  sizes. By default that is done on their bounding boxes, which is fast but
+  wastes all the empty space inside a box; `occupancy=True` packs the arbors
+  themselves, so a neuron may reach into another's empty space - even into the
+  loop of another neuron - as long as no cable collides.
+
+Parameters
+----------
+x :             NeuronList
+                Skeletons, meshes or a mix of the two. Can be `None` if
+                `placed` is given.
+layout :        "grid" | "dense", default "grid"
+view :          tuple, default `("x", "-y")`
+                View to plot; also the plane the neurons are laid out in.
+page_size :     (width, height), default A4 in inches
+backend :       "matplotlib" | "octarine", default "matplotlib"
+                What draws the neurons. The layout is decided before either of
+                them sees anything, so both give the same page; what differs is
+                what ends up in the figure.
+
+                `"matplotlib"` goes through navis.plot2d and draws every
+                neuron as vector paths - scalable and editable afterwards, but
+                the file grows with the amount of cable on the page.
+                `"octarine"` renders the page offscreen with
+                navis.plot3d`(snapshot=True)` and places the resulting
+                image on the axes, which fixes the size by `dpi` no matter how
+                dense the page gets (160 neurons: 8.9 MB of SVG against 1.0 MB)
+                and shades meshes the way the interactive viewer does. Neither
+                is reliably faster than the other - at a few hundred skeletons
+                they are within a factor of two.
+
+                Either way you get a matplotlib figure back with the neurons in
+                their own coordinates, so overlays land in the same place.
+color :         color | iterable of colors, optional
+                Either a single color for all neurons or one color per neuron,
+                in the order of `x`. Colors follow their neurons through
+                whatever the layout does with them - `sort`, `drop_dangling`
+                and dropped `backfill` neurons all take their color along. With
+                `backfill`, pass `len(x) + len(backfill)` of them.
+placed :        NeuronList, optional
+                Neurons that have already been placed, as returned by an
+                earlier call. If given, the layout is skipped and these are
+                plotted as they are - use this to re-plot the same page with
+                e.g. different colors, or with the other backend. Every layout
+                parameter is then ignored; `view` and `page_size` still apply
+                and should match the ones the neurons were placed with.
+dpi :           int, default 300
+                Figure resolution, and - for `backend="octarine"` - what sizes
+                the render, `page_size * dpi` pixels.
+ax :            matplotlib.axes.Axes, optional
+                Axes to draw on. A new page-sized figure is made if not given.
+
+Parameters (`layout="grid"` only)
+---------------------------------
+cols :          int, optional
+                Number of columns. Defaults to whatever makes the cells as
+                square as possible.
+margin :        float, default 0.05
+                Fraction of each cell kept free around the neuron.
+uniform_scale : bool, default False
+                If True, all neurons are scaled by the same factor and hence
+                keep their relative sizes. If False, each neuron is scaled to
+                fill its cell - note that this scales the radii along with it,
+                so use `uniform_scale=True` if you plot with `radius` and want
+                comparable line widths.
+sort :          bool, default False
+                If True, sort neurons by size (largest first).
+drop_dangling : bool, default False
+                If True, drop neurons off the end until the remaining ones fill
+                the grid exactly, i.e. no partially filled last row. Combine
+                with `sort=True` to make sure the ones dropped are the smallest.
+
+Parameters (`layout="dense"` only)
+----------------------------------
+padding :       float, default 0.02
+                Gap between neurons, in page units.
+allow_rotation : bool, default False
+                If True, neurons may be turned by 90 degrees to pack tighter.
+backfill :      NeuronList, optional
+                Neurons used to fill the gaps left after `x` has been packed.
+                They do not influence the scale and are drawn at the same scale
+                as `x`; those that do not fit into any of the remaining gaps are
+                silently dropped. They are tried largest first, so the order you
+                pass them in is irrelevant.
+mask :          2d bool array | str | image array, optional
+                A shape the neurons have to stay inside of. A boolean array is
+                taken to cover the whole page, `True` where neurons are allowed,
+                and is resampled to the packing grid - so its resolution does
+                not have to match, and row 0 is the bottom of the page. Anything
+                else is read as a *picture* of the shape (a file path, or the
+                pixels), scaled onto the page with dark counting as the shape.
+                Bounding boxes have no way of following an arbitrary outline, so
+                a mask always packs by occupancy, laying the neurons down from
+                the middle of the shape outwards.
+occupancy :     bool, default False
+                If True, pack the neurons by their actual arbors instead of
+                their bounding boxes. Packs considerably tighter but is slower.
+                The box packing runs first either way and is used as the
+                starting point, so this can only improve on it.
+occupancy_res : int, default 100
+                Resolution of the occupancy grid in pixels per page unit.
+                Higher is more precise but slower. `occupancy` only.
+occupancy_iterations : int, default 6
+                Bisection steps spent looking for a scale better than the one
+                the boxes managed. `occupancy` only.
+iterations :    int, default 18
+                Bisection steps used to find the scale of the box packing.
+
+**kwargs :      Passed to navis.plot2d or, for `backend="octarine"`, to
+                navis.plot3d.
+
+Returns
+-------
+fig, ax, placed
+                `placed` are the scaled and moved copies of the neurons, in the
+                order they were plotted - the originals are left alone. Pass
+                them back in as `placed` to reproduce this exact page.
+
+Examples
+--------
+>>> import navis
+>>> nl = navis.example_neurons(5)
+>>> fig, ax, placed = navis.plot_collage(nl, color="k")
+
+Pack them instead of gridding them, and use a second set to fill the gaps:
+
+>>> fig, ax, placed = navis.plot_collage(
+...     nl[:3], layout="dense", backfill=nl[3:], occupancy=True, color="k"
+... )
+
+Re-plot that exact page in a different colour, without laying it out again:
+
+>>> fig, ax, _ = navis.plot_collage(placed=placed, color="r")
 
 ### navis.clear3d()
 
@@ -7229,22 +7375,49 @@ navis.BaseNeuron.mask
             The underlying method, if you want to hold a mask open across
             function boundaries rather than in a block.
 
-### navis.smooth_skeleton(x, window=5, to_smooth=['x', 'y', 'z'], inplace=False)
+### navis.smooth_skeleton(x, window=None, sigma=None, truncate=4.0, to_smooth=['x', 'y', 'z'], inplace=False)
 
 *function*
 
-Smooth skeleton(s) using rolling windows.
+Smooth skeleton(s) along their linear segments.
+
+Two kernels, picked by which parameter you pass:
+
+- `window` (the default) is a moving average over a fixed number of nodes
+- `sigma` is a Gaussian whose width is a *distance* along the neurite, so
+  the amount of smoothing does not change when the skeleton is resampled
+
+Neither touches the topology: every node keeps its ID and its parent, and
+only its values move. Roots, branch points and leafs are pinned - a branch
+point that drifted would drag its neurites apart - which makes this safe to
+run before measuring angles, tortuosity or tangent vectors, all of which a
+raw traced skeleton overstates.
+
+Runs on navis-fastcore.
 
 Parameters
 ----------
 x :             Skeleton | NeuronList
                 Neuron(s) to be processed.
 window :        int, optional
-                Size (N observations) of the rolling window in number of
-                nodes.
+                Size of the moving average, in number of nodes and counting
+                the node itself. The window is centred and shrinks
+                symmetrically towards each segment's ends, so even values
+                round down to the odd value below, and `0`/`1` are no-ops.
+                Defaults to 5 if neither `window` nor `sigma` is given;
+                mutually exclusive with `sigma`.
+sigma :         float, optional
+                Width of the Gaussian kernel, as a distance along the
+                neurite in the neuron's units. Mutually exclusive with
+                `window`.
+truncate :      float
+                How many `sigma` out to keep summing - 4 covers all but
+                1e-4 of the kernel's mass. Ignored unless `sigma` is given.
 to_smooth :     list
-                Columns of the node table to smooth. Should work with any
-                numeric column (e.g. 'radius').
+                Columns of the node table to smooth. Works with any numeric
+                column (e.g. 'radius'). Note that `sigma`'s kernel is always
+                measured over the x/y/z coordinates, whatever is being
+                smoothed - a radius is a value, not a geometry.
 inplace :       bool, optional
                 If False, will use and return copy of original neuron(s).
 parallel :      bool
@@ -7284,6 +7457,20 @@ Smooth x/y/z locations (default):
 Smooth only radii:
 
 >>> rad_smoothed = navis.smooth_skeleton(nl, to_smooth='radius')
+
+Smooth with a Gaussian kernel two microns wide instead - these neurons are
+in nanometres:
+
+>>> gauss_smoothed = navis.smooth_skeleton(nl, sigma=2000)
+
+The ends of each segment stay exactly where they were:
+
+>>> import numpy as np
+>>> sk = navis.example_neurons(1)
+>>> ends = np.append(sk.leafs.node_id.values, sk.branch_points.node_id.values)
+>>> pos = lambda n: n.nodes.set_index('node_id').loc[ends, ['x', 'y', 'z']]
+>>> bool(np.allclose(pos(navis.smooth_skeleton(sk, window=5)), pos(sk)))
+True
 
 See Also
 --------
