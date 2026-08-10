@@ -46,7 +46,9 @@ import navis.interfaces.brain_image_library as bil
 # ## Finding labelled data
 #
 # IVSCC features need a neuron whose nodes are **labelled by compartment**, which rules out most EM
-# reconstructions. Patch-seq morphologies are the natural fit, and BIL hosts thousands of them:
+# reconstructions off the shelf - though not permanently, see the
+# [EM tutorial](zzz_tutorial_morpho_06_ivscc_em). Patch-seq morphologies are the natural fit, and BIL
+# hosts thousands of them:
 
 ds = bil.search(generalmodality="cell morphology", technique="Patch-seq")
 mouse = ds[ds.title.str.contains("mouse neocortex", case=False, na=False)]
@@ -451,6 +453,8 @@ print("correlation with soma depth: %+.2f"
 #
 # ## Where next
 #
+# - [IVSCC on EM data](zzz_tutorial_morpho_06_ivscc_em) - getting MICrONS reconstructions into a state
+#   where these features mean something
 # - [Analyze morphology](tutorial_morpho_01_analyze) - the general-purpose morphometrics, for neurons that
 #   aren't cortical
 # - [Label propagation](tutorial_morpho_02_label_prop) and
