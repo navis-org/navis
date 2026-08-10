@@ -58,6 +58,14 @@ pip install git+https://github.com/navis-org/navis@master
     | Removed | Use instead |
     |---------|-------------|
     | `r.neuron2r()` / `r.neuron2py()` | [`navis.write_rds`][] / [`navis.read_rds`][] |
+- **[`navis.smooth_skeleton`][navis.smooth_skeleton] runs on [navis-fastcore](https://github.com/schlegelp/fastcore-rs), and its window is now centred.** It used to take a *trailing* mean (pandas' `rolling(window).mean()`) along each segment, which lagged the smoothed neurite half a window towards the segment's distal end. It also let branch points move - a branch point is the last node of its segment, so it took a full one-sided mean that the parent segment then read back, dragging the branch's three neurites apart. Both are fixed: the window is centred and shrinks symmetrically as it approaches a segment's ends, and roots, branch points and leafs are pinned. **Coordinates change** - on the example neuron by a median of 54 nm - so this is not a drop-in match for saved output. It is also ~200x faster (351 ms :octicons-arrow-right-24: 1.6 ms for a 4.5k-node skeleton).
+
+    An even `window` now rounds down to the odd value below, since a centred window can only hold an odd number of nodes.
+
+- new: [`navis.smooth_skeleton`][navis.smooth_skeleton] takes a `sigma` in place of `window` to smooth with a **Gaussian kernel whose width is a distance along the neurite** rather than a count of nodes - so the amount of smoothing does not change when the skeleton is resampled, which is usually what you want. The two are mutually exclusive; passing both raises. `to_smooth` works as before with either, and note that `sigma`'s kernel is always measured over the x/y/z coordinates whatever is being smoothed, since a radius is a value and not a geometry
+    ```python
+    sk_smoothed = navis.smooth_skeleton(sk, sigma=2000)  # these neurons are in nm
+    ```
     | `r.load_rda()` | [`navis.read_rda`][] |
     | `r.nblast()` / `r.nblast_allbyall()` | [`navis.nblast`][] / [`navis.nblast_allbyall`][] |
     | `r.xform_brain()` / `r.mirror_brain()` | [`navis.xform_brain`][] / [`navis.mirror_brain`][] |

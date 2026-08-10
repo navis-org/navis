@@ -1843,22 +1843,51 @@ def guess_radius(
 @utils.map_neuronlist(desc="Smoothing", allow_parallel=True)
 def smooth_skeleton(
     x: NeuronObject,
-    window: int = 5,
+    window: Optional[int] = None,
+    sigma: Optional[float] = None,
+    truncate: float = 4.0,
     to_smooth: list = ["x", "y", "z"],
     inplace: bool = False,
 ) -> NeuronObject:
-    """Smooth skeleton(s) using rolling windows.
+    """Smooth skeleton(s) along their linear segments.
+
+    Two kernels, picked by which parameter you pass:
+
+    - `window` (the default) is a moving average over a fixed number of nodes
+    - `sigma` is a Gaussian whose width is a *distance* along the neurite, so
+      the amount of smoothing does not change when the skeleton is resampled
+
+    Neither touches the topology: every node keeps its ID and its parent, and
+    only its values move. Roots, branch points and leafs are pinned - a branch
+    point that drifted would drag its neurites apart - which makes this safe to
+    run before measuring angles, tortuosity or tangent vectors, all of which a
+    raw traced skeleton overstates.
+
+    Runs on navis-fastcore.
 
     Parameters
     ----------
     x :             Skeleton | NeuronList
                     Neuron(s) to be processed.
     window :        int, optional
-                    Size (N observations) of the rolling window in number of
-                    nodes.
+                    Size of the moving average, in number of nodes and counting
+                    the node itself. The window is centred and shrinks
+                    symmetrically towards each segment's ends, so even values
+                    round down to the odd value below, and `0`/`1` are no-ops.
+                    Defaults to 5 if neither `window` nor `sigma` is given;
+                    mutually exclusive with `sigma`.
+    sigma :         float, optional
+                    Width of the Gaussian kernel, as a distance along the
+                    neurite in the neuron's units. Mutually exclusive with
+                    `window`.
+    truncate :      float
+                    How many `sigma` out to keep summing - 4 covers all but
+                    1e-4 of the kernel's mass. Ignored unless `sigma` is given.
     to_smooth :     list
-                    Columns of the node table to smooth. Should work with any
-                    numeric column (e.g. 'radius').
+                    Columns of the node table to smooth. Works with any numeric
+                    column (e.g. 'radius'). Note that `sigma`'s kernel is always
+                    measured over the x/y/z coordinates, whatever is being
+                    smoothed - a radius is a value, not a geometry.
     inplace :       bool, optional
                     If False, will use and return copy of original neuron(s).
 
@@ -1879,6 +1908,20 @@ def smooth_skeleton(
 
     >>> rad_smoothed = navis.smooth_skeleton(nl, to_smooth='radius')
 
+    Smooth with a Gaussian kernel two microns wide instead - these neurons are
+    in nanometres:
+
+    >>> gauss_smoothed = navis.smooth_skeleton(nl, sigma=2000)
+
+    The ends of each segment stay exactly where they were:
+
+    >>> import numpy as np
+    >>> sk = navis.example_neurons(1)
+    >>> ends = np.append(sk.leafs.node_id.values, sk.branch_points.node_id.values)
+    >>> pos = lambda n: n.nodes.set_index('node_id').loc[ends, ['x', 'y', 'z']]
+    >>> bool(np.allclose(pos(navis.smooth_skeleton(sk, window=5)), pos(sk)))
+    True
+
     See Also
     --------
     [`navis.smooth_mesh`][]
@@ -1891,12 +1934,22 @@ def smooth_skeleton(
     if not isinstance(x, core.Skeleton):
         raise TypeError(f"Can only process Skeletons, not {type(x)}")
 
+    if window is not None and sigma is not None:
+        raise ValueError(
+            "`window` and `sigma` pick different kernels - pass one or the "
+            "other, not both."
+        )
+
+    # Otherwise a negative window surfaces as an `OverflowError` from the Rust
+    # boundary, and a float one is silently truncated - `2.7` would smooth less
+    # than `3` rather than more
+    if window is not None and (window != int(window) or window < 0):
+        raise ValueError(f"`window` must be a non-negative integer, got {window}")
+
     if not inplace:
         x = x.copy()
 
-    # Prepare nodes (add parent_dist for later, set index)
-    # mmetrics.parent_dist(x, root_dist=0)
-    nodes = x.nodes.set_index("node_id", inplace=False).copy()
+    nodes = x.nodes.copy()
 
     to_smooth = utils.make_iterable(to_smooth)
 
@@ -1904,25 +1957,38 @@ def smooth_skeleton(
     if len(miss):
         raise ValueError(f"Column(s) not found in node table: {miss}")
 
-    # Go over each segment and smooth
-    for s in config.tqdm(
-        x.segments[::-1],
-        desc="Smoothing",
-        disable=config.pbar_hide,
-        leave=config.pbar_leave,
-    ):
-        # Get this segment's parent distances and get cumsum
-        this_co = nodes.loc[s, to_smooth]
+    non_num = [c for c in to_smooth if not pd.api.types.is_numeric_dtype(nodes[c])]
+    if non_num:
+        raise ValueError(f"Can only smooth numeric columns, got: {non_num}")
 
-        interp = this_co.rolling(window, min_periods=1).mean()
+    node_ids = nodes.node_id.values
+    parent_ids = nodes.parent_id.values
+    # One call for all the columns: they are smoothed independently, so stacking
+    # them is exactly equivalent to - and one pass cheaper than - a call each
+    values = nodes[to_smooth].values.astype(float)
 
-        for i, c in enumerate(to_smooth):
-            nodes.loc[s, c] = interp.iloc[:, i].values.astype(
-                nodes[c].dtype, copy=False
-            )
+    if sigma is not None:
+        smoothed = utils.fastcore.smooth_skeleton_gaussian(
+            node_ids,
+            parent_ids,
+            nodes[["x", "y", "z"]].values,
+            sigma=sigma,
+            truncate=truncate,
+            values=values,
+        )
+    else:
+        smoothed = utils.fastcore.smooth_skeleton(
+            node_ids, parent_ids, values, window=5 if window is None else window
+        )
 
-    # Reassign nodes
-    x.nodes = nodes.reset_index(drop=False, inplace=False)
+    for i, c in enumerate(to_smooth):
+        # Back to the column's own dtype: coordinates are float32 in navis, and
+        # a radius may well be an integer
+        nodes[c] = smoothed[:, i].astype(nodes[c].dtype, copy=False)
+
+    # Reassign nodes. The node IDs are the ones we were given, so anything
+    # attached to them is carried rather than orphaned - see `_orphan_aligned`
+    x.nodes = nodes
 
     x._clear_temp_attr()
 
