@@ -325,6 +325,7 @@ Various functions for plotting neurons and volumes.
 | [`navis.plot2d()`][navis.plot2d] | {{ autosummary("navis.plot2d") }} |
 | [`navis.plot1d()`][navis.plot1d] | {{ autosummary("navis.plot1d") }} |
 | [`navis.plot_flat()`][navis.plot_flat] | {{ autosummary("navis.plot_flat") }} |
+| [`navis.plot_collage()`][navis.plot_collage] | {{ autosummary("navis.plot_collage") }} |
 | [`navis.clear3d()`][navis.clear3d] | {{ autosummary("navis.clear3d") }} |
 | [`navis.close3d()`][navis.close3d] | {{ autosummary("navis.close3d") }} |
 | [`navis.pop3d()`][navis.pop3d] | {{ autosummary("navis.pop3d") }} |

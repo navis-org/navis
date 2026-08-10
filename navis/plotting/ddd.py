@@ -165,13 +165,16 @@ def plot3d(
                       a `smin` and/or `smax` parameter. Does not work with
                       `k3d` backend.
 
-    radius :          bool | "auto", default=False
+    radius :          bool | "auto" | "lw" (octarine-only), default=False
 
-                      If "auto" will plot neurites of `Skeletons` with radius
-                      if they have radii. If True, will try plotting neurites of
-                      `Skeletons` with radius regardless. The radius can be
-                      scaled by `linewidth`. Note that this will increase rendering
-                      time.
+                      Whether to plot neurites of `Skeletons` with a radius:
+                        - `False` plots neurites as lines (see also linewidth/linestyle)
+                        - `True` plots neurites as tubular meshes; requires a "radius" column
+                          in the node table of `Skeletons`
+                        - "auto" equates to `True` for neurons that have a radius and
+                          `False` for those that don't
+                        - "lw" plots radii using only line widths; this is much faster but
+                          only supported by the octarine backend
 
     soma :            bool, default=True
 
