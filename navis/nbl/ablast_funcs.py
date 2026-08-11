@@ -27,7 +27,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from .. import config, utils, core
 from ..compute.dispatch import default_n_workers, worker_initializer
-from ..transforms.align import align_rigid, align_deform, align_pca, _align_rigid_deform
+from ..transforms.align import _align_func
 
 from .base import Blaster, NestedIndices
 from .nblast_funcs import nblast_preflight, find_optimal_partition
@@ -258,9 +258,9 @@ class NBlasterAlign(Blaster):
 
 def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                  target: Optional[str] = None,
-                 align_method: Union[Literal['rigid'],
-                                     Literal['deform'],
-                                     Literal['pca']] = 'rigid',
+                 align_method: Union[Literal['rigid', 'deform',
+                                             'rigid+deform', 'pca'],
+                                     Callable] = 'rigid',
                  two_way_align: bool = True,
                  sample_align: Optional[float] = None,
                  scores: Union[Literal['forward'],
@@ -280,10 +280,8 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                  smat_kwargs: Optional[Dict] = dict()) -> pd.DataFrame:
     """Run NBLAST on pairwise-aligned neurons.
 
-    Requires the `pycpd` library at least version 2.0.1 which at the time of
-    writing is only available from Github (not PyPI):
-
-      https://github.com/siavashk/pycpd
+    The alignment runs on coherent point drift and requires the `rcpd` library
+    (`pip install rcpd`); the "pca" method requires `scikit-learn` instead.
 
     Parameters
     ----------
@@ -305,9 +303,10 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     highly recommended because it reduces the chance that a
                     single bad alignment will mess up your scores.
     sample_align :  float [0-1], optional
-                    If provided, will calculate an initial alignment on just a
-                    fraction of the points followed by a landmark transform
-                    to transform the rest. Use this to speed things up.
+                    If provided, will calculate the alignment on just a fraction
+                    of the points. The rest are then moved by the fitted
+                    transform itself, which is exact. Use this to speed things
+                    up.
     scores :        'forward' | 'mean' | 'min' | 'max' | 'both'
                     Determines the final scores:
 
@@ -432,13 +431,8 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
     query = core.NeuronList(query)
     target = core.NeuronList(target)
 
-    if not callable(align_method):
-        align_func = {'rigid': align_rigid,
-                      'deform': align_deform,
-                      'pca': align_pca,
-                      'rigid+deform': _align_rigid_deform}[align_method]
-    else:
-        align_func = align_method
+    align_func = (align_method if callable(align_method)
+                  else _align_func(align_method))
 
     n_cores = n_cores or default_n_workers()
 

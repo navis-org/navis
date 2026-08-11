@@ -261,6 +261,18 @@ directly, are listed below:
 
     ---
 
+    #### `cpd`: [rcpd](https://github.com/schlegelp/rcpd)
+
+    Coherent point drift - fitting a transform between two point clouds without
+    knowing which point matches which. This is what [`navis.align.align_rigid`][],
+    [`navis.align.align_deform`][] and [`navis.nblast_align`][] run on.
+
+    ``` shell
+    pip install rcpd
+    ```
+
+    ---
+
     #### `flybrains`: [flybrains](https://github.com/navis-org/navis-flybrains)
 
     Transforming data between some template *Drosophila* brains.

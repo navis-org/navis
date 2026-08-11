@@ -48,6 +48,11 @@ pykdtree; platform_system != "Darwin"  #extra: kdtree
 
 xxhash  #extra: hash
 
+# Coherent point drift, for `navis.align.align_rigid`/`align_deform` and hence
+# `navis.nblast_align`. 0.1.1 is the first version that stops a deformable fit
+# once it stops improving instead of running out the iteration cap.
+rcpd>=0.1.1  #extra: cpd
+
 flybrains  #extra: flybrains
 
 cloud-volume>=5.2.0  #extra: cloudvolume
