@@ -2199,18 +2199,18 @@ def _plot_skeleton_2d(neuron, color, ax, settings, radius=False):
 
     fancy = per_edge or per_node_color or settings.depth_sort or settings.halo
     if not fancy:
-        # Nothing to vary within the neuron: one Line2D with NaNs in between is
-        # by far the cheapest way to draw it.
-        coords = segments_to_coords(neuron, modifier=(1, 1, 1))
-        # We have to add (None, None, None) to the end of each
-        # slab to make that line discontinuous there
-        coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
+        # Nothing to vary within the neuron: one Line2D with NaN breaks in
+        # between is by far the cheapest way to draw it.
+        coords = segments_to_coords(neuron, modifier=(1, 1, 1), flat=True)
 
-        x, y = _parse_view2d(coords, settings.view)
+        # Sliced here rather than through `_parse_view2d`, which returns Python
+        # lists - one float object per coordinate for `Line2D` to convert
+        # straight back
+        x_ix, y_ix, _ = _view_axes(settings.view)
         ax.add_line(
             mlines.Line2D(
-                x,
-                y,
+                coords[:, x_ix],
+                coords[:, y_ix],
                 lw=settings.linewidth,
                 ls=settings.linestyle,
                 color=color,

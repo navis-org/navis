@@ -80,7 +80,9 @@ def segments_to_coords(
     x: core.Skeleton,
     modifier: Optional[Tuple[float, float, float]] = (1, 1, 1),
     node_colors: Optional[np.ndarray] = None,
-) -> List[np.ndarray]:
+    *,
+    flat: bool = False,
+):
     """Turn lists of node IDs into coordinates.
 
     Runs on navis-fastcore.
@@ -90,40 +92,51 @@ def segments_to_coords(
     x :             Skeleton
                     Must contain the nodes
     node_colors :   numpy.ndarray, optional
-                    A color for each node in `x.nodes`. If provided, will
-                    also return a list of colors sorted to match coordinates.
+                    A value for each node in `x.nodes` - a color, but anything
+                    per-node works. If provided, will also be returned, sorted
+                    to match the coordinates.
     modifier :      ints, optional
                     Use e.g. to modify/invert x/y/z axes.
+    flat :          bool
+                    If True, return a single array with the segments separated
+                    by rows of NaNs instead of a list of per-segment arrays.
+                    Backends drawing a neuron as one artist (a `Line2D`, one
+                    plotly trace) want this; those making per-path decisions -
+                    depth sorting, per-segment collections - want the list.
 
     Returns
     -------
-    coords :        list of tuples
-                    [(x, y, z), (x, y, z), ... ]
-    colors :        list of colors
-                    If `node_colors` provided will return a copy of it sorted
-                    to match `coords`.
+    coords :        list of (N, 3) arrays | (M, 3) array
+                    One array per segment or - with `flat=True` - a single array
+                    in which segments are separated by NaN rows.
+    colors :        list of colors | (M, ...) array
+                    If `node_colors` provided will return a copy of it sorted to
+                    match `coords`, padded to match if `flat=True`. See
+                    `navis_fastcore.segment_coords` for how the padded rows are
+                    filled; they are only meaningful alongside `coords`.
 
     """
-    colors = None
-
-    if node_colors is None:
-        coords = utils.fastcore.segment_coords(
-            x.nodes.node_id.values,
-            x.nodes.parent_id.values,
-            x.nodes[["x", "y", "z"]].values,
-        )
-    else:
-        coords, colors = utils.fastcore.segment_coords(
-            x.nodes.node_id.values,
-            x.nodes.parent_id.values,
-            x.nodes[["x", "y", "z"]].values,
-            node_colors=node_colors,
-        )
+    # `np.column_stack` rather than `nodes[["x", "y", "z"]].values`: the column
+    # sub-selection is most of that call's cost, and it hands back an F-ordered
+    # array that fastcore then has to re-order
+    nodes = x.nodes
+    out = utils.fastcore.segment_coords(
+        nodes.node_id.values,
+        nodes.parent_id.values,
+        np.column_stack((nodes.x.values, nodes.y.values, nodes.z.values)),
+        node_colors=node_colors,
+        flat=flat,
+    )
+    coords, colors = out if node_colors is not None else (out, None)
 
     modifier = np.asarray(modifier)
     if (modifier != 1).any():
-        for seg in coords:
-            np.multiply(seg, modifier, out=seg)
+        if flat:
+            # Already one array; the NaN separators stay NaN
+            coords *= modifier
+        else:
+            for seg in coords:
+                seg *= modifier
 
     if colors is not None:
         return coords, colors

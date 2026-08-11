@@ -532,7 +532,21 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
         logger.warning(f"Skipping single-node Skeleton: {neuron.label}")
         return []
 
-    coords = segments_to_coords(neuron)
+    # Each segment has to end in a break to make the line discontinuous there;
+    # `flat=True` marks those with NaNs, which plotly reads as a gap just like
+    # the `None`s we used to append.
+    per_node_color = isinstance(color, np.ndarray) and color.ndim == 2
+    if per_node_color or settings.hover_id:
+        # Anything per-node has to line up with `coords` row for row, so we send
+        # the node indices through the same call and let it do the sorting - the
+        # alternative is walking the segments again and mapping every vertex
+        # through a dict
+        coords, node_ix = segments_to_coords(
+            neuron, node_colors=np.arange(neuron.n_nodes), flat=True
+        )
+        is_break = np.isnan(coords[:, 0])
+    else:
+        coords = segments_to_coords(neuron, flat=True)
 
     # For some reason, plotly seems to ignore the alpha channel when given an RGBA color
     # (the color still changes somewhat but the line doesn't turn transparent)
@@ -540,25 +554,17 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
     # - we will adjust opacity further down if according to the color
     opacity = 1
 
-    # We have to add (None, None, None) to the end of each segment to
-    # make that line discontinuous
-    coords = np.vstack([np.append(t, [[None] * 3], axis=0) for t in coords])
-
-    if isinstance(color, np.ndarray) and color.ndim == 2:
+    if per_node_color:
         # Change colors to rgb/a strings
         if color.shape[1] == 4:
-            c = [f"rgba({c[0]},{c[1]},{c[2]},{c[3]:.3f})" for c in color]
+            c = [f"rgba({x[0]},{x[1]},{x[2]},{x[3]:.3f})" for x in color]
         else:
-            c = [f"rgb({c[0]},{c[1]},{c[2]})" for c in color]
+            c = [f"rgb({x[0]},{x[1]},{x[2]})" for x in color]
 
-        # Next we have to make colors match the segments in `coords`
-        c = np.asarray(c)
-        ix = dict(zip(neuron.nodes.node_id.values, np.arange(neuron.n_nodes)))
-        c = [
-            col
-            for s in neuron.segments
-            for col in np.append(c[[ix[n] for n in s]], "rgb(0,0,0)")
-        ]
+        # The break rows are not drawn, so their color is arbitrary - `np.where`
+        # rather than an in-place assignment so that the result is wide enough
+        # to hold it whatever the color strings came out as
+        c = np.where(is_break, "rgb(0,0,0)", np.asarray(c)[node_ix]).tolist()
 
     else:
         if len(color) == 4:
@@ -568,7 +574,10 @@ def skeleton2plotly(neuron, legendgroup, showlegend, label, color, settings):
 
     if settings.hover_id:
         hoverinfo = "text"
-        hovertext = [str(i) for seg in neuron.segments for i in seg + [None]]
+        # Node IDs in the same order as `coords`; the breaks used to come from a
+        # `None` in the segment lists, which `str()` turned into "None"
+        ids = neuron.nodes.node_id.values.astype(str)
+        hovertext = np.where(is_break, "None", ids[node_ix]).tolist()
     elif settings.hover_name:
         hoverinfo = "text"
         hovertext = neuron.label

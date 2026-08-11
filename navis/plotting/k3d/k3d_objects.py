@@ -321,37 +321,35 @@ def skeleton2k3d(neuron, legendgroup, showlegend, label, color, settings):
         logger.warning(f"Skipping single-node skeleton: {neuron.label}")
         return []
 
-    coords = segments_to_coords(neuron)
+    # `flat=True` ends every segment in a row of NaNs, which is the break k3d
+    # needs. Per-node colors ride along on the same call so that they come back
+    # in segment order too - lining them up afterwards would mean walking the
+    # segments a second time and mapping every vertex through a dict.
+    per_node_color = isinstance(color, np.ndarray) and color.ndim == 2
+    if per_node_color:
+        # k3d wants colors int-packed, which is what `color_to_int` does one at
+        # a time. RGB is 0-255 here and the alpha channel (if any) is ignored.
+        rgb = np.asarray(color).astype(np.int64)
+        packed = (rgb[:, 0] << 16) | (rgb[:, 1] << 8) | rgb[:, 2]
+        coords, seg_colors = segments_to_coords(neuron, node_colors=packed, flat=True)
+    else:
+        coords, seg_colors = segments_to_coords(neuron, flat=True), None
 
-    # We have to add (None, None, None) to the end of each segment to
-    # make that line discontinuous. For reasons I don't quite understand
-    # we have to also duplicate the first and the last coordinate in each segment
-    # (possibly a bug)
-    coords = np.concatenate(
-        [co for seg in coords for co in [seg[:1], seg, seg[-1:], [[None] * 3]]], axis=0
-    )
+    # What `flat=True` does not give us is the duplicated first and last
+    # coordinate per segment - for reasons I don't quite understand k3d wants
+    # those (possibly a bug). Duplicating a row is just repeating it, so this is
+    # one pass with the two end rows bumped. The `+=` matters: a single-node
+    # segment is its own first *and* last row, and needs three copies.
+    ends = np.flatnonzero(np.isnan(coords[:, 0]))  # the break rows
+    starts = np.concatenate(([0], ends[:-1] + 1))
+    reps = np.ones(len(coords), dtype=np.intp)
+    reps[starts] += 1
+    reps[ends - 1] += 1
+    coords = np.repeat(coords, reps, axis=0)
 
     color_kwargs = {}
-    if isinstance(color, np.ndarray) and color.ndim == 2:
-        # Change colors to rgb integers
-        c = [color_to_int(c) for c in color]
-
-        # Next we have to make colors match the segments in `coords`
-        c = np.asarray(c)
-        ix = dict(zip(neuron.nodes.node_id.values, np.arange(neuron.n_nodes)))
-        # Construct sequence node IDs just like we did in `coords`
-        # (note that we insert a "-1" for breaks between segments)
-        seg_ids = [
-            co for seg in neuron.segments for co in [seg[:1], seg, seg[-1:], [-1]]
-        ]
-        seg_ids = np.concatenate(seg_ids, axis=0)
-        # Translate to node indices
-        seg_ix = [ix.get(n, 0) for n in seg_ids]
-
-        # Now map this to vertex colors
-        seg_colors = [c[i] for i in seg_ix]
-
-        color_kwargs["colors"] = seg_colors
+    if seg_colors is not None:
+        color_kwargs["colors"] = np.repeat(seg_colors, reps, axis=0)
     else:
         color_kwargs["color"] = color_to_int(color)
 

@@ -246,6 +246,14 @@ pip install git+https://github.com/navis-org/navis@master
 
 ##### Improvements
 
+- **the matplotlib, plotly and k3d backends assemble their lines in one pass.** Drawing a whole skeleton as a single line wants the segments in one array with the breaks marked, so each backend took the list of per-segment arrays `segments_to_coords` hands back and concatenated it straight back together - using `[[None] * 3]` as the separator, which made the whole array object dtype and pushed the float conversion down to individual coordinates. `navis-fastcore` 0.13 can pad the array as it builds it, and `segments_to_coords` passes that through as `flat=True`. On 100 example neurons (447k nodes, 61.8k segments) assembling the coordinates goes **120 ms :octicons-arrow-right-24: 27 ms**. The breaks are `NaN` rather than `None` now; all three backends already read that as a gap, and plotly's payload shrinks as a side effect (146 KiB :octicons-arrow-right-24: 101 KiB for one example neuron) because a float array serialises to base64 where an object array becomes a JSON list. Renders are pixel-identical.
+
+    Per-node colours ride along on the same call, so they come back already in segment order instead of being matched up afterwards through a dictionary lookup per vertex. That was the slower half of both 3-D backends: for 100 neurons k3d's coloured path goes **672 ms :octicons-arrow-right-24: 38 ms**, and plotly's sheds everything except the `rgb(...)` strings themselves, which is what it is now bound by.
+
+    The paths that genuinely want per-segment arrays - depth sorting, per-edge colouring and `method="3d_complex"` - are unchanged and still get the list.
+
+- **`plot3d(..., backend="plotly", hover_id=True)` no longer raises a `TypeError`.** It built its hover labels with `seg + [None]` over [`navis.Skeleton.segments`][], whose entries are numpy arrays rather than lists, so the addition was attempted element-wise against `None`.
+
 - **the remote data-source interfaces now share their plumbing** (new `navis/interfaces/base.py`). Each of `microns`, `h01`, `neuprint`, `neuromorpho`, `insectbrain_db`, `vfb`, `allen_celltypes` and `brain_image_library` had grown its own copy of "fan a fetch out over a thread pool", twelve in all - and eight of them ended in the *same* line, `print(f"{id} generated an exception:", exc)`. A failed neuron was written to stdout and dropped, so a partial result came back looking like a complete one. There is now one `fetch_parallel`, and with it:
 
     - **results come back in the order you asked for them.** The old loops appended as requests completed, so the order was whatever the network happened to do; two modules re-sorted afterwards to compensate and the rest simply returned neurons shuffled
