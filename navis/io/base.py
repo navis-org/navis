@@ -100,6 +100,43 @@ def merge_dicts(*dicts: Optional[Dict], **kwargs) -> Dict:
     return out
 
 
+def filter_by_limit_list(files, limit, path_func=str):
+    """Filter `files` down to those named in `limit`.
+
+    `limit` is documented as a list of filenames but people reasonably also
+    pass full paths, so we accept either. Note that we hash `limit` once
+    instead of scanning it per file: these lists can both be large.
+
+    Parameters
+    ----------
+    files :     iterable
+                The files to filter. Can be anything (`Path`, `ZipInfo`,
+                plain strings, ...) as long as `path_func` turns it into a
+                "/"-separated path.
+    limit :     list
+                Filenames and/or paths to keep.
+    path_func : callable
+                Used to extract the path from each item in `files`.
+
+    Returns
+    -------
+    list
+                The subset of `files` that matched, in their original order.
+
+    """
+    # N.B. we stringify because `files` are often not strings themselves -
+    # e.g. `Path("neuron.swc") != "neuron.swc"` would silently drop everything.
+    # Backslashes are normalised so that Windows paths compare equal to the
+    # "/"-separated paths inside archives and buckets.
+    keep = {str(f).replace("\\", "/") for f in limit}
+    return [
+        f
+        for f in files
+        if (p := path_func(f).replace("\\", "/")) in keep
+        or p.rsplit("/", 1)[-1] in keep
+    ]
+
+
 def handle_errors(func):
     """Decorator for read_buffer and read_dataframe methods to handle errors.
 
@@ -584,7 +621,7 @@ class BaseReader(ABC):
                     break
 
         if isinstance(limit, list):
-            to_read = [f for f in to_read if f in limit]
+            to_read = filter_by_limit_list(to_read, limit)
         elif isinstance(limit, slice):
             to_read = to_read[limit]
         elif isinstance(limit, str):
@@ -877,7 +914,7 @@ class BaseReader(ABC):
         if isinstance(limit, int):
             files = files[:limit]
         elif isinstance(limit, list):
-            files = [f for f in files if f in limit]
+            files = filter_by_limit_list(files, limit)
         elif isinstance(limit, slice):
             files = files[limit]
         elif isinstance(limit, str):
@@ -1524,7 +1561,8 @@ def parallel_read_archive(
                 break
 
     if isinstance(limit, list):
-        to_read = [f for f in to_read if f in limit]
+        # N.B. `to_read` are `ZipInfo` objects, not strings
+        to_read = filter_by_limit_list(to_read, limit, path_func=lambda f: f.filename)
     elif isinstance(limit, slice):
         to_read = to_read[limit]
     elif isinstance(limit, str):
@@ -1662,7 +1700,7 @@ def parallel_read_ftp(
     if isinstance(limit, int):
         to_read = to_read[:limit]
     elif isinstance(limit, list):
-        to_read = [f for f in to_read if f in limit]
+        to_read = filter_by_limit_list(to_read, limit)
     elif isinstance(limit, slice):
         to_read = to_read[limit]
     elif isinstance(limit, str):
@@ -1914,7 +1952,7 @@ def parallel_read_gs(
     if isinstance(limit, int):
         to_read = to_read[:limit]
     elif isinstance(limit, list):
-        to_read = [f for f in to_read if f in limit]
+        to_read = filter_by_limit_list(to_read, limit)
     elif isinstance(limit, slice):
         to_read = to_read[limit]
     elif isinstance(limit, str):
