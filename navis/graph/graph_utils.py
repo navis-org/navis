@@ -190,14 +190,82 @@ def _merge_labels(labels: np.ndarray, edges: Optional[np.ndarray]) -> np.ndarray
     return representative[merged[comp]]
 
 
+# The readings of "connected" that label a mesh's faces rather than its vertices
+# - see `_mesh_component_labels`
+_FACE_CONNECTIVITIES = ("face", "manifold")
+
+
+def _extra_edges_as_faces(
+    faces: np.ndarray, edges: Optional[np.ndarray]
+) -> np.ndarray:
+    """Re-express extra (non-face) edges as edges between faces.
+
+    Face components are made of faces, so a bridge between two *vertices* only
+    means something to them once it is a bridge between the faces using those
+    vertices: every face at one end joins every face at the other.
+
+    Note this also welds together the face components that merely meet at an
+    endpoint - at a pinch vertex, or (under `"manifold"`) along a seam. There is
+    no labelling in which they stay apart while both connect to the far end, so
+    this is the one case where face components come out coarser than the
+    connectivity asked for.
+
+    Parameters
+    ----------
+    faces :     (F, 3) array
+    edges :     (M, 2) array, optional
+                Extra edges as vertex indices. `None` or empty gives an empty
+                result.
+
+    Returns
+    -------
+    edges :     (K, 2) int array
+                The same connections as face indices, ready for `_merge_labels`.
+                Endpoints that no face uses drop out: under face connectivity a
+                vertex on its own is not a component to begin with.
+
+    """
+    empty = np.zeros((0, 2), dtype=np.int64)
+
+    if edges is None or not len(edges):
+        return empty
+
+    edges = np.asarray(edges)
+
+    # The faces using each endpoint vertex, as (vertex, face) pairs sorted by vertex
+    corner_vert = np.asarray(faces).reshape(-1)
+    corner_face = np.repeat(np.arange(len(faces)), 3)
+    used = np.isin(corner_vert, edges)
+    order = np.argsort(corner_vert[used], kind="stable")
+    vert, face = corner_vert[used][order], corner_face[used][order]
+
+    if not len(vert):
+        return empty
+
+    # Pick one representative face per endpoint vertex, and tie that vertex's
+    # other faces to it (the star) so that reaching the representative is enough
+    uniq, start, counts = np.unique(vert, return_index=True, return_counts=True)
+    rep = face[start]
+    star = np.stack([np.repeat(rep, counts), face], axis=1)
+    star = star[star[:, 0] != star[:, 1]]
+
+    # ... which leaves one edge per bridge, between the two representatives
+    pos = np.searchsorted(uniq, edges)
+    known = uniq[np.minimum(pos, len(uniq) - 1)] == edges
+    bridges = rep[pos[known.all(axis=1)]]
+
+    return np.vstack((star, bridges)).astype(np.int64, copy=False)
+
+
 def _mesh_component_labels(
     x: Union["core.Mesh", "tm.Trimesh"],
+    connectivity: str = "vertex",
 ) -> Tuple[np.ndarray, int]:
-    """Label each vertex with the connected component it belongs to.
+    """Label each vertex (or face) with the connected component it belongs to.
 
     Unlike [`navis.graph.graph_utils._connected_components`][] this returns a
-    plain integer array positionally aligned with the vertices rather than a
-    list of arrays. That matters whenever you want to index something *by*
+    plain integer array positionally aligned with the vertices (faces) rather
+    than a list of arrays. That matters whenever you want to index something *by*
     component - e.g. a `bincount` of component sizes.
 
     Note this labels the components of the *graph*: a mesh's extra edges (edges
@@ -205,27 +273,66 @@ def _mesh_component_labels(
 
     Parameters
     ----------
-    x :         Mesh | Trimesh
+    x :             Mesh | Trimesh
+    connectivity :  "vertex" | "face" | "manifold" , optional
+                    What two faces must share to count as connected: a corner
+                    (`"vertex"`, default), any edge (`"face"`) or an edge
+                    carrying exactly two faces (`"manifold"`). Each is strictly
+                    finer than the one before it, dropping a kind of junction:
+                    `"face"` drops the pinch points (two triangles meeting at a
+                    corner are one component under `"vertex"` and two under
+                    `"face"`), `"manifold"` also drops the seams (three sheets
+                    along one edge are one component under `"face"` and three
+                    under `"manifold"`). `"manifold"` is `trimesh.split`.
+
+                    The latter two also change what the labels are *of*: a pinch
+                    vertex belongs to several face components at once, so those
+                    can only be reported per face.
 
     Returns
     -------
-    labels :    (N, ) int array
-                Component label for each vertex, in vertex order. Labels are
+    labels :    (N, ) or (F, ) int array
+                Component label for each vertex (`"vertex"`) or for each face
+                (`"face"`/`"manifold"`), in vertex/face order. Labels are
                 contiguous (`0 .. n_components - 1`) but otherwise arbitrary.
     n :         int
                 Number of connected components.
 
     """
-    n_verts = len(x.vertices)
+    if connectivity not in ("vertex",) + _FACE_CONNECTIVITIES:
+        raise ValueError(
+            '`connectivity` must be "vertex", "face" or "manifold", '
+            f'got "{connectivity}"'
+        )
 
-    if not n_verts:
-        return np.zeros(0, dtype=np.int64), 0
+    faces = np.asarray(x.faces)
+    extra_edges = getattr(x, "extra_edges", None)
 
-    # This is a plain union-find over the faces - no adjacency is built
-    labels = utils.fastcore.mesh_connected_components(x.faces, n_verts)  # type: ignore
+    if connectivity == "vertex":
+        n_verts = len(x.vertices)
+
+        if not n_verts:
+            return np.zeros(0, dtype=np.int64), 0
+
+        # This is a plain union-find over the faces - no adjacency is built
+        labels = utils.fastcore.mesh_connected_components(faces, n_verts)  # type: ignore
+    else:
+        if not len(faces):
+            return np.zeros(0, dtype=np.int64), 0
+
+        # Face adjacency does have to group the faces' edges first, which is
+        # where all of its (still modest) extra time goes. The two face readings
+        # differ only in what they then do with an edge more than two faces deep
+        labels = utils.fastcore.mesh_connected_components(  # type: ignore
+            faces, connectivity=connectivity
+        )
+        # The extra edges are given as vertices and mean nothing to face labels
+        # until they are translated into the faces at either end
+        extra_edges = _extra_edges_as_faces(faces, extra_edges)
+
     # Edges that are not part of any face (e.g. bridges added by
     # `navis.heal_mesh`) are invisible to the above and have to be merged in
-    labels = _merge_labels(labels, getattr(x, "extra_edges", None))
+    labels = _merge_labels(labels, extra_edges)
     # N.B. fastcore labels each component by its smallest member index, so these
     # need compressing to the contiguous `0 .. n_components - 1` we promise above
     uniq, labels = np.unique(labels, return_inverse=True)
@@ -264,6 +371,53 @@ def skeleton_edges(x: "core.Skeleton"):
     return edges, node_ids
 
 
+def _resolve_connectivity(
+    x: Union["core.BaseNeuron", "tm.Trimesh"],
+    connectivity: Optional[Union[int, str]],
+) -> Optional[Union[int, str]]:
+    """Fill in and check the `connectivity` argument for a given neuron.
+
+    What counts as "connected" is a different question for each type of neuron,
+    so `connectivity` takes different values (and has a different default)
+    depending on what it is handed - and none at all for skeletons and dotprops,
+    which come with their edges already decided.
+
+    Parameters
+    ----------
+    x :             Neuron
+    connectivity :  int | str, optional
+                    `None` picks the default for this type of neuron.
+
+    Returns
+    -------
+    connectivity :  int | str | None
+                    `None` for the neurons that have no use for it.
+
+    """
+    if isinstance(x, core.Voxels):
+        allowed, default = (6, 18, 26), 26
+    elif isinstance(x, (core.Mesh, tm.Trimesh)):
+        allowed, default = ("vertex",) + _FACE_CONNECTIVITIES, "vertex"
+    else:
+        if connectivity is not None:
+            logger.warning(
+                f"`connectivity` does not apply to {type(x).__name__} and is "
+                "ignored: the edges are given by the neuron itself."
+            )
+        return None
+
+    if connectivity is None:
+        return default
+
+    if connectivity not in allowed:
+        raise ValueError(
+            f"`connectivity` for a {type(x).__name__} must be one of "
+            f"{', '.join(repr(a) for a in allowed)}, got {connectivity!r}"
+        )
+
+    return connectivity
+
+
 def _connected_components(
     x: Union[
         "core.Skeleton",
@@ -273,7 +427,7 @@ def _connected_components(
         "tm.Trimesh",
     ],
     epsilon: Optional[float] = None,
-    connectivity: int = 26,
+    connectivity: Optional[Union[int, str]] = None,
 ) -> List[Set[int]]:
     """Extract the connected components within a neuron.
 
@@ -288,16 +442,25 @@ def _connected_components(
                     For Dotprops only: distance threshold to consider two points
                     connected. If not provided, will use 5 x the average distance
                     between points.
-    connectivity :  6 | 18 | 26, optional
-                    For Voxels only: which neighbours count as connected.
+    connectivity :  6 | 18 | 26 | "vertex" | "face" | "manifold" , optional
+                    What counts as connected - which is a different question for
+                    each type of neuron (see `_resolve_connectivity`).
+                    For Voxels: which neighbouring voxels count as connected.
                     6 = faces only, 18 = faces + edges, 26 (default) = faces +
                     edges + corners.
+                    For Meshes: whether two faces must share a corner
+                    (`"vertex"`, default), an edge (`"face"`) or an edge with no
+                    third face on it (`"manifold"`).
+                    For Skeletons/Dotprops: ignored.
 
     Returns
     -------
     list
                 List containing sets of node/vertex IDs for each subgraph. For
-                Voxels these are indices into `.voxels`.
+                Voxels these are indices into `.voxels`. Mesh components are
+                always given as vertices, but under the face readings they can
+                overlap: a pinch vertex belongs to every face component that
+                meets there.
 
     Examples
     --------
@@ -323,6 +486,8 @@ def _connected_components(
         ),
     )
 
+    connectivity = _resolve_connectivity(x, connectivity)
+
     if isinstance(x, core.Voxels):
         # `sparse-cubes` labels the components straight off the sparse voxels,
         # so this never builds a graph (or the dense grid)
@@ -338,8 +503,15 @@ def _connected_components(
         node_ids = x.nodes.node_id.values
         cc = [node_ids[group] for group in _group_by_label(ms)]
     elif isinstance(x, (core.Mesh, tm.Trimesh)):
-        # Translate the per-vertex labels into a list of arrays of vertex indices
-        cc = _group_by_label(_mesh_component_labels(x)[0])
+        # Translate the labels into a list of arrays of indices
+        cc = _group_by_label(_mesh_component_labels(x, connectivity=connectivity)[0])
+        if connectivity in _FACE_CONNECTIVITIES:
+            # Those indices are faces, and callers here expect vertices. Note the
+            # components can now share a vertex - which is exactly what lets
+            # `drop_fluff` keep the piece a pinch vertex belongs to and still drop
+            # the other one.
+            faces = np.asarray(x.faces)
+            cc = [np.unique(faces[group]) for group in cc]
     else:
         if isinstance(x, core.Dotprops):
             G: igraph.Graph = graph.neuron2igraph(x, epsilon=epsilon)

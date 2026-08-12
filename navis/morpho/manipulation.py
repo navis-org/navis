@@ -2419,7 +2419,7 @@ def drop_fluff(
     keep_size: Optional[float] = None,
     n_largest: Optional[int] = None,
     epsilon: Optional[float] = None,
-    connectivity: int = 26,
+    connectivity: Optional[Union[int, str]] = None,
     inplace: bool = False,
 ):
     """Remove small disconnected pieces of "fluff".
@@ -2444,10 +2444,20 @@ def drop_fluff(
                 For Dotprops: distance at which to consider two points to be
                 connected. If `None`, will use the default value of 5 times
                 the average node distance (`x.sampling_resolution`).
-    connectivity : 6 | 18 | 26, optional
+    connectivity : 6 | 18 | 26 | "vertex" | "face" | "manifold" , optional
+                What counts as connected - the answer depends on the neuron.
                 For Voxels: which neighbouring voxels count as connected.
                 6 = faces only, 18 = faces + edges, 26 (default) = faces +
                 edges + corners.
+                For Meshes: how little may hold two faces together for them to
+                still be one piece - a shared corner (`"vertex"`, default), a
+                shared edge (`"face"`) or a shared edge with no third face on
+                it (`"manifold"`, which is what `trimesh.split` means by a
+                piece). Sizes are counted in vertices whichever you pick, and a
+                vertex that several pieces pinch together stays as long as one
+                of them does.
+                For Skeletons/Dotprops: nothing - their edges are already
+                decided, and passing it warns.
     inplace :   bool, optional
                 If False, pruning is performed on copy of original neuron
                 which is then returned.
@@ -2480,6 +2490,15 @@ def drop_fluff(
     >>> clean2 = navis.drop_fluff(m, keep_size=10, n_largest=2)
     >>> clean2.n_vertices
     17298
+    >>> # Pieces that only touch the main component at a single vertex count as
+    >>> # part of it by default, but as fluff of their own with `"face"`
+    >>> pinched_off = navis.drop_fluff(m, connectivity="face")
+    >>> pinched_off.n_vertices
+    16978
+    >>> # `"manifold"` splits at the seams too, leaving proper surfaces
+    >>> surface = navis.drop_fluff(m, connectivity="manifold")
+    >>> surface.n_vertices
+    15039
 
     """
     utils.eval_param(
@@ -2493,6 +2512,10 @@ def drop_fluff(
         ),
     )
 
+    # Each type of neuron reads `connectivity` differently; do that once here so
+    # that a value meant for another type is caught before anything is dropped
+    connectivity = graph.graph_utils._resolve_connectivity(x, connectivity)
+
     # Voxels have no graph to subset, so they get their own (much shorter) path
     if isinstance(x, core.Voxels):
         return _drop_fluff_voxels(
@@ -2504,7 +2527,13 @@ def drop_fluff(
         )
 
     # This function runs on navis_fastcore
-    cc = sorted(graph.graph_utils._connected_components(x, epsilon=epsilon), key=lambda x: len(x), reverse=True)
+    cc = sorted(
+        graph.graph_utils._connected_components(
+            x, epsilon=epsilon, connectivity=connectivity
+        ),
+        key=len,
+        reverse=True,
+    )
 
     # Translate keep_size to number of nodes
     if keep_size and keep_size < 1:
@@ -2512,14 +2541,17 @@ def drop_fluff(
 
     if keep_size:
         cc = [c for c in cc if len(c) >= keep_size]
-        if not n_largest:
-            keep = [i for c in cc for i in c]
-        else:
-            keep = [i for c in cc[:n_largest] for i in c]
-    elif n_largest:
-        keep = [i for c in cc[:n_largest] for i in c]
-    else:
-        keep = cc[0]
+    elif not n_largest:
+        # With neither criterion we keep just the largest component
+        n_largest = 1
+
+    if n_largest:
+        cc = cc[:n_largest]
+
+    # `unique` because under `connectivity="face"` a pinch vertex is part of more
+    # than one component. Note `cc` can be empty by this point - a mesh with no
+    # faces has no face components to speak of
+    keep = np.unique(np.concatenate(cc)) if cc else []
 
     # Subset neuron
     x = subset.subset_neuron(x, subset=keep, inplace=inplace, keep_disc_cn=True)
