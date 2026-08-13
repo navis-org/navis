@@ -329,130 +329,307 @@ navis.mirror_brain
                 Higher level function that uses meta data from registered
                 template brains to transform data for you.
 
-### navis.transforms.align.align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, progress=True)
+### navis.transforms.align.align_rigid(x, target=None, scale=False, scale_bounds=None, w=0, tolerance=1e-06, max_iterations=200, mirror_axis=None, verbose=False, sample=None, progress=True, n_cores=None)
 
 *function*
 
 Align neurons using a rigid registration.
 
-Requires the `pycpd` library.
+Uses coherent point drift, as implemented in [rcpd](https://github.com/schlegelp/rcpd).
+Neurons are registered in parallel: one registration per core across a
+`NeuronList`, and all cores on a single pair.
 
 Parameters
 ----------
-x :             navis.NeuronList
-                Neurons to align.
-target :        navis.Neuron | np.ndarray
-                The neuron that all neurons in `x` will be aligned to.
-                If `None`, neurons will be aligned to the first neuron in `x`!
-scale :         bool
-                If True, will also scale the neuron.
-w :             float
-                `w` is used to account for outliers: higher w = more forgiving.
-                The default is w=0 which can lead to failure to converge on a
-                solution (in particular when scale=False). In that case we
-                incrementally increase `w` by a factor of 10 until we find
-                a solution. Set `verbose=True` to get detailed feedback
-                on the solution.
-sample :        float [0-1], optional
-                If provided, will calculate an initial registration on only
-                the given fraction of points followed by a landmark transform
-                to transform the rest. Use this to speed things up.
-progress :      bool
-                Whether to show a progress bar.
+x :                 navis.NeuronList
+                    Neurons to align.
+target :            navis.Neuron | np.ndarray
+                    The neuron that all neurons in `x` will be aligned to.
+                    If `None`, neurons will be aligned to the first neuron in `x`!
+scale :             bool
+                    If True, will also fit a uniform scale factor.
+scale_bounds :      (float, float), optional
+                    Lower and upper limit for the fitted `scale`, e.g.
+                    `(0.8, 1.25)` to allow a quarter either way. The limits
+                    are imposed at every step of the fit, so what comes back
+                    is the best alignment *within* them rather than a free fit
+                    squashed into range afterwards; a pair that wants more
+                    comes back sitting exactly on the nearer limit. Requires
+                    `scale=True`.
+w :                 float [0-1)
+                    `w` is used to account for outliers: higher w = more forgiving
+                    of points with no counterpart in the target. The default of 0
+                    fits every point.
+tolerance :         float
+                    Stop once the fitted variance changes by less than this
+                    *fraction* of itself.
+max_iterations :    int
+                    Cap on EM iterations.
+mirror_axis :       'x' | 'y' | 'z' | 0 | 1 | 2, optional
+                    If provided, each neuron is fitted twice - as given and mirrored
+                    along this axis - and whichever of the two left the smaller
+                    residual (`RigidTransform.rms`) is the one returned. Use this
+                    when the neurons may be of either handedness, e.g. aligning
+                    left-hand-side neurons onto a right-hand-side target without
+                    knowing which is which. Where the mirrored fit wins, the
+                    reflection is folded into the returned transform, so
+                    `np.linalg.det(reg.rotation) < 0` tells you which neurons were
+                    flipped; `.apply()`, `.matrix` and `~` all still hold. Where the
+                    mirror plane sits does not matter - the fit is free to translate.
+verbose :           bool
+                    Whether to report registrations that hit `max_iterations`
+                    without converging.
+sample :            float [0-1], optional
+                    If provided, will calculate the registration on only the given
+                    fraction of points. Use this to speed things up. The
+                    remaining points are *not* approximated: a rigid transform
+                    is closed-form, so it applies exactly to points that took
+                    no part in fitting it.
+progress :          bool
+                    Whether to show a progress bar.
+n_cores :           int, optional
+                    Number of cores to use. Defaults to all available.
 
 Returns
 -------
 xf :    navis.NeuronList
         The aligned neurons.
-regs :  list
-        The pycpd registration objects.
+regs :  list of rcpd.RigidTransform
+        The fitted transforms, one per neuron in `x` and in the same order.
+        Each carries `.scale`, `.rotation`, `.translation` and `.matrix` (a
+        4x4 homogeneous matrix), plus the `.rms` / `.nrms` residuals and the
+        `.sigma2`, `.iterations` and `.converged` diagnostics. Apply one to
+        further points with `.apply(coords)`, or invert it with `~`.
+
+Notes
+-----
+Converging and converging onto the right shape are not the same thing:
+coherent point drift will settle a neuron onto an unrelated one quite happily.
+`regs[i].nrms` - the residual as a fraction of the target's own radius - is
+what says whether the alignment is any good, and being dimensionless it can be
+compared between pairs. Two different neurons of the same type land around
+0.06-0.11, two unrelated ones around 0.2.
+
+`mirror_axis` doubles the number of registrations, but both fits for a neuron are
+dispatched together with everything else, so given spare cores it costs less than
+twice the wall-clock. One caveat on how the winner is picked: with `w > 0` the
+residual is measured
+over the matched mass alone, so a fit that writes more points off as outliers is
+not penalised for it. Compare `regs[i].rms` against the alternative yourself if
+that matters - with `w=0` (the default) every point counts and it does not.
 
 Examples
 --------
 >>> import navis
 >>> n1, n2 = navis.example_neurons(2, kind='skeleton')
 >>> n1_aligned, regs = navis.align.align_rigid(n1, n2, sample=.2)
+>>> regs[0].converged
+True
+>>> # Let the alignment flip the neuron over if that fits better
+>>> import numpy as np
+>>> xf, regs = navis.align.align_rigid(n1, n2, mirror_axis='x', sample=.2)
+>>> bool(np.linalg.det(regs[0].rotation) < 0)  # was it mirrored?
+False
 
-### navis.align.align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, progress=True)
+### navis.align.align_rigid(x, target=None, scale=False, scale_bounds=None, w=0, tolerance=1e-06, max_iterations=200, mirror_axis=None, verbose=False, sample=None, progress=True, n_cores=None)
 
 *function*
 
 Align neurons using a rigid registration.
 
-Requires the `pycpd` library.
+Uses coherent point drift, as implemented in [rcpd](https://github.com/schlegelp/rcpd).
+Neurons are registered in parallel: one registration per core across a
+`NeuronList`, and all cores on a single pair.
 
 Parameters
 ----------
-x :             navis.NeuronList
-                Neurons to align.
-target :        navis.Neuron | np.ndarray
-                The neuron that all neurons in `x` will be aligned to.
-                If `None`, neurons will be aligned to the first neuron in `x`!
-scale :         bool
-                If True, will also scale the neuron.
-w :             float
-                `w` is used to account for outliers: higher w = more forgiving.
-                The default is w=0 which can lead to failure to converge on a
-                solution (in particular when scale=False). In that case we
-                incrementally increase `w` by a factor of 10 until we find
-                a solution. Set `verbose=True` to get detailed feedback
-                on the solution.
-sample :        float [0-1], optional
-                If provided, will calculate an initial registration on only
-                the given fraction of points followed by a landmark transform
-                to transform the rest. Use this to speed things up.
-progress :      bool
-                Whether to show a progress bar.
+x :                 navis.NeuronList
+                    Neurons to align.
+target :            navis.Neuron | np.ndarray
+                    The neuron that all neurons in `x` will be aligned to.
+                    If `None`, neurons will be aligned to the first neuron in `x`!
+scale :             bool
+                    If True, will also fit a uniform scale factor.
+scale_bounds :      (float, float), optional
+                    Lower and upper limit for the fitted `scale`, e.g.
+                    `(0.8, 1.25)` to allow a quarter either way. The limits
+                    are imposed at every step of the fit, so what comes back
+                    is the best alignment *within* them rather than a free fit
+                    squashed into range afterwards; a pair that wants more
+                    comes back sitting exactly on the nearer limit. Requires
+                    `scale=True`.
+w :                 float [0-1)
+                    `w` is used to account for outliers: higher w = more forgiving
+                    of points with no counterpart in the target. The default of 0
+                    fits every point.
+tolerance :         float
+                    Stop once the fitted variance changes by less than this
+                    *fraction* of itself.
+max_iterations :    int
+                    Cap on EM iterations.
+mirror_axis :       'x' | 'y' | 'z' | 0 | 1 | 2, optional
+                    If provided, each neuron is fitted twice - as given and mirrored
+                    along this axis - and whichever of the two left the smaller
+                    residual (`RigidTransform.rms`) is the one returned. Use this
+                    when the neurons may be of either handedness, e.g. aligning
+                    left-hand-side neurons onto a right-hand-side target without
+                    knowing which is which. Where the mirrored fit wins, the
+                    reflection is folded into the returned transform, so
+                    `np.linalg.det(reg.rotation) < 0` tells you which neurons were
+                    flipped; `.apply()`, `.matrix` and `~` all still hold. Where the
+                    mirror plane sits does not matter - the fit is free to translate.
+verbose :           bool
+                    Whether to report registrations that hit `max_iterations`
+                    without converging.
+sample :            float [0-1], optional
+                    If provided, will calculate the registration on only the given
+                    fraction of points. Use this to speed things up. The
+                    remaining points are *not* approximated: a rigid transform
+                    is closed-form, so it applies exactly to points that took
+                    no part in fitting it.
+progress :          bool
+                    Whether to show a progress bar.
+n_cores :           int, optional
+                    Number of cores to use. Defaults to all available.
 
 Returns
 -------
 xf :    navis.NeuronList
         The aligned neurons.
-regs :  list
-        The pycpd registration objects.
+regs :  list of rcpd.RigidTransform
+        The fitted transforms, one per neuron in `x` and in the same order.
+        Each carries `.scale`, `.rotation`, `.translation` and `.matrix` (a
+        4x4 homogeneous matrix), plus the `.rms` / `.nrms` residuals and the
+        `.sigma2`, `.iterations` and `.converged` diagnostics. Apply one to
+        further points with `.apply(coords)`, or invert it with `~`.
+
+Notes
+-----
+Converging and converging onto the right shape are not the same thing:
+coherent point drift will settle a neuron onto an unrelated one quite happily.
+`regs[i].nrms` - the residual as a fraction of the target's own radius - is
+what says whether the alignment is any good, and being dimensionless it can be
+compared between pairs. Two different neurons of the same type land around
+0.06-0.11, two unrelated ones around 0.2.
+
+`mirror_axis` doubles the number of registrations, but both fits for a neuron are
+dispatched together with everything else, so given spare cores it costs less than
+twice the wall-clock. One caveat on how the winner is picked: with `w > 0` the
+residual is measured
+over the matched mass alone, so a fit that writes more points off as outliers is
+not penalised for it. Compare `regs[i].rms` against the alternative yourself if
+that matters - with `w=0` (the default) every point counts and it does not.
 
 Examples
 --------
 >>> import navis
 >>> n1, n2 = navis.example_neurons(2, kind='skeleton')
 >>> n1_aligned, regs = navis.align.align_rigid(n1, n2, sample=.2)
+>>> regs[0].converged
+True
+>>> # Let the alignment flip the neuron over if that fits better
+>>> import numpy as np
+>>> xf, regs = navis.align.align_rigid(n1, n2, mirror_axis='x', sample=.2)
+>>> bool(np.linalg.det(regs[0].rotation) < 0)  # was it mirrored?
+False
 
-### navis.transforms.align.align_deform(x, target=None, sample=None, progress=True, **kwargs)
+### navis.transforms.align.align_deform(x, target=None, alpha=2.0, beta=0.2, w=0, tolerance=1e-06, max_iterations=200, num_modes=100, verbose=False, sample=None, progress=True, n_cores=None)
 
 *function*
 
 Align neurons using a deformable registration.
 
-Requires the `pycpd` library. Note that it's often beneficial to first
-run a rough affine alignment via `rigid_align`. Anecdotally, this works
-well to align backbones but tends to pull denser parts (e.g. dendrites)
-into a tight ball.
+Uses coherent point drift, as implemented in [rcpd](https://github.com/schlegelp/rcpd).
+Neurons are registered in parallel: one registration per core across a
+`NeuronList`, and all cores on a single pair.
+
+A deformation is free to map anything onto anything, so it is worth running a
+rigid alignment first and asking this only for what is left: use
+`align_pairwise(method="rigid+deform")`, or fit this on the points
+navis.align.align_rigid moved. The motion coherence prior pays for
+displacement, so a pose offset left for the deformation to undo comes out of
+the same budget as the warp.
 
 Parameters
 ----------
-x :             navis.NeuronList
-                Neurons to align.
-target :        navis.Neuron | np.ndarray
-                The neuron that all neurons in `x` will be aligned to.
-                If `None`, neurons will be aligned to the first neuron in `x`!
-sample :        float [0-1], optional
-                If provided, will calculate an initial registration on only
-                the given fraction of points followed by a landmark transform
-                to transform the rest. Use this to speed things up.
-progress :      bool
-                Whether to show a progress bar.
-**kwargs
-                Additional keyword-argumens are passed through to
-                pycpd.DeformableRegistration. In brief: lower `alpha` and
-                higher `beta` typically make for more fitting deform. I have
-                gone as far as alpha=.01 and beta=10000.
+x :                 navis.NeuronList
+                    Neurons to align.
+target :            navis.Neuron | np.ndarray
+                    The neuron that all neurons in `x` will be aligned to.
+                    If `None`, neurons will be aligned to the first neuron in `x`!
+alpha :             float
+                    Weight of the motion coherence prior, relative to the data
+                    term: higher = stiffer. The useful range is wide and
+                    data-dependent, so treat the default as a starting point.
+beta :              float
+                    Width of the kernel that makes neighbouring points move
+                    together, as a **fraction of the neuron's radius** - so it
+                    means the same thing whatever units the neurons are in.
+                    Higher = stiffer. Coupled to `num_modes`, see Notes.
+w :                 float [0-1)
+                    `w` is used to account for outliers: higher w = more forgiving
+                    of points with no counterpart in the target. The default of 0
+                    fits every point.
+tolerance :         float
+                    Stop once the fitted variance changes by less than this
+                    *fraction* of itself.
+max_iterations :    int
+                    Cap on EM iterations.
+num_modes :         int
+                    Number of eigenmodes of the kernel to solve the deformation
+                    through. See Notes.
+verbose :           bool
+                    Whether to report registrations that hit `max_iterations`
+                    without converging.
+sample :            float [0-1], optional
+                    If provided, will calculate the registration on only the given
+                    fraction of points. Use this to speed things up. The
+                    remaining points are moved by the same fitted deformation
+                    as the rest - it is a function of position, not a set of
+                    moved points, so there is no landmark transform involved.
+progress :          bool
+                    Whether to show a progress bar.
+n_cores :           int, optional
+                    Number of cores to use. Defaults to all available.
 
 Returns
 -------
 xf :    navis.NeuronList
         The aligned neurons.
-regs :  list
-        The pycpd registration objects.
+regs :  list of rcpd.DeformTransform
+        The fitted deformations, one per neuron in `x` and in the same order.
+        Move further points with `.apply(coords)`, and check `.nrms` (the
+        residual as a fraction of the target's radius, directly comparable
+        with a rigid fit's) before trusting one. Note there is no inverse: a
+        sum of Gaussians has none in closed form.
+
+Notes
+-----
+**`beta` defaults lower here than in `rcpd`** (0.2 against 1), because a neuron is
+a specific enough object to tune for: at `beta=1` the kernel spans the whole
+arbor, everything moves as one and the result is not far off a rigid alignment.
+Over the ten pairs of example skeletons, mean nearest-neighbour distance between
+an aligned neuron and its target (as a fraction of the target's extent) is 0.0089
+unaligned, 0.0065 at `beta=1` and 0.0043 at `beta=0.2`, the last for a third more
+time. `alpha` barely matters over 0.5-10 on the same neurons, so it is left at
+`rcpd`'s default.
+
+**`beta` and `num_modes` are coupled.** The kernel's rank grows roughly as
+`(1 / beta) ** 3`, so halving `beta` needs about eight times as many modes to
+represent the same deformation. Too few is not a subtle failure: the part of the
+warp that does not fit in the retained subspace is projected away, so what comes
+back is smoother than `beta` alone would suggest. The check is to raise
+`num_modes` and see whether the answer moves - at the defaults here it does not
+(0.0043 either way at four times the modes and five times the time), but that is
+a statement about these neurons, not a guarantee.
+
+**Deformable fits routinely hit `max_iterations`**, so `converged=False` is
+common and not by itself a problem: allowed to run to a stop the same fits take
+~450 iterations to leave a residual 5% smaller, for twice the time. A fit *can* also
+report `converged` without having met `tolerance` - a deformation has enough
+freedom to drive the residual below what the arithmetic can resolve, and there
+the fitted variance stops descending and rattles around a value it has already
+reached, which `rcpd` stops rather than let run out the cap.
 
 Examples
 --------
@@ -460,42 +637,103 @@ Examples
 >>> n1, n2 = navis.example_neurons(2, kind='skeleton')
 >>> n1_aligned, regs = navis.align.align_deform(n1, n2, sample=.2)
 
-### navis.align.align_deform(x, target=None, sample=None, progress=True, **kwargs)
+### navis.align.align_deform(x, target=None, alpha=2.0, beta=0.2, w=0, tolerance=1e-06, max_iterations=200, num_modes=100, verbose=False, sample=None, progress=True, n_cores=None)
 
 *function*
 
 Align neurons using a deformable registration.
 
-Requires the `pycpd` library. Note that it's often beneficial to first
-run a rough affine alignment via `rigid_align`. Anecdotally, this works
-well to align backbones but tends to pull denser parts (e.g. dendrites)
-into a tight ball.
+Uses coherent point drift, as implemented in [rcpd](https://github.com/schlegelp/rcpd).
+Neurons are registered in parallel: one registration per core across a
+`NeuronList`, and all cores on a single pair.
+
+A deformation is free to map anything onto anything, so it is worth running a
+rigid alignment first and asking this only for what is left: use
+`align_pairwise(method="rigid+deform")`, or fit this on the points
+navis.align.align_rigid moved. The motion coherence prior pays for
+displacement, so a pose offset left for the deformation to undo comes out of
+the same budget as the warp.
 
 Parameters
 ----------
-x :             navis.NeuronList
-                Neurons to align.
-target :        navis.Neuron | np.ndarray
-                The neuron that all neurons in `x` will be aligned to.
-                If `None`, neurons will be aligned to the first neuron in `x`!
-sample :        float [0-1], optional
-                If provided, will calculate an initial registration on only
-                the given fraction of points followed by a landmark transform
-                to transform the rest. Use this to speed things up.
-progress :      bool
-                Whether to show a progress bar.
-**kwargs
-                Additional keyword-argumens are passed through to
-                pycpd.DeformableRegistration. In brief: lower `alpha` and
-                higher `beta` typically make for more fitting deform. I have
-                gone as far as alpha=.01 and beta=10000.
+x :                 navis.NeuronList
+                    Neurons to align.
+target :            navis.Neuron | np.ndarray
+                    The neuron that all neurons in `x` will be aligned to.
+                    If `None`, neurons will be aligned to the first neuron in `x`!
+alpha :             float
+                    Weight of the motion coherence prior, relative to the data
+                    term: higher = stiffer. The useful range is wide and
+                    data-dependent, so treat the default as a starting point.
+beta :              float
+                    Width of the kernel that makes neighbouring points move
+                    together, as a **fraction of the neuron's radius** - so it
+                    means the same thing whatever units the neurons are in.
+                    Higher = stiffer. Coupled to `num_modes`, see Notes.
+w :                 float [0-1)
+                    `w` is used to account for outliers: higher w = more forgiving
+                    of points with no counterpart in the target. The default of 0
+                    fits every point.
+tolerance :         float
+                    Stop once the fitted variance changes by less than this
+                    *fraction* of itself.
+max_iterations :    int
+                    Cap on EM iterations.
+num_modes :         int
+                    Number of eigenmodes of the kernel to solve the deformation
+                    through. See Notes.
+verbose :           bool
+                    Whether to report registrations that hit `max_iterations`
+                    without converging.
+sample :            float [0-1], optional
+                    If provided, will calculate the registration on only the given
+                    fraction of points. Use this to speed things up. The
+                    remaining points are moved by the same fitted deformation
+                    as the rest - it is a function of position, not a set of
+                    moved points, so there is no landmark transform involved.
+progress :          bool
+                    Whether to show a progress bar.
+n_cores :           int, optional
+                    Number of cores to use. Defaults to all available.
 
 Returns
 -------
 xf :    navis.NeuronList
         The aligned neurons.
-regs :  list
-        The pycpd registration objects.
+regs :  list of rcpd.DeformTransform
+        The fitted deformations, one per neuron in `x` and in the same order.
+        Move further points with `.apply(coords)`, and check `.nrms` (the
+        residual as a fraction of the target's radius, directly comparable
+        with a rigid fit's) before trusting one. Note there is no inverse: a
+        sum of Gaussians has none in closed form.
+
+Notes
+-----
+**`beta` defaults lower here than in `rcpd`** (0.2 against 1), because a neuron is
+a specific enough object to tune for: at `beta=1` the kernel spans the whole
+arbor, everything moves as one and the result is not far off a rigid alignment.
+Over the ten pairs of example skeletons, mean nearest-neighbour distance between
+an aligned neuron and its target (as a fraction of the target's extent) is 0.0089
+unaligned, 0.0065 at `beta=1` and 0.0043 at `beta=0.2`, the last for a third more
+time. `alpha` barely matters over 0.5-10 on the same neurons, so it is left at
+`rcpd`'s default.
+
+**`beta` and `num_modes` are coupled.** The kernel's rank grows roughly as
+`(1 / beta) ** 3`, so halving `beta` needs about eight times as many modes to
+represent the same deformation. Too few is not a subtle failure: the part of the
+warp that does not fit in the retained subspace is projected away, so what comes
+back is smoother than `beta` alone would suggest. The check is to raise
+`num_modes` and see whether the answer moves - at the defaults here it does not
+(0.0043 either way at four times the modes and five times the time), but that is
+a statement about these neurons, not a guarantee.
+
+**Deformable fits routinely hit `max_iterations`**, so `converged=False` is
+common and not by itself a problem: allowed to run to a stop the same fits take
+~450 iterations to leave a residual 5% smaller, for twice the time. A fit *can* also
+report `converged` without having met `tolerance` - a deformation has enough
+freedom to drive the residual below what the arithmetic can resolve, and there
+the fitted variance stops descending and rattles around a value it has already
+reached, which `rcpd` stops rather than let run out the cap.
 
 Examples
 --------
@@ -569,7 +807,8 @@ Examples
 
 Run a pairwise alignment between given neurons.
 
-Requires the `pycpd` library.
+The coherent point drift methods ("rigid", "deform" and "rigid+deform")
+require the `rcpd` library; "pca" requires `scikit-learn`.
 
 Parameters
 ----------
@@ -578,17 +817,23 @@ x :         navis.NeuronList
 y :         navis.NeuronList, optional
             The neurons to align to. If `None`, will run pairwise
             alignment of `x` vs `x`.
-method :    "rigid" | "deform" | "pca" | "rigid+deform"
+method :    "rigid" | "deform" | "rigid+deform" | "pca"
             Which method to use for alignment. Maps to the respective
             `navis.align_{method}` function. "rigid+deform" performs a
-            rigid followed by a warping alignment.
+            rigid followed by a warping alignment. The three coherent point
+            drift methods fit the whole grid in one go, spread over all
+            cores.
 sample :    float [0-1], optional
-            If provided, will calculate an initial registration on only
-            the given fraction of points followed by a landmark transform
-            to transform the rest. Use this to speed things up.
+            If provided, will calculate the registration on only the given
+            fraction of points. The rest are then moved by the fitted
+            transform itself, which is exact - both registrations are
+            functions of position rather than sets of moved points. Use this
+            to speed things up.
 **kwargs
             Keyword arguments are passed through to the respective
-            alignment function.
+            alignment function. For "rigid+deform" each goes to the fit that
+            takes it, and the ones both take (`w`, `tolerance`,
+            `max_iterations`) go to both.
 
 Returns
 -------
@@ -612,7 +857,8 @@ Examples
 
 Run a pairwise alignment between given neurons.
 
-Requires the `pycpd` library.
+The coherent point drift methods ("rigid", "deform" and "rigid+deform")
+require the `rcpd` library; "pca" requires `scikit-learn`.
 
 Parameters
 ----------
@@ -621,17 +867,23 @@ x :         navis.NeuronList
 y :         navis.NeuronList, optional
             The neurons to align to. If `None`, will run pairwise
             alignment of `x` vs `x`.
-method :    "rigid" | "deform" | "pca" | "rigid+deform"
+method :    "rigid" | "deform" | "rigid+deform" | "pca"
             Which method to use for alignment. Maps to the respective
             `navis.align_{method}` function. "rigid+deform" performs a
-            rigid followed by a warping alignment.
+            rigid followed by a warping alignment. The three coherent point
+            drift methods fit the whole grid in one go, spread over all
+            cores.
 sample :    float [0-1], optional
-            If provided, will calculate an initial registration on only
-            the given fraction of points followed by a landmark transform
-            to transform the rest. Use this to speed things up.
+            If provided, will calculate the registration on only the given
+            fraction of points. The rest are then moved by the fitted
+            transform itself, which is exact - both registrations are
+            functions of position rather than sets of moved points. Use this
+            to speed things up.
 **kwargs
             Keyword arguments are passed through to the respective
-            alignment function.
+            alignment function. For "rigid+deform" each goes to the fit that
+            takes it, and the ones both take (`w`, `tolerance`,
+            `max_iterations`) go to both.
 
 Returns
 -------

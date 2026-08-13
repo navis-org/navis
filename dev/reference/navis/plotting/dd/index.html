@@ -395,20 +395,7 @@
     <span class="n">present</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="o">~</span><span class="n">pd</span><span class="o">.</span><span class="n">isnull</span><span class="p">(</span><span class="n">values</span><span class="p">)])</span>
     <span class="c1"># ... ordered by the shared scale, so several neurons agree on the legend</span>
     <span class="k">return</span> <span class="n">colors</span><span class="p">,</span> <span class="p">[(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">rgba</span><span class="p">[</span><span class="n">v</span><span class="p">])</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">scale</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">present</span><span class="p">]</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.plotting.dd.mesh_rings" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">plotting</span><span class="o">.</span><span class="n">dd</span><span class="o">.</span><span class="n">mesh_rings</span></code> <a href="#navis.plotting.dd.mesh_rings" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p><code>mesh_faces</code>, with each triangle closed into a ring, plus the bounding box.</p> <p>What a renderer actually wants. A path fill needs each triangle closed - its first corner repeated at the end - and the axes need to know what area the result covers; asking for both here is what lets fastcore produce them in the same pass that culls and sorts, rather than in two more walks over a buffer four times the size of the mesh's vertices.</p> <p>The triangles are still there: <code>rings[:, :3]</code> is exactly what <code>mesh_faces</code> returns, as a view rather than a copy.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>As</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> </div> <p> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>rings</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Projected front-facing triangles, each closed by a repeat of its first corner. Furthest first unless <code>order</code> is off.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K, 4, 2) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>bbox</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p><code>[xmin, ymin, xmax, ymax]</code> over <code>rings</code>. Infinities if nothing survived the cull.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(4,) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>normals</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K, 3) array or None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>depth</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K,) array or None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>ix</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>As <code>mesh_faces</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K,) array</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/plotting/plot_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">392</span>
-<span class="normal">393</span>
-<span class="normal">394</span>
-<span class="normal">395</span>
-<span class="normal">396</span>
-<span class="normal">397</span>
-<span class="normal">398</span>
-<span class="normal">399</span>
-<span class="normal">400</span>
-<span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.plotting.dd.mesh_rings" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">plotting</span><span class="o">.</span><span class="n">dd</span><span class="o">.</span><span class="n">mesh_rings</span></code> <a href="#navis.plotting.dd.mesh_rings" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p><code>mesh_faces</code>, with each triangle closed into a ring, plus the bounding box.</p> <p>What a renderer actually wants. A path fill needs each triangle closed - its first corner repeated at the end - and the axes need to know what area the result covers; asking for both here is what lets fastcore produce them in the same pass that culls and sorts, rather than in two more walks over a buffer four times the size of the mesh's vertices.</p> <p>The triangles are still there: <code>rings[:, :3]</code> is exactly what <code>mesh_faces</code> returns, as a view rather than a copy.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>As</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> </div> <p> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>rings</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Projected front-facing triangles, each closed by a repeat of its first corner. Furthest first unless <code>order</code> is off.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K, 4, 2) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>bbox</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p><code>[xmin, ymin, xmax, ymax]</code> over <code>rings</code>. Infinities if nothing survived the cull.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(4,) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>normals</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K, 3) array or None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>depth</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K,) array or None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>ix</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>As <code>mesh_faces</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K,) array</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/plotting/plot_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">405</span>
 <span class="normal">406</span>
 <span class="normal">407</span>
 <span class="normal">408</span>
@@ -456,7 +443,20 @@
 <span class="normal">450</span>
 <span class="normal">451</span>
 <span class="normal">452</span>
-<span class="normal">453</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mesh_rings</span><span class="p">(</span>
+<span class="normal">453</span>
+<span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span>
+<span class="normal">458</span>
+<span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mesh_rings</span><span class="p">(</span>
     <span class="n">vertices</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">faces</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">xy_ix</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
@@ -847,10 +847,16 @@
             <span class="n">color</span><span class="o">=</span><span class="n">soma_color</span><span class="p">,</span>
         <span class="p">)</span>
 </code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.plotting.dd.segments_to_coords" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">plotting</span><span class="o">.</span><span class="n">dd</span><span class="o">.</span><span class="n">segments_to_coords</span></code> <a href="#navis.plotting.dd.segments_to_coords" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Turn lists of node IDs into coordinates.</p> <p>Runs on navis-fastcore.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Must contain the nodes
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> Skeleton</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>node_colors</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        A color for each node in `x.nodes`. If provided, will
-        also return a list of colors sorted to match coordinates.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> Skeleton</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>node_colors</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        A value for each node in `x.nodes` - a color, but anything
+        per-node works. If provided, will also be returned, sorted
+        to match the coordinates.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> numpy.ndarray</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>modifier</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Use e.g. to modify/invert x/y/z axes.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> ints</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>(1, 1, 1)</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>coords</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>[(x, y, z), (x, y, z), ... ]</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>list of tuples</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>colors</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>If <code>node_colors</code> provided will return a copy of it sorted to match <code>coords</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>list of colors</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/plotting/plot_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 79</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> ints</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>(1, 1, 1)</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>flat</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        If True, return a single array with the segments separated
+        by rows of NaNs instead of a list of per-segment arrays.
+        Backends drawing a neuron as one artist (a `Line2D`, one
+        plotly trace) want this; those making per-path decisions -
+        depth sorting, per-segment collections - want the list.
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>coords</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>One array per segment or - with <code>flat=True</code> - a single array in which segments are separated by NaN rows.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>list of (N, 3) arrays | (M, 3) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>colors</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>If <code>node_colors</code> provided will return a copy of it sorted to match <code>coords</code>, padded to match if <code>flat=True</code>. See <code>navis_fastcore.segment_coords</code> for how the padded rows are filled; they are only meaningful alongside <code>coords</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>list of colors | (M, ...) array</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/plotting/plot_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 79</span>
 <span class="normal"> 80</span>
 <span class="normal"> 81</span>
 <span class="normal"> 82</span>
@@ -902,11 +908,26 @@
 <span class="normal">128</span>
 <span class="normal">129</span>
 <span class="normal">130</span>
-<span class="normal">131</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">segments_to_coords</span><span class="p">(</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">segments_to_coords</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">Skeleton</span><span class="p">,</span>
     <span class="n">modifier</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
     <span class="n">node_colors</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">flat</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Turn lists of node IDs into coordinates.</span>
 
 <span class="sd">    Runs on navis-fastcore.</span>
@@ -916,40 +937,51 @@
 <span class="sd">    x :             Skeleton</span>
 <span class="sd">                    Must contain the nodes</span>
 <span class="sd">    node_colors :   numpy.ndarray, optional</span>
-<span class="sd">                    A color for each node in `x.nodes`. If provided, will</span>
-<span class="sd">                    also return a list of colors sorted to match coordinates.</span>
+<span class="sd">                    A value for each node in `x.nodes` - a color, but anything</span>
+<span class="sd">                    per-node works. If provided, will also be returned, sorted</span>
+<span class="sd">                    to match the coordinates.</span>
 <span class="sd">    modifier :      ints, optional</span>
 <span class="sd">                    Use e.g. to modify/invert x/y/z axes.</span>
+<span class="sd">    flat :          bool</span>
+<span class="sd">                    If True, return a single array with the segments separated</span>
+<span class="sd">                    by rows of NaNs instead of a list of per-segment arrays.</span>
+<span class="sd">                    Backends drawing a neuron as one artist (a `Line2D`, one</span>
+<span class="sd">                    plotly trace) want this; those making per-path decisions -</span>
+<span class="sd">                    depth sorting, per-segment collections - want the list.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    coords :        list of tuples</span>
-<span class="sd">                    [(x, y, z), (x, y, z), ... ]</span>
-<span class="sd">    colors :        list of colors</span>
-<span class="sd">                    If `node_colors` provided will return a copy of it sorted</span>
-<span class="sd">                    to match `coords`.</span>
+<span class="sd">    coords :        list of (N, 3) arrays | (M, 3) array</span>
+<span class="sd">                    One array per segment or - with `flat=True` - a single array</span>
+<span class="sd">                    in which segments are separated by NaN rows.</span>
+<span class="sd">    colors :        list of colors | (M, ...) array</span>
+<span class="sd">                    If `node_colors` provided will return a copy of it sorted to</span>
+<span class="sd">                    match `coords`, padded to match if `flat=True`. See</span>
+<span class="sd">                    `navis_fastcore.segment_coords` for how the padded rows are</span>
+<span class="sd">                    filled; they are only meaningful alongside `coords`.</span>
 
 <span class="sd">    """</span>
-    <span class="n">colors</span> <span class="o">=</span> <span class="kc">None</span>
-
-    <span class="k">if</span> <span class="n">node_colors</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">coords</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">fastcore</span><span class="o">.</span><span class="n">segment_coords</span><span class="p">(</span>
-            <span class="n">x</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">node_id</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-            <span class="n">x</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">parent_id</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-            <span class="n">x</span><span class="o">.</span><span class="n">nodes</span><span class="p">[[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">coords</span><span class="p">,</span> <span class="n">colors</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">fastcore</span><span class="o">.</span><span class="n">segment_coords</span><span class="p">(</span>
-            <span class="n">x</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">node_id</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-            <span class="n">x</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">parent_id</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-            <span class="n">x</span><span class="o">.</span><span class="n">nodes</span><span class="p">[[</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">,</span> <span class="s2">"z"</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-            <span class="n">node_colors</span><span class="o">=</span><span class="n">node_colors</span><span class="p">,</span>
-        <span class="p">)</span>
+    <span class="c1"># `np.column_stack` rather than `nodes[["x", "y", "z"]].values`: the column</span>
+    <span class="c1"># sub-selection is most of that call's cost, and it hands back an F-ordered</span>
+    <span class="c1"># array that fastcore then has to re-order</span>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">nodes</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">fastcore</span><span class="o">.</span><span class="n">segment_coords</span><span class="p">(</span>
+        <span class="n">nodes</span><span class="o">.</span><span class="n">node_id</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+        <span class="n">nodes</span><span class="o">.</span><span class="n">parent_id</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">nodes</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">nodes</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">nodes</span><span class="o">.</span><span class="n">z</span><span class="o">.</span><span class="n">values</span><span class="p">)),</span>
+        <span class="n">node_colors</span><span class="o">=</span><span class="n">node_colors</span><span class="p">,</span>
+        <span class="n">flat</span><span class="o">=</span><span class="n">flat</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">coords</span><span class="p">,</span> <span class="n">colors</span> <span class="o">=</span> <span class="n">out</span> <span class="k">if</span> <span class="n">node_colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="n">modifier</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">modifier</span><span class="p">)</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">modifier</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-        <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">:</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">seg</span><span class="p">,</span> <span class="n">modifier</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">seg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">flat</span><span class="p">:</span>
+            <span class="c1"># Already one array; the NaN separators stay NaN</span>
+            <span class="n">coords</span> <span class="o">*=</span> <span class="n">modifier</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">seg</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">:</span>
+                <span class="n">seg</span> <span class="o">*=</span> <span class="n">modifier</span>
 
     <span class="k">if</span> <span class="n">colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">coords</span><span class="p">,</span> <span class="n">colors</span>
@@ -962,20 +994,7 @@
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> float</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>1.0</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>node_values</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Per-node values (e.g. colors) to carry over to the polygons.
         Edges take the value of their child node.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> (N,) or (N, k) array</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>disc_res</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        Number of vertices per node disc.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>12</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>polygons</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Node discs first, then edge rectangles - so that with per-node colors the edges paint over the discs and only the tips and the notches at branch points show a disc's own color.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>list of (M, 2) arrays</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>depth</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Mean depth of each polygon, for painting back to front.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(n_polygons,) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>values</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Only if <code>node_values</code> was provided.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(n_polygons, k) array</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/plotting/plot_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span>
-<span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>12</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>polygons</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Node discs first, then edge rectangles - so that with per-node colors the edges paint over the discs and only the tips and the notches at branch points show a disc's own color.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>list of (M, 2) arrays</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>depth</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Mean depth of each polygon, for painting back to front.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(n_polygons,) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>values</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Only if <code>node_values</code> was provided.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(n_polygons, k) array</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/plotting/plot_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">147</span>
 <span class="normal">148</span>
 <span class="normal">149</span>
 <span class="normal">150</span>
@@ -1087,7 +1106,20 @@
 <span class="normal">256</span>
 <span class="normal">257</span>
 <span class="normal">258</span>
-<span class="normal">259</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">skeleton_capsules</span><span class="p">(</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">skeleton_capsules</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">core</span><span class="o">.</span><span class="n">Skeleton</span><span class="p">,</span>
     <span class="n">xy_ix</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
     <span class="n">depth_ix</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>

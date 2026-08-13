@@ -5,6 +5,96 @@ Index of the whole API: https://navis-org.github.io/navis/llms.txt
 
 ## Analyse
 
+### navis.connected_components(x, *, connectivity=None, epsilon=None, element=None, mask=None)
+
+*function*
+
+Label the connected components of a neuron.
+
+Every node/vertex/point/voxel gets the label of the component it belongs to,
+numbered `0 .. n_components - 1` **largest component first** - so `== 0`
+always selects the biggest piece, and `np.bincount` of the result gives the
+component sizes in descending order.
+
+Uses `navis-fastcore` for skeletons and meshes, and `sparse-cubes` for
+voxels.
+
+Parameters
+----------
+x :             Skeleton | Mesh | Dotprops | Voxels | Trimesh
+                Neuron to label.
+connectivity :  6 | 18 | 26 | "vertex" | "face" | "manifold" , optional
+                What counts as connected - which is a different question for
+                each type of neuron.
+                For Voxels: which neighbouring voxels count as connected.
+                6 = faces only, 18 = faces + edges, 26 (default) = faces +
+                edges + corners.
+                For Meshes: whether two faces must share a corner
+                (`"vertex"`, default), an edge (`"face"`) or an edge with no
+                third face on it (`"manifold"`).
+                For Skeletons/Dotprops: nothing - their edges are already
+                decided, and passing it warns.
+epsilon :       float, optional
+                For Dotprops only: distance at which two points count as
+                connected. Defaults to 5x the average distance between
+                points (`x.sampling_resolution`).
+element :       "node" | "vertex" | "face" | "point" | "voxel", optional
+                What the labels should be *of*. Only meshes have a choice
+                here, and only there does the default depend on anything:
+                `"vertex"`, except under a face-based `connectivity`, where
+                a pinch vertex belongs to several components at once and
+                only `"face"` is a partition. Asking for `"vertex"` anyway
+                is allowed - each such vertex then takes the label of the
+                largest component it touches.
+mask :          list-like, optional
+                Restrict to a part of the neuron: components are those of
+                the *induced* sub-neuron, i.e. anything outside the mask
+                neither belongs to a component nor connects two. Accepts
+                what `navis.subset_neuron` accepts (IDs, indices or a
+                boolean array).
+
+Returns
+-------
+np.ndarray
+            (N, ) array of labels, one per element and aligned with it.
+            `-1` marks an element that is in no component at all: masked
+            out, or - under a face-based `connectivity` with
+            `element="vertex"` - a vertex that no face uses.
+
+See Also
+--------
+navis.split_components
+            Turn the components into separate neurons.
+navis.drop_fluff
+            Drop all but the largest component(s).
+navis.heal_skeleton, navis.heal_mesh
+            Reconnect the components instead of separating them.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> labels = navis.connected_components(m)
+>>> labels.max() + 1                      # number of components
+14
+>>> np.bincount(labels)[:3]               # sizes, largest first
+array([17058,   240,    12])
+>>> # Vertices of the largest component
+>>> np.flatnonzero(labels == 0).shape
+(17058,)
+
+Label a skeleton's nodes instead, and only within a mask:
+
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> labels = navis.connected_components(n)
+>>> labels.max() + 1
+1
+>>> twigs = n.nodes.node_id.values[n.nodes.type != 'slab']
+>>> masked = navis.connected_components(n, mask=twigs)
+>>> int((masked == -1).sum()) == len(n.nodes) - len(twigs)
+True
+
 ### navis.find_main_branchpoint(x, method='betweenness', threshold=0.95, reroot_soma=False)
 
 *function*
@@ -283,6 +373,65 @@ Examples
 >>> dists = pdist(Fq)
 >>> Z = linkage(dists, method='ward')
 >>> dn = dendrogram(Z)                                      # doctest: +SKIP
+
+### navis.openness(x, mask=None, n_rays=16, offset=None, seed=1985, threads=None)
+
+*function*
+
+Fraction of rays leaving each face that escape the mesh.
+
+For every face, this fires a cosine-weighted spray of rays into the
+hemisphere above it and counts how many get away. Outer membrane lands at
+0.5-1.0 and the wall of an invagination at 0, with little in between - so
+the value is really a two-way classification, and a threshold anywhere in
+the gap does the same thing.
+
+Useful on its own to see *where* a mesh is bad before deciding what to do
+about it - colour a mesh by this and the invaginations light up.
+
+Parameters
+----------
+x :         navis.Mesh | navis.Volume | trimesh.Trimesh
+            Mesh to score. Faces must be wound outward - see the warning in
+            navis.drop_internals.
+mask :      (F, ) bool array, optional
+            Cast only from these faces. The whole mesh still blocks rays -
+            only the *sources* are restricted - so each value is exactly the
+            one a full sweep would have produced.
+n_rays :    int
+            Rays per face. 16 is plenty: the signal is bimodal, so this only
+            has to resolve "none got out" from "some did".
+offset :    float, optional
+            How far off the surface to start each ray. Defaults to 5% of the
+            median edge length, which keeps this scale-free.
+seed :      int
+            Fixes the spray.
+threads :   int, optional
+            Size of the thread pool. Defaults to all available cores.
+
+Returns
+-------
+(F, ) float array
+            Fractions in [0, 1], one per face - or one per selected face, in
+            face order, if `mask` was given.
+
+Examples
+--------
+>>> import navis
+>>> import numpy as np
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> op = navis.openness(m)
+>>> len(op) == m.n_faces
+True
+>>> # This mesh is clean, so almost every face can see out
+>>> bool((op > 0).mean() > 0.95)
+True
+
+See Also
+--------
+navis.drop_internals
+            The repair this scores for: cut the buried faces away and close
+            the mesh back up.
 
 ### navis.persistence_points(x, descriptor='root_dist', remove_cbf=False)
 
@@ -1302,37 +1451,44 @@ Examples
 >>> da2.plot3d() # doctest: +SKIP
 >>> da2_avg.plot3d() # doctest: +SKIP
 
-### navis.break_fragments(x, labels_only=False, min_size=None)
+### navis.split_components(x, min_size=None, connectivity=None, epsilon=None)
 
 *function*
 
-Break neuron into its connected components.
+Split a neuron into its connected components.
 
-Neurons can consists of several disconnected fragments. This function
-turns these fragments into separate neurons.
+Neurons often consist of several disconnected pieces - e.g. because a
+reconstruction is incomplete. This function turns each of them into a
+separate neuron, largest first.
 
 Parameters
 ----------
 x :             Skeleton | Mesh
                 Fragmented neuron.
-labels_only :   bool
-                If True, will only label each node/vertex by which
-                fragment it belongs to. For Skeletons, this adds a
-                `"fragment"` column and for Meshes, it adds a
-                `.fragments` property.
 min_size :      int, optional
-                Fragments smaller than this (# of nodes/vertices) will be
-                dropped. Ignored if `labels_only=True`.
+                Components smaller than this (# of nodes/vertices) will be
+                dropped.
+connectivity :  6 | 18 | 26 | "vertex" | "face" | "manifold" , optional
+                What counts as connected; see
+                navis.connected_components.
+epsilon :       float, optional
+                For Dotprops only: distance at which two points count as
+                connected.
 
 Returns
 -------
 NeuronList
+                One neuron per component, largest first.
 
 See Also
 --------
-navis.heal_skeleton
-            Use to heal fragmentation instead of breaking it up.
-
+navis.connected_components
+            Label the components in place instead of separating them - what
+            the old `labels_only=True` did.
+navis.heal_skeleton, navis.heal_mesh
+            Heal the fragmentation instead of breaking it up.
+navis.drop_fluff
+            Keep only the largest component(s).
 
 Examples
 --------
@@ -1340,8 +1496,8 @@ Examples
 >>> n = navis.example_neurons(1)
 >>> # Artifically disconnect parts of the neuron
 >>> n.nodes.loc[100, 'parent_id'] = -1
->>> # Break into fragments
->>> frags = navis.break_fragments(n)
+>>> # Split into components
+>>> frags = navis.split_components(n)
 >>> len(frags)
 2
 
@@ -1403,36 +1559,46 @@ Examples
 >>> n = navis.example_neurons(1)
 >>> despiked = navis.despike_skeleton(n)
 
-### navis.drop_fluff(x, keep_size=None, n_largest=None, epsilon=None, connectivity=26, inplace=False)
+### navis.drop_fluff(x, min_size=None, n_largest=None, epsilon=None, connectivity=None, inplace=False)
 
 *function*
 
-Remove small disconnected pieces of "fluff".
+Keep only the largest connected component(s), dropping the rest.
 
 By default, this function will remove all but the largest connected
 component from the neuron. You can change that behavior using the
-`keep_size` and `n_largest` parameters. Connectors (if present) will
+`min_size` and `n_largest` parameters. Connectors (if present) will
 be remapped to the closest surviving vertex/node.
 
 Parameters
 ----------
 x :         Skeleton | Mesh | Dotprops | Voxels | NeuronList
             The neuron(s) to remove fluff from.
-keep_size : float, optional
+min_size : float, optional
             Use this to set a size (in number of nodes/vertices/voxels) for
-            small bits to keep. If `keep_size` < 1 it will be intepreted as
+            small bits to keep. If `min_size` < 1 it will be intepreted as
             fraction of total nodes/vertices/points/voxels.
 n_largest : int, optional
             If set, will keep the `n_largest` connected components. Note:
-            if provided, `keep_size` will be applied first!
+            if provided, `min_size` will be applied first!
 epsilon :   float, optional
             For Dotprops: distance at which to consider two points to be
             connected. If `None`, will use the default value of 5 times
             the average node distance (`x.sampling_resolution`).
-connectivity : 6 | 18 | 26, optional
+connectivity : 6 | 18 | 26 | "vertex" | "face" | "manifold" , optional
+            What counts as connected - the answer depends on the neuron.
             For Voxels: which neighbouring voxels count as connected.
             6 = faces only, 18 = faces + edges, 26 (default) = faces +
             edges + corners.
+            For Meshes: how little may hold two faces together for them to
+            still be one piece - a shared corner (`"vertex"`, default), a
+            shared edge (`"face"`) or a shared edge with no third face on
+            it (`"manifold"`, which is what `trimesh.split` means by a
+            piece). Sizes are counted in vertices whichever you pick, and a
+            vertex that several pieces pinch together stays as long as one
+            of them does.
+            For Skeletons/Dotprops: nothing - their edges are already
+            decided, and passing it warns.
 inplace :   bool, optional
             If False, pruning is performed on copy of original neuron
             which is then returned.
@@ -1460,7 +1626,7 @@ omit_failures :bool
 Returns
 -------
 Neuron/List
-            Neuron(s) without fluff.
+            Neuron(s) reduced to the surviving component(s).
 
 Examples
 --------
@@ -1477,14 +1643,159 @@ Examples
 >>> two.n_vertices
 17354
 >>> # Keep all fragments with at least 100 vertices
->>> clean = navis.drop_fluff(m, keep_size=100)
+>>> clean = navis.drop_fluff(m, min_size=100)
 >>> clean.n_vertices
 17298
 >>> # Keep the two largest fragments with at least 10 vertices each
 >>> # (three fragments are that big, so `n_largest` caps it at two)
->>> clean2 = navis.drop_fluff(m, keep_size=10, n_largest=2)
+>>> clean2 = navis.drop_fluff(m, min_size=10, n_largest=2)
 >>> clean2.n_vertices
 17298
+>>> # Pieces that only touch the main component at a single vertex count as
+>>> # part of it by default, but as fluff of their own with `"face"`
+>>> pinched_off = navis.drop_fluff(m, connectivity="face")
+>>> pinched_off.n_vertices
+16978
+>>> # `"manifold"` splits at the seams too, leaving proper surfaces
+>>> surface = navis.drop_fluff(m, connectivity="manifold")
+>>> surface.n_vertices
+15039
+
+See Also
+--------
+navis.connected_components
+            Label the pieces without dropping any - use this to see what
+            would go before it goes.
+navis.split_components
+            The same pieces, as separate neurons.
+navis.drop_internals
+            For meshes, the cleanup that asks *where* a piece is rather than
+            how big it is. The two overlap rather than complement each
+            other: a free-floating organelle is small **and** inside, so
+            either function will take it. Reach for `drop_internals` when
+            you want the inside cleared regardless of size - it also reaches
+            an invagination, which is part of the main component and so
+            invisible to any connectivity criterion - and for this one when
+            you want the neuron reduced to its main piece(s) whatever they
+            contain.
+navis.heal_skeleton, navis.heal_mesh
+            Reconnect the pieces instead of dropping them.
+
+### navis.drop_internals(x, threshold=0.05, n_rays=16, smooth=10, iterations=3, hops=20, seed=1985, threads=None, inplace=False)
+
+*function*
+
+Remove the surface a mesh keeps on its inside.
+
+Anything the cell encloses goes: free-floating organelles, and the
+invaginations where one has pushed into the membrane from within. Both are
+found the same way - by navis.openness, which asks whether a face can
+see out - and the holes cutting them leaves are triangulated shut, so the
+result is a surface, not a surface with bites taken out of it.
+
+This is what to reach for when a mesh skeletonizes into a hairball. On a
+heavily invaginated FAFB neuron it takes the skeleton from 3,227 leafs to
+~500 without losing a real branch, because each invagination was a tunnel
+the wave front could take a shortcut through.
+
+Only vertices are ever *removed* - caps re-use the ones already on the
+boundary - so connectors, extra edges, the skeleton correspondence and
+anything you attached yourself come through pointing where they pointed
+before.
+
+Note this also closes openings the mesh arrived with, e.g. a neurite
+truncated at the edge of the dataset. For skeletonization that is what you
+want: a stump left open splits the wave front just as a pocket mouth does.
+
+!!! warning "Faces must be wound outward"
+
+    Rays are fired into the hemisphere the face normal points into, so a
+    consistently inward-wound mesh reads as entirely buried and comes back
+    empty. A mesh wound *inconsistently* is worse, because it fails quietly:
+    the faces that disagree read as buried and are cut out of otherwise
+    healthy membrane. navis.fix_mesh will sort the winding out.
+
+Parameters
+----------
+x :         navis.Mesh/List | navis.Volume | trimesh.Trimesh
+            Mesh(es) to strip.
+threshold : float
+            Faces whose smoothed openness falls below this are cut. The
+            operating range is 0.05-0.10; the buried mode sits at exactly
+            zero, so any small value works, while above ~0.1 the cut starts
+            eating real membrane.
+n_rays :    int
+            Rays per face - see navis.openness.
+smooth :    int
+            Diffusion rounds applied to the field before thresholding.
+            Thresholding a raw field cuts along a ragged contour; a few
+            rounds of this shorten it several fold without moving where the
+            cut sits.
+iterations : int
+            Passes of the whole cycle. More than one because capping a
+            pocket mouth turns a partially-open neighbour into a fully
+            buried one, so later passes catch what the first could not see.
+hops :      int, optional
+            How far past the previous pass's caps to re-cast. A pass only
+            changes the mesh where the last one cut, so the field is only
+            stale near the new caps. `None` re-casts everything, which
+            costs about twice as much and changes next to nothing.
+seed :      int
+            Fixes the ray spray.
+threads :   int, optional
+            Size of the thread pool. Defaults to all available cores.
+inplace :   bool
+            If True, will strip `x`. If False, will strip and return a copy.
+parallel :  bool
+            If True and input is NeuronList, distribute the
+            work across multiple processes. See
+            `navis.set_parallel_backend` for where it runs.
+n_cores :   int, optional
+            Numbers of cores to use if `parallel=True`.
+            Defaults to half the available cores.
+chunksize : int, optional
+            Number of neurons to hand a worker at a time.
+            Defaults to letting the backend decide.
+backend :   str | ParallelBackend, optional
+            Override where this call runs. Defaults to
+            `navis.config.default_parallel_backend`.
+progress :  bool
+            Whether to show a progress bar. Overruled by
+            `navis.set_pbars`.
+omit_failures :bool
+               If True will omit failures instead of raising
+               an exception. Ignored if input is single neuron.
+
+
+Returns
+-------
+stripped
+            Mesh(es) of the same type as the input.
+
+Examples
+--------
+>>> import navis
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> stripped = navis.drop_internals(m)
+>>> # This mesh is clean, so there is very little to take away
+>>> bool(stripped.n_faces > m.n_faces * 0.95)
+True
+
+See Also
+--------
+navis.openness
+            The test this is built on, on its own - to see where a mesh is
+            bad, or to pick a threshold.
+navis.drop_fluff
+            Drops small *disconnected* pieces by size, wherever they sit.
+            The two overlap rather than complement each other: a
+            free-floating organelle is both small and inside, so either
+            function takes it. This one is the right tool when you want the
+            inside cleared regardless of size - and it is the only one that
+            reaches an invagination, which is part of the main component and
+            so invisible to any connectivity criterion.
+navis.fill_holes
+            Closes openings without removing anything.
 
 ### navis.fill_holes(x, inplace=False)
 
@@ -1791,7 +2102,7 @@ Examples
 >>> nl = navis.example_neurons(2)
 >>> nl_radius = navis.guess_radius(nl)
 
-### navis.heal_skeleton(x, method='ALL', max_dist=None, min_size=None, use_radius=False, drop_disc=False, mask=None, inplace=False)
+### navis.heal_skeleton(x, method='ALL', max_dist=None, min_size=None, use_radius=False, keep_largest=False, mask=None, inplace=False)
 
 *function*
 
@@ -1824,7 +2135,7 @@ use_radius :    bool | float, optional
             between them. This effectively prioritizes connecting nodes with
             similar radii. If float, will use that value as weight for radius:
             higher values = more importance for radius.
-drop_disc : bool
+keep_largest : bool
             If True and the neuron remains fragmented after healing (i.e.
             `max_dist` or `min_size` prevented a full connect), we will
             keep only the largest (by number of nodes) connected component
@@ -1866,7 +2177,7 @@ navis.heal_mesh
             The equivalent for meshes.
 navis.stitch_skeletons
             Use to stitch multiple skeletons together.
-navis.break_fragments
+navis.split_components
             Use to produce individual neurons from disconnected fragments.
 
 
@@ -1883,7 +2194,7 @@ Examples
 >>> len(healed.root)
 1
 
-### navis.heal_mesh(x, max_dist=None, min_size=None, drop_disc=False, mask=None, inplace=False)
+### navis.heal_mesh(x, max_dist=None, min_size=None, keep_largest=False, mask=None, inplace=False)
 
 *function*
 
@@ -1899,7 +2210,7 @@ Note that this is a purely *topological* repair: the bridges are added to
 the neuron's navis.Mesh.extra_edges and no vertices
 or faces are touched. Vertices, faces, surface area and volume are all
 unchanged - only anything reading the mesh's *connectivity* (e.g.
-navis.geodesic_matrix, navis.break_fragments,
+navis.geodesic_matrix, navis.split_components,
 navis.drop_fluff, `.igraph`) will see the difference.
 
 Parameters
@@ -1915,7 +2226,7 @@ min_size :  int, optional
             Minimum size in vertices for fragments to be reattached.
             Fragments smaller than `min_size` will be ignored during
             healing and hence remain disconnected.
-drop_disc : bool
+keep_largest : bool
             If True and the mesh remains fragmented after healing (i.e.
             `max_dist` or `min_size` prevented a full connect), we will keep
             only the largest (by number of vertices) connected component
@@ -1956,7 +2267,7 @@ See Also
 --------
 navis.heal_skeleton
             The equivalent for skeletons.
-navis.break_fragments
+navis.split_components
             Use to produce individual neurons from disconnected fragments.
 navis.drop_fluff
             Use to drop small disconnected fragments instead of connecting
@@ -1967,10 +2278,10 @@ Examples
 >>> import navis
 >>> m = navis.example_neurons(1, kind='mesh')
 >>> # This mesh consists of a main body plus a bunch of small fragments
->>> len(navis.break_fragments(m))
+>>> len(navis.split_components(m))
 14
 >>> healed = navis.heal_mesh(m)
->>> len(navis.break_fragments(healed))
+>>> len(navis.split_components(healed))
 1
 >>> # Healing is topological only - the surface is untouched
 >>> healed.volume == m.volume
@@ -1979,7 +2290,7 @@ True
 Only connect fragments that are close to one another:
 
 >>> partial = navis.heal_mesh(m, max_dist='500 nm')
->>> len(navis.break_fragments(partial))
+>>> len(navis.split_components(partial))
 4
 
 ### navis.longest_neurite(x, n=1, reroot_soma=False, from_root=True, inverse=False, inplace=False)
@@ -2038,8 +2349,8 @@ Skeleton/List
 
 See Also
 --------
-navis.split_into_fragments
-        Split neuron into fragments based on longest neurites.
+navis.split_neurites
+        Split neuron into its longest neurites.
 
 Examples
 --------
@@ -2554,27 +2865,30 @@ navis.propagate_labels
         Functions for propagating arbitrary labels on a neuron.`split_axon_dendrite_prop` is
         a specific application of this function.
 
-### navis.split_into_fragments(x, n=2, min_size=None, reroot_soma=False)
+### navis.split_neurites(x, n=2, min_size=None, reroot_soma=False)
 
 *function*
 
-Split neuron into fragments.
+Split a neuron into its longest neurites.
 
 Cuts are based on longest neurites: the first cut is made where the second
 largest neurite merges onto the largest neurite, the second cut is made
-where the third largest neurite merges into either of the first fragments
+where the third largest neurite merges into either of the first pieces
 and so on.
+
+Note this cuts a *connected* arbor apart - it has nothing to do with the
+pieces a neuron is already in. Use navis.split_components for those.
 
 Parameters
 ----------
 x :                 Skeleton | Mesh | NeuronList
                     Must be a single neuron.
 n :                 int, optional
-                    Number of fragments to split into. Must be >1.
+                    Number of neurites to split into. Must be >1.
 min_size :          int | str, optional
-                    Minimum size of fragment to be cut off. If too
+                    Minimum size of a neurite to be cut off. If too
                     small, will stop cutting. This takes only the longest
-                    path in each fragment into account! If the neuron(s),
+                    path in each piece into account! If the neuron(s),
                     has its `.units` set, you can also pass this as a string
                     such as "10 microns".
 reroot_soma :        bool, optional
@@ -2584,14 +2898,19 @@ Returns
 -------
 NeuronList
 
+See Also
+--------
+navis.split_components
+                    Split a neuron into the pieces it is *already* in.
+
 Examples
 --------
 >>> import navis
 >>> x = navis.example_neurons(1)
->>> # Cut into two fragments
->>> cut1 = navis.split_into_fragments(x, n=2)
->>> # Cut into fragments of >10 um size
->>> cut2 = navis.split_into_fragments(x, n=float('inf'), min_size=10e3)
+>>> # Cut into two neurites
+>>> cut1 = navis.split_neurites(x, n=2)
+>>> # Cut into neurites of >10 um size
+>>> cut2 = navis.split_neurites(x, n=float('inf'), min_size=10e3)
 
 ### navis.stitch_skeletons(*x, method='ALL', master='SOMA', max_dist=None, min_size=None, use_radius=False)
 
@@ -4254,10 +4573,8 @@ navis.nbl.extract_matches
 
 Run NBLAST on pairwise-aligned neurons.
 
-Requires the `pycpd` library at least version 2.0.1 which at the time of
-writing is only available from Github (not PyPI):
-
-  https://github.com/siavashk/pycpd
+The alignment runs on coherent point drift and requires the `rcpd` library
+(`pip install rcpd`); the "pca" method requires `scikit-learn` instead.
 
 Parameters
 ----------
@@ -4279,9 +4596,10 @@ two_way_align : bool
                 highly recommended because it reduces the chance that a
                 single bad alignment will mess up your scores.
 sample_align :  float [0-1], optional
-                If provided, will calculate an initial alignment on just a
-                fraction of the points followed by a landmark transform
-                to transform the rest. Use this to speed things up.
+                If provided, will calculate the alignment on just a fraction
+                of the points. The rest are then moved by the fitted
+                transform itself, which is exact. Use this to speed things
+                up.
 scores :        'forward' | 'mean' | 'min' | 'max' | 'both'
                 Determines the final scores:
 

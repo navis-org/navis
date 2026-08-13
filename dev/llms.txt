@@ -173,6 +173,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 #### General Neuron methods
 
 - `navis.BaseNeuron.copy(deepcopy=False)` - Return a copy of the neuron.
+- `navis.BaseNeuron.connected_components(**kwargs)` - Label this neuron's connected components, largest component first.
 - `navis.BaseNeuron.plot3d(**kwargs)` - Plot neuron using navis.plot3d.
 - `navis.BaseNeuron.plot2d(**kwargs)` - Plot neuron using navis.plot2d.
 - `navis.BaseNeuron.summary(add_props=None)` - Get a summary of this neuron.
@@ -201,6 +202,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 - `navis.BaseNeuron.type` - Neuron type.
 - `navis.BaseNeuron.soma` - The soma of the neuron (if any).
 - `navis.BaseNeuron.bbox` - Bounding box of neuron.
+- `navis.BaseNeuron.n_components` - Number of connected components in this neuron.
 
 #### Skeletons
 
@@ -225,18 +227,15 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 - `navis.Skeleton.edges` - Edges between nodes.
 - `navis.Skeleton.edge_coords` - Coordinates of edges between nodes.
 - `navis.Skeleton.igraph` - iGraph representation of this neuron.
-- `navis.Skeleton.is_tree` - Whether neuron is a tree.
+- `navis.Skeleton.is_acyclic` - Whether this neuron is free of cycles, i.e. a tree or a forest.
 - `navis.Skeleton.n_branches` - Number of branch points.
 - `navis.Skeleton.n_leafs` - Number of leaf nodes.
-- `navis.Skeleton.n_skeletons` - Number of seperate skeletons in this neuron.
-- `navis.Skeleton.n_trees` - Count number of connected trees in this neuron.
 - `navis.Skeleton.nodes` - Node table.
 - `navis.Skeleton.root` - Root node(s).
 - `navis.Skeleton.sampling_resolution` - Average cable length between child -> parent nodes.
 - `navis.Skeleton.segments` - Neuron broken down into linear segments (see also `.small_segments`).
 - `navis.Skeleton.simple` - Simplified representation consisting only of root, branch points and leafs.
 - `navis.Skeleton.soma_pos` - Search for soma and return its position.
-- `navis.Skeleton.subtrees` - List of subtrees. Sorted by size as sets of node IDs.
 - `navis.Skeleton.vertices` - Vertices of the skeleton.
 - `navis.Skeleton.volume` - Radius-based volume.
 - `navis.rewire_skeleton(x, g, root=None, inplace=False)` - Rewire neuron from graph.
@@ -262,7 +261,6 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 
 - `navis.Voxels.centroid` - Centre of mass of the neuron, in units (i.e. including the offset).
 - `navis.Voxels.closing(iterations=1, connectivity=6, fill=None, inplace=False)` - Dilate, then erode: bridges narrow gaps and fills small pits.
-- `navis.Voxels.connected_components(connectivity=26)` - Label the neuron's connected components.
 - `navis.Voxels.densify(inplace=False)` - Convert to a dense grid representation.
 - `navis.Voxels.density` - Fraction of filled voxels.
 - `navis.Voxels.dice(other)` - Dice coefficient (F1 score) with `other`.
@@ -364,10 +362,12 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 
 #### Analyse
 
+- `navis.connected_components(x, *, connectivity=None, epsilon=None, element=None, mask=None)` - Label the connected components of a neuron.
 - `navis.find_main_branchpoint(x, method='betweenness', threshold=0.95, reroot_soma=False)` - Find main branch point of unipolar (e.g. insect) neurons.
 - `navis.find_soma(x, *, dist_factor=3.0)` - Try finding a neuron's soma.
 - `navis.find_soma_mesh(x, *, min_soma_radius='1 micron', dist_factor=3.0, min_vertices=20, max_points=200000, n_rays=10, inplace=False)` - Detect the soma of a Mesh from its geometry.
 - `navis.form_factor(x, start=-3, stop=3, num=601, parallel=False, n_cores=None, progress=True)` - Calculate form factor for given neuron.
+- `navis.openness(x, mask=None, n_rays=16, offset=None, seed=1985, threads=None)` - Fraction of rays leaving each face that escape the mesh.
 - `navis.persistence_points(x, descriptor='root_dist', remove_cbf=False)` - Calculate points for a persistence diagram.
 - `navis.persistence_vectors(x, threshold=None, samples=100, bw=0.2, center=False, **kwargs)` - Produce vectors from persistence points.
 - `navis.strahler_index(x, method='standard', to_ignore=[], min_twig_size=None)` - Calculate Strahler Index (SI).
@@ -385,16 +385,17 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 #### Manipulate
 
 - `navis.average_skeletons(x, limit=10, base_neuron=None)` - Compute an average from a list of skeletons.
-- `navis.break_fragments(x, labels_only=False, min_size=None)` - Break neuron into its connected components.
+- `navis.split_components(x, min_size=None, connectivity=None, epsilon=None)` - Split a neuron into its connected components.
 - `navis.despike_skeleton(x, sigma=5, max_spike_length=1, inplace=False, reverse=False)` - Remove spikes in skeleton (e.g. from jumps in image data).
-- `navis.drop_fluff(x, keep_size=None, n_largest=None, epsilon=None, connectivity=26, inplace=False)` - Remove small disconnected pieces of "fluff".
+- `navis.drop_fluff(x, min_size=None, n_largest=None, epsilon=None, connectivity=None, inplace=False)` - Keep only the largest connected component(s), dropping the rest.
+- `navis.drop_internals(x, threshold=0.05, n_rays=16, smooth=10, iterations=3, hops=20, seed=1985, threads=None, inplace=False)` - Remove the surface a mesh keeps on its inside.
 - `navis.fill_holes(x, inplace=False)` - Triangulate the holes in a mesh.
 - `navis.cell_body_fiber(x, method='betweenness', reroot_soma=True, heal=True, threshold=0.95, inverse=False, inplace=False)` - Prune neuron to its cell body fiber.
 - `navis.combine_neurons(*x)` - Combine multiple neurons into one.
 - `navis.cut_skeleton(x, where, ret='both')` - Split skeleton at given point and returns two new neurons.
 - `navis.guess_radius(x, method='linear', limit=None, smooth=True, inplace=False)` - Guess radii for skeleton nodes.
-- `navis.heal_skeleton(x, method='ALL', max_dist=None, min_size=None, use_radius=False, drop_disc=False, mask=None, inplace=False)` - Heal fragmented skeleton(s).
-- `navis.heal_mesh(x, max_dist=None, min_size=None, drop_disc=False, mask=None, inplace=False)` - Heal fragmented mesh(es).
+- `navis.heal_skeleton(x, method='ALL', max_dist=None, min_size=None, use_radius=False, keep_largest=False, mask=None, inplace=False)` - Heal fragmented skeleton(s).
+- `navis.heal_mesh(x, max_dist=None, min_size=None, keep_largest=False, mask=None, inplace=False)` - Heal fragmented mesh(es).
 - `navis.longest_neurite(x, n=1, reroot_soma=False, from_root=True, inverse=False, inplace=False)` - Return a neuron consisting of only the longest neurite(s).
 - `navis.prune_by_strahler(x, to_prune, inplace=False, reroot_soma=True, force_strahler_update=False)` - Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
 - `navis.prune_twigs(x, size, exact=False, mask=None, inplace=False, recursive=False)` - Prune terminal twigs under a given size.
@@ -402,7 +403,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.reroot_skeleton(x, new_root, inplace=False)` - Reroot neuron to new root.
 - `navis.split_axon_dendrite(x, metric='synapse_flow_centrality', flow_thresh=0.9, split='prepost', cellbodyfiber=False, reroot_soma=True, label_only=False)` - Split a neuron into axon and dendrite using flow metrics.
 - `navis.split_axon_dendrite_prop(x, use_weights='balance', alpha=1, max_iter=10000, tol=1, label_only=False, verbose=False)` - Split a neuron into axon and dendrite using label propagation.
-- `navis.split_into_fragments(x, n=2, min_size=None, reroot_soma=False)` - Split neuron into fragments.
+- `navis.split_neurites(x, n=2, min_size=None, reroot_soma=False)` - Split a neuron into its longest neurites.
 - `navis.stitch_skeletons(*x, method='ALL', master='SOMA', max_dist=None, min_size=None, use_radius=False)` - Stitch multiple skeletons together.
 - `navis.subset_neuron(x, subset, inplace=False, keep_disc_cn=False, prevent_fragments=False, cap_holes=False, track=False)` - Subset a neuron to a given set of nodes/vertices.
 - `navis.merge_subset(x, subset, inplace=False)` - Fold a tracked subset back into the neuron it was taken from.
@@ -491,10 +492,10 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-transforming-and-mi
 - `navis.symmetrize_brain(x, template, via='auto', progress=True, verbose=False)` - Symmetrize 3D object (neuron, coordinates).
 - `navis.mirror_brain(x, template, mirror_axis='auto', warp='auto', via=None, verbose=False, progress=True)` - Mirror 3D object (neuron, coordinates) about given axis.
 - `navis.mirror(points, mirror_axis_size, mirror_axis='x', warp=None)` - Mirror 3D coordinates about given axis.
-- `navis.transforms.align.align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, progress=True)` - Align neurons using a rigid registration.
-- `navis.align.align_rigid(x, target=None, scale=False, w=0, verbose=False, sample=None, progress=True)` - Align neurons using a rigid registration.
-- `navis.transforms.align.align_deform(x, target=None, sample=None, progress=True, **kwargs)` - Align neurons using a deformable registration.
-- `navis.align.align_deform(x, target=None, sample=None, progress=True, **kwargs)` - Align neurons using a deformable registration.
+- `navis.transforms.align.align_rigid(x, target=None, scale=False, scale_bounds=None, w=0, tolerance=1e-06, max_iterations=200, mirror_axis=None, verbose=False, sample=None, progress=True, n_cores=None)` - Align neurons using a rigid registration.
+- `navis.align.align_rigid(x, target=None, scale=False, scale_bounds=None, w=0, tolerance=1e-06, max_iterations=200, mirror_axis=None, verbose=False, sample=None, progress=True, n_cores=None)` - Align neurons using a rigid registration.
+- `navis.transforms.align.align_deform(x, target=None, alpha=2.0, beta=0.2, w=0, tolerance=1e-06, max_iterations=200, num_modes=100, verbose=False, sample=None, progress=True, n_cores=None)` - Align neurons using a deformable registration.
+- `navis.align.align_deform(x, target=None, alpha=2.0, beta=0.2, w=0, tolerance=1e-06, max_iterations=200, num_modes=100, verbose=False, sample=None, progress=True, n_cores=None)` - Align neurons using a deformable registration.
 - `navis.transforms.align.align_pca(x, individually=True)` - Align neurons along their first principal components.
 - `navis.align.align_pca(x, individually=True)` - Align neurons along their first principal components.
 - `navis.transforms.align.align_pairwise(x, y=None, method='rigid', sample=None, progress=True, **kwargs)` - Run a pairwise alignment between given neurons.
@@ -750,7 +751,8 @@ Below table has an overview for which functions work with which neuron types:
 | navis.mesh               | yes        | no         | yes         | no       |
 | navis.voxelize           | yes        | yes        | no          | yes      |
 | navis.drop_fluff         | yes        | yes        | yes         | yes      |
-| navis.break_fragments    | yes        | yes        | no          | no       |
+| navis.split_components   | yes        | yes        | no          | no       |
+| navis.connected_components | yes      | yes        | yes         | yes      |
 
 [^1]: Use navis.make_dotprops to turn these neurons into navis.Dotprops.
 

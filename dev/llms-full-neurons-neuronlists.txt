@@ -192,6 +192,27 @@ n_cores :           int
 
 Return a copy of the neuron.
 
+### navis.BaseNeuron.connected_components(**kwargs)
+
+*function*
+
+Label this neuron's connected components, largest component first.
+
+Thin wrapper around navis.connected_components - see there for
+`connectivity`, `epsilon`, `element` and `mask`.
+
+Returns
+-------
+np.ndarray
+            (N, ) array of labels, one per node/vertex/point/voxel.
+
+Examples
+--------
+>>> import navis
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> m.connected_components().max() + 1
+14
+
 ### navis.BaseNeuron.plot3d(**kwargs)
 
 *function*
@@ -744,6 +765,18 @@ The soma of the neuron (if any).
 
 Bounding box of neuron.
 
+### navis.BaseNeuron.n_components
+
+*property*
+
+Number of connected components in this neuron.
+
+See Also
+--------
+navis.connected_components
+            The labels themselves, plus the options for what counts as
+            connected.
+
 ## Skeletons
 
 ### navis.Skeleton.convert_units(to, inplace=False)
@@ -1115,19 +1148,21 @@ edges
 
 iGraph representation of this neuron.
 
-### navis.Skeleton.is_tree
+### navis.Skeleton.is_acyclic
 
 *property*
 
-Whether neuron is a tree.
+Whether this neuron is free of cycles, i.e. a tree or a forest.
 
-Also returns True if neuron consists of multiple separate trees!
+Says nothing about whether the neuron is connected - a skeleton in
+several disconnected pieces is still acyclic. Use
+navis.BaseNeuron.n_components for that.
 
 See also
 --------
 :attr:`Skeleton.cycles`
-            If your neuron is not a tree, this will help you identify
-            cycles.
+            If your neuron is not acyclic, this will help you identify
+            the cycles.
 
 ### navis.Skeleton.n_branches
 
@@ -1140,18 +1175,6 @@ Number of branch points.
 *property*
 
 Number of leaf nodes.
-
-### navis.Skeleton.n_skeletons
-
-*property*
-
-Number of seperate skeletons in this neuron.
-
-### navis.Skeleton.n_trees
-
-*property*
-
-Count number of connected trees in this neuron.
 
 ### navis.Skeleton.nodes
 
@@ -1191,12 +1214,6 @@ Search for soma and return its position.
 
 Returns `None` if no soma. You can also use this to assign a soma by
 position in which case it will snap to the closest node.
-
-### navis.Skeleton.subtrees
-
-*property*
-
-List of subtrees. Sorted by size as sets of node IDs.
 
 ### navis.Skeleton.vertices
 
@@ -1245,14 +1262,14 @@ Examples
 --------
 >>> import navis
 >>> n = navis.example_neurons(1)
->>> n.n_trees
+>>> n.n_components
 1
 >>> # Drop one edge from graph
 >>> g = n.graph.copy()
 >>> g.remove_edge(310, 309)
 >>> # Rewire neuron
 >>> n2 = navis.rewire_skeleton(n, g, inplace=False)
->>> n2.n_trees
+>>> n2.n_components
 2
 
 ### navis.insert_nodes(x, where, coords=None, validate=True, inplace=False)
@@ -1592,31 +1609,6 @@ Returns
 -------
 navis.Voxels
                 Only if `inplace=False`.
-
-### navis.Voxels.connected_components(connectivity=26)
-
-*function*
-
-Label the neuron's connected components.
-
-Requires sparse-cubes >= 0.4.0.
-
-Parameters
-----------
-connectivity :  6 | 18 | 26, optional
-                Which neighbours count as connected: 6 = faces only,
-                18 = faces + edges, 26 = faces + edges + corners.
-
-Returns
--------
-np.ndarray
-            (N, ) array of component labels (`0 .. n_components - 1`),
-            aligned row for row with `.voxels`.
-
-See Also
---------
-navis.drop_fluff
-            Uses this to remove small disconnected fragments.
 
 ### navis.Voxels.densify(inplace=False)
 

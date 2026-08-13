@@ -383,7 +383,7 @@ def dendritic_stems(n):
     """Dendritic stems, treating everything within `SOMA_R` of the soma as soma."""
     d = np.linalg.norm(n.nodes[["x", "y", "z"]].values - n.soma_pos[0], axis=1)
     dendrite = navis.subset_neuron(n, (d > SOMA_R) & (n.nodes.label.values == 3))
-    return navis.break_fragments(dendrite)
+    return navis.split_components(dendrite)
 
 
 def apical_stem(n):
