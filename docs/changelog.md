@@ -20,8 +20,9 @@ pip uninstall navis -y
 pip install git+https://github.com/navis-org/navis@master
 ```
 
+{{ navis }} 2.0 is a major release with a lot of breaking changes - the entries here are the short version. See **[Migrating to {{ navis }} 2.0](migrating_2.0.md)** for a summary of the release, a migration checklist and the full list of changes
+
 ##### Breaking
-- {{ navis }} 2.0 is a major release with a lot of breaking changes - the entries here are the short version. See **[Migrating to {{ navis }} 2.0](migrating_2.0.md)** for a summary of the release, a migration checklist and the full list of changes
 - the neuron classes have been renamed: `TreeNeuron` :material-arrow-right-thin: [`Skeleton`][navis.Skeleton], `MeshNeuron` :material-arrow-right-thin: [`Mesh`][navis.Mesh], `VoxelNeuron` :material-arrow-right-thin: [`Voxels`][navis.Voxels]. The old names still work (as aliases, so `isinstance` and subclassing are unaffected) but emit a `DeprecationWarning`; note that `.type` now reads e.g. `"navis.Skeleton"`
 - [navis-fastcore](https://github.com/schlegelp/fastcore-rs) is now a **required** dependency (`>= 0.13.0`) and the pure-Python/igraph/scipy fallbacks are gone
 - a distance cap is called `max_dist` everywhere (was `limit_dist`, `limit` or `dist`), `min_size` always counts elements and `min_length` is always a distance (was `size`/`min_size` in [`prune_twigs`][navis.prune_twigs]/[`split_neurites`][navis.split_neurites]) - and all of them accept unit strings
@@ -49,6 +50,7 @@ pip install git+https://github.com/navis-org/navis@master
 - [`write_parquet`][navis.write_parquet] can write [neurarrow](https://neurarrow.readthedocs.io) files (`format="neurarrow"`) and [`read_parquet`][navis.read_parquet] detects them without being told
 - [`downsample_neuron`][navis.downsample_neuron] can thin skeletons by *shape* rather than by counting: `method="rdp"`/`"vw"`, with the factor read as a distance tolerance
 - [`smooth_skeleton`][navis.smooth_skeleton] takes a `sigma` (a Gaussian kernel measured along the neurite) in place of the node-count `window`
+- new [`Pipeline`][navis.Pipeline]: a reusable, composable chain of operations that is sent to a worker *once* instead of once per function - `navis.Pipeline().heal_skeleton().prune_twigs(5000)`, or `nl.pipeline.heal_skeleton().run()` (see the multiprocessing tutorial)
 - `parallel=True` runs on a backend you can choose - `joblib` (the new default), `pathos`, `processes`, `threads`, `serial` or one you register - via the new [`set_parallel_backend`][navis.set_parallel_backend]; `dask` and `submitit` (SLURM) put it on a cluster (`pip install navis[cluster]`). NBLAST dispatches through the same layer
 - [`ivscc_features`][navis.ivscc_features] gained the features it was missing (radius-derived size, tip/branch point counts, bifurcation angles, `extent_z`, ...) plus two new tutorials
 

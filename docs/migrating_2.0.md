@@ -50,7 +50,8 @@ for figures, [`nblast_knn`][navis.nblast_knn] for k-NN at connectome scale,
 and [`find_soma_mesh`][navis.find_soma_mesh] so meshes can do what skeletons could,
 a proper [`Voxels`][navis.Voxels] toolkit that never materialises the grid,
 `navis.ml` for machine-learning inputs, `.rds`/`.rda` I/O that replaces the `rpy2`
-interface, and parallel backends that reach a cluster.
+interface, [`Pipeline`][navis.Pipeline] to fuse a chain of operations into one
+pass over the neurons, and parallel backends that reach a cluster.
 
 **And a lot of fixes.** Rather more of them than usual return *different numbers*
 than 1.12 did, because that is what a fix to a silent bug looks like - see
@@ -175,6 +176,10 @@ stop:
   ([tutorial](../generated/gallery/1d_plotting_misc/zzz_tutorial_plotting_misc_04_collage))
 - [**`nblast_knn`**][navis.nblast_knn] instead of an all-by-all you only wanted
   the top matches from - 164k neurons is a 107 GB matrix or a 26 MB k-NN graph
+- [**`navis.Pipeline`**][navis.Pipeline] instead of calling three functions with
+  `parallel=True` in turn, or smuggling the whole chain into one `apply` lambda -
+  the neurons make the trip to the workers once for the chain rather than once
+  per function, and the steps stop copying each other's intermediates
 - [**`set_parallel_backend`**][navis.set_parallel_backend] to point `parallel=True`
   at `joblib`, a `dask.distributed` cluster, a SLURM array job or any
   `concurrent.futures.Executor` you own - and `inner_max_num_threads` so the
@@ -730,6 +735,17 @@ What a neuron *is* made of is now declared in one place (`navis/core/schema.py`)
 ## Parallelism and threads
 
 #### New
+
+- **new [`navis.Pipeline`][]: chain the operations once, then run the chain.** Chaining {{ navis }} functions over a [`NeuronList`][navis.NeuronList] with `parallel=True` sends every neuron out to a worker and back *once per function*, and where the functions are cheap that transfer **is** the runtime. A pipeline fuses consecutive per-neuron steps into a single task, so each neuron makes the trip once no matter how many steps there are - the more you chain, the better the trade gets, which is the opposite of calling each function with `parallel=True` in turn. It also tracks *ownership*: once a step has handed back something the pipeline made itself, every step after it may modify it in place rather than taking its own defensive copy.
+
+    Steps can be given up front, added one at a time, or simply named - any {{ navis }} function resolves as a method:
+
+    ```python
+    pipe = navis.Pipeline().heal_skeleton().prune_twigs(5000).resample_skeleton(1000)
+    res = pipe(nl, parallel=True, n_cores=2)
+    ```
+
+    Pipelines are **immutable** - [`add`][navis.Pipeline.add] and friends return a new one, so a base can be kept around and branched off, and `|` splices two together. [`add_each`][navis.Pipeline.add_each] and [`add_once`][navis.Pipeline.add_once] override whether a step maps over the neurons or is called once with the whole value. Steps do not have to be {{ navis }} functions, and the input does not have to be neurons - it is whatever the first step accepts, so `navis.Pipeline(neu.fetch_skeletons).resample_skeleton(1000)` takes a query object and everything after it runs per neuron. Running one takes the same `parallel`, `n_cores`, `chunksize`, `backend`, `progress` and `omit_failures` arguments as everything else, and a step that raises comes back as a `PipelineStepError` naming the step and its position. [`NeuronList.pipeline`][navis.NeuronList.pipeline] builds one bound to that list for one-off chains (`nl.pipeline.heal_skeleton().prune_twigs(5000).run()`). See the [multiprocessing tutorial](../generated/gallery/6_misc/tutorial_misc_00_multiprocess).
 
 - **`parallel=True` now runs on a backend you can choose - including one you supply.** Where per-neuron work runs used to be a hard-wired `pathos` pool; it is now pluggable via the new [`navis.set_parallel_backend`][] (also usable as a context manager) and a per-call `backend=` parameter. Ships `pathos`, `joblib`, the standard library's process pool (`processes`), `threads` and `serial`; [`navis.list_parallel_backends`][] shows what's installed and third parties can register their own with `navis.compute.register_backend`. [`NeuronList.apply()`][navis.NeuronList.apply] takes `backend` and `chunksize` alongside the existing `parallel`/`n_cores`/`omit_failures`, all of them explicit parameters rather than forwarded to the applied function. **`parallel=True` therefore no longer needs `pathos`** - though `pathos`/`joblib` are still needed to ship a lambda - and [`navis.set_parallel_backend`][] accepts any `concurrent.futures.Executor`, which is how you point {{ navis }} at a cluster without {{ navis }} ever needing scheduler options of its own.
 

@@ -81,6 +81,21 @@ n = flywire.get_mesh_neuron(720575940613091290)
 s = navis.skeletonize(n)
 ```
 
+## connecto
+[connecto](https://github.com/schlegelp/connecto) generalizes what `fafbseg` does for
+FlyWire to (almost) all connectome datasets: a unified interface to fetch neurons,
+connectivity/synapses, annotations and segmentation.
+
+```python
+import connecto as co
+
+fw = co.FlyWire()      # via neuPrint (pass backend="cave" for the CAVE door)
+hb = co.Hemibrain()    # via neuPrint
+
+fw.connectivity.edges("DA1_lPN")     # pre, post, weight
+hb.connectivity.edges("DA1_lPN")     # the same frame — different backend, different conventions
+```
+
 ## natverse
 
 The [natverse](http://natverse.org/) is {{ navis }}'s equivalent in R. While we
