@@ -363,7 +363,8 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-visualization.txt
 - `navis.Volume(vertices, faces=None, name=None, color=(0.85, 0.85, 0.85, 0.2), id=None, units=None, **kwargs)` - Mesh consisting of vertices and faces.
 - `navis.Volume.combine(x, name='comb_vol', color=(0.85, 0.85, 0.85, 0.2))` - Merge multiple volumes into a single object.
 - `navis.Volume.plot3d(**kwargs)` - Plot volume using navis.plot3d.
-- `navis.Volume.validate()` - Use trimesh to try and fix issues (holes/normals).
+- `navis.Volume.fill_holes()` - Triangulate the holes in this mesh, in place.
+- `navis.Volume.validate()` - Try and fix issues (holes/normals) with this mesh.
 - `navis.Volume.resize(x, method='center', inplace=False)` - Resize volume.
 
 ### Neuron Morphology

@@ -4635,11 +4635,28 @@ Examples
 >>> vol = navis.example_volume('LH')
 >>> v = vol.plot3d(color = (255, 0, 0))
 
+### navis.Volume.fill_holes()
+
+*function*
+
+Triangulate the holes in this mesh, in place.
+
+Overrides `trimesh.Trimesh.fill_holes`, which only ever closes single
+triangle and quad holes - see navis.fill_holes for what this does
+instead.
+
+Returns
+-------
+watertight :    bool
+                Whether the mesh is watertight afterwards, as for the
+                trimesh method this replaces. Note that answering it
+                costs rather more than the fill itself.
+
 ### navis.Volume.validate()
 
 *function*
 
-Use trimesh to try and fix issues (holes/normals).
+Try and fix issues (holes/normals) with this mesh.
 
 ### navis.Volume.resize(x, method='center', inplace=False)
 
