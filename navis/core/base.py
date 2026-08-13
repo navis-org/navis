@@ -1461,6 +1461,95 @@ class BaseNeuron(UnitObject):
         # purpose is an ordering this discards.
         return graph.graph_utils._n_components(self)
 
+    def drop_fluff(self, inplace: bool = False, **kwargs):
+        """Keep only the largest connected component(s), dropping the rest.
+
+        Thin wrapper around [`navis.drop_fluff`][] - see there for `min_size`,
+        `n_largest`, `epsilon` and `connectivity`, and for the warning that
+        pieces are judged by size alone, never by where they sit.
+
+        Parameters
+        ----------
+        inplace :   bool, optional
+                    If False, will return a copy and leave the original data
+                    unmodified.
+
+        Returns
+        -------
+        Neuron
+                    Only if `inplace=False`.
+
+        Examples
+        --------
+        >>> import navis
+        >>> m = navis.example_neurons(1, kind='mesh')
+        >>> m.drop_fluff().n_vertices
+        17058
+
+        """
+        from .. import morpho
+
+        x = morpho.drop_fluff(self, inplace=inplace, **kwargs)
+
+        if not inplace:
+            return x
+
+    def subset(self, subset, inplace: bool = False, **kwargs):
+        """Subset this neuron to a set of nodes/vertices/points.
+
+        Thin wrapper around [`navis.subset_neuron`][] - see there for
+        `keep_disc_cn`, `prevent_fragments` and `cap_holes`.
+
+        Parameters
+        ----------
+        subset :    list-like | NetworkX graph | pandas.DataFrame | callable
+                    What to keep. See [`navis.subset_neuron`][].
+        inplace :   bool, optional
+                    If False, will return a copy and leave the original data
+                    unmodified.
+
+        Returns
+        -------
+        Neuron
+                    Only if `inplace=False`.
+
+        Examples
+        --------
+        >>> import navis
+        >>> n = navis.example_neurons(1, kind='skeleton')
+        >>> n.subset(n.nodes.node_id.values[:100]).n_nodes
+        100
+
+        """
+        from .. import morpho
+
+        x = morpho.subset_neuron(self, subset=subset, inplace=inplace, **kwargs)
+
+        if not inplace:
+            return x
+
+    def split_axon_dendrite(self, **kwargs):
+        """Split this neuron into axon and dendrite.
+
+        Thin wrapper around [`navis.split_axon_dendrite`][] - see there for
+        `metric`, `flow_thresh`, `split`, `cellbodyfiber` and `label_only`.
+
+        Returns
+        -------
+        NeuronList
+
+        Examples
+        --------
+        >>> import navis
+        >>> n = navis.example_neurons(1, kind='skeleton')
+        >>> len(n.split_axon_dendrite())
+        3
+
+        """
+        from .. import morpho
+
+        return morpho.split_axon_dendrite(self, **kwargs)
+
     def convert_units(
         self, to: Union[pint.Unit, str], inplace: bool = False
     ) -> Optional["BaseNeuron"]:

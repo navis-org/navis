@@ -21,6 +21,45 @@ pip install git+https://github.com/navis-org/navis@master
 ```
 
 ##### Breaking
+- **one name for a distance cap (`max_dist`), and `min_size`/`min_length` now mean count and distance respectively.** The same "stop at this distance" argument was spelled five ways depending on which corner of {{ navis }} you were in, and `min_size` meant a node count in four functions and a cable length in a fifth.
+
+    | Old | New | Functions |
+    |-----|-----|-----------|
+    | `limit_dist` | `max_dist` | all five `nblast_*` |
+    | `limit` | `max_dist` | [`geodesic_matrix`][navis.geodesic_matrix], [`average_skeletons`][navis.average_skeletons] |
+    | `dist` | `max_dist` | [`cable_overlap`][navis.cable_overlap] |
+    | `min_size` | `min_length` | [`split_neurites`][navis.split_neurites] |
+    | `size` | `min_length` | [`prune_twigs`][navis.prune_twigs] (and `Skeleton.prune_twigs()`) |
+
+    The rule now holds throughout: **`min_size` counts elements** (nodes/vertices/voxels - [`drop_fluff`][navis.drop_fluff], [`split_components`][navis.split_components], [`heal_skeleton`][navis.heal_skeleton], [`heal_mesh`][navis.heal_mesh], [`stitch_skeletons`][navis.stitch_skeletons]), **`min_length` is a distance**, and **`max_dist` caps a distance**. `epsilon` is deliberately untouched: it does not cap a search but *defines* the edges of a neighbourhood graph, which is a different question.
+
+    `limit` survives only where it never meant a distance - restricting which files a reader reads, and `guess_radius`' count of consecutive missing radii.
+
+    **Every one of these now accepts a unit string** (e.g. `"5 microns"`) via [`map_units`][navis.BaseNeuron.map_units], where it did not already. Newly gained: [`stitch_skeletons`][navis.stitch_skeletons], [`navis.graph.geodesic_clusters`][navis.graph.geodesic_clusters] (only when `weight` is not `None` - with `weight=None` the radius is a number of hops, which has no units) and the `nblast_*` family (`"auto"` and `None` keep their own meaning and pass through).
+
+- **every morphology function that takes one neuron now has a method, and the methods drop the type suffix.** Which operations were reachable as `neuron.do_this()` rather than `navis.do_this(neuron)` was arbitrary: `prune_twigs` had a method, `despike_skeleton` did not, and `drop_fluff` had one on `Dotprops` alone despite the function accepting all four neuron types - the same hole `connected_components` had on `Voxels`.
+
+    Shared operations now live on [`BaseNeuron`][navis.BaseNeuron], so every type has them:
+
+    | Method | Wraps |
+    |--------|-------|
+    | [`Neuron.drop_fluff()`][navis.BaseNeuron.drop_fluff] | [`navis.drop_fluff`][] |
+    | [`Neuron.subset()`][navis.BaseNeuron.subset] | [`navis.subset_neuron`][] |
+    | [`Neuron.split_axon_dendrite()`][navis.BaseNeuron.split_axon_dendrite] | [`navis.split_axon_dendrite`][] |
+
+    Type-specific ones live on their class and **drop the suffix the function carries**, following `reroot_skeleton` → `.reroot()` and `resample_skeleton` → `.resample()`, which already worked this way:
+
+    | Method | Wraps |
+    |--------|-------|
+    | [`Skeleton.heal()`][navis.Skeleton.heal] / [`Mesh.heal()`][navis.Mesh.heal] | [`navis.heal_skeleton`][] / [`navis.heal_mesh`][] |
+    | [`Skeleton.smooth()`][navis.Skeleton.smooth] / [`Mesh.smooth()`][navis.Mesh.smooth] / [`Voxels.smooth()`][navis.Voxels.smooth] | [`navis.smooth_skeleton`][] / [`navis.smooth_mesh`][] / [`navis.smooth_voxels`][] |
+    | [`Skeleton.despike()`][navis.Skeleton.despike] | [`navis.despike_skeleton`][] |
+    | [`Skeleton.cut()`][navis.Skeleton.cut] | [`navis.cut_skeleton`][] |
+
+    **Breaking:** `Dotprops.drop_fluff()` took `epsilon` as its first positional argument; the shared method takes it as a keyword, so `dp.drop_fluff(500)` must become `dp.drop_fluff(epsilon=500)`. Every method also takes `**kwargs` straight through to the function it wraps, so the two cannot drift apart.
+
+    All methods now agree on `inplace`: `inplace=True` returns `None` and mutates, `inplace=False` returns a copy. `Mesh.heal()` and `Mesh.smooth()` were the odd ones out while being written and were corrected before landing - note that the older `Mesh.fill_holes()` and `Mesh.validate()` still hand the neuron back either way.
+
 - **connected components have one name, one shape and one home.** {{ navis }} had six words for "a connected piece of a neuron" (*component*, *fragment*, *subtree*, *tree*, *skeleton*, *fluff*), three incompatible ways to ask for them, and coverage that depended on which neuron type you happened to hold: a `Skeleton` handed back sets of node IDs, a `Voxels` a label array, a `Mesh` nothing at all. All of it now goes through one function.
 
     **New: [`navis.connected_components`][]** - the primitive, public at last. It takes any neuron (`Skeleton`, `Mesh`, `Dotprops`, `Voxels` or a bare `Trimesh`) and returns an `(N, )` array of labels, one per node/vertex/point/voxel and aligned with it:
@@ -398,7 +437,7 @@ pip install git+https://github.com/navis-org/navis@master
 - **new [`navis.fill_holes`][] closes the holes in a [`Mesh`][navis.Mesh]** - the openings it was cut with, and any it came with. Cutting a mesh (via [`navis.prune_twigs`][], [`navis.prune_by_strahler`][], [`navis.subset_neuron`][], ...) drops every face that loses a corner, which used to leave each severed twig standing open. `fill_holes` triangulates those cross-sections shut:
 
     ```python
-    >>> pruned = navis.prune_twigs(mesh, size='5 microns')
+    >>> pruned = navis.prune_twigs(mesh, min_length='5 microns')
     >>> filled = navis.fill_holes(pruned)   # or pruned.fill_holes()
     ```
 

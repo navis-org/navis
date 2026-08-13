@@ -31,7 +31,7 @@ NeuronObject = Union[Skeleton, NeuronList]
 
 def cable_overlap(a: NeuronObject,
                   b: NeuronObject,
-                  dist: Union[float, str] = 2,
+                  max_dist: Union[float, str] = 2,
                   method: Union[Literal['min'], Literal['max'], Literal['mean'],
                                 Literal['foward'], Literal['reverse']] = 'min'
                   ) -> pd.DataFrame:
@@ -43,7 +43,7 @@ def cable_overlap(a: NeuronObject,
                 Neuron(s) for which to compute cable within distance. It is
                 highly recommended to resample neurons to guarantee an even
                 sampling rate.
-    dist :      int | float, optional
+    max_dist :  int | float, optional
                 Maximum distance. If the neurons have their `.units` set, you
                 can also provides this as a string such as "2 microns".
     method :    'min' | 'max' | 'mean' | 'forward' | 'reverse'
@@ -88,7 +88,7 @@ def cable_overlap(a: NeuronObject,
     >>> # Resample to half a micron
     >>> nl_res = nl.resample('.5 micron', inplace=False)
     >>> # Get overlapping cable within 2 microns
-    >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
+    >>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], max_dist='2 microns')
 
     """
     if not isinstance(a, (Skeleton, NeuronList)) \
@@ -115,7 +115,7 @@ def cable_overlap(a: NeuronObject,
         raise ValueError(f'Unknown method "{method}". Allowed methods: '
                          f'"{", ".join(allowed_methods)}"')
 
-    dist = a[0].map_units(dist, on_error='raise')
+    max_dist = a[0].map_units(max_dist, on_error='raise')
 
     matrix = pd.DataFrame(np.zeros((a.shape[0], b.shape[0])),
                           index=a.id, columns=b.id)
@@ -149,13 +149,13 @@ def cable_overlap(a: NeuronObject,
                 # Query nB -> nA
                 distA, ixA = tA.query(tB.data,
                                       k=1,
-                                      distance_upper_bound=dist,
+                                      distance_upper_bound=max_dist,
                                       workers=-1
                                       )
                 # Query nA -> nB
                 distB, ixB = tB.query(tA.data,
                                       k=1,
-                                      distance_upper_bound=dist,
+                                      distance_upper_bound=max_dist,
                                       workers=-1
                                       )
 

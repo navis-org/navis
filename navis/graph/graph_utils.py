@@ -1234,7 +1234,7 @@ def geodesic_matrix(
     to_: Optional[Iterable[int]] = None,
     directed: bool = False,
     weight: Optional[str] = "weight",
-    limit: Union[float, int] = np.inf,
+    max_dist: Union[float, int] = np.inf,
 ) -> pd.DataFrame:
     """Generate geodesic ("along-the-arbor") distance matrix between nodes/vertices.
 
@@ -1258,9 +1258,9 @@ def geodesic_matrix(
     weight :    'weight' | None, optional
                 If "weight" distances are given as physical length.
                 If `None` distance is the number of nodes.
-    limit :     int | float, optional
-                Use to limit distance calculations. Nodes that are not within
-                `limit` will have distance `np.inf`. If neuron has its
+    max_dist :  int | float | str, optional
+                Use to cap distance calculations. Nodes that are not within
+                `max_dist` will have distance `np.inf`. If neuron has its
                 `.units` set, you can also pass a string such as "10 microns".
 
     Returns
@@ -1303,7 +1303,7 @@ def geodesic_matrix(
     if not isinstance(x, (core.Skeleton, core.Mesh)):
         raise ValueError(f'Unable to process data of type "{type(x)}"')
 
-    limit = x.map_units(limit, on_error="raise")
+    max_dist = x.map_units(max_dist, on_error="raise")
 
     def _check(sel, valid):
         """Normalise a `from_`/`to_` selection and make sure it exists."""
@@ -1337,8 +1337,8 @@ def geodesic_matrix(
         # Fastcore returns -1 for unreachable node pairs
         dmat[dmat < 0] = np.inf
 
-        if limit is not None and limit is not np.inf:
-            dmat[dmat > limit] = np.inf
+        if max_dist is not None and max_dist is not np.inf:
+            dmat[dmat > max_dist] = np.inf
 
         return pd.DataFrame(
             dmat,
@@ -1354,7 +1354,7 @@ def geodesic_matrix(
     to_ = None if to_ is None else _check(to_, vertex_ids)
 
     # Fastcore takes `None` rather than infinity for "no limit"
-    limit_ = None if limit is None or not np.isfinite(limit) else limit
+    limit_ = None if max_dist is None or not np.isfinite(max_dist) else max_dist
 
     if not x.n_extra_edges:
         dmat = utils.fastcore.geodesic_matrix_mesh(
@@ -1513,9 +1513,11 @@ def geodesic_clusters(
     Parameters
     ----------
     x :         Skeleton | Mesh
-    max_dist :  float
+    max_dist :  float | str
                 Maximum distance from a cluster's seed, in the neuron's units
                 (or in hops if `weight=None`). Must be finite and non-negative.
+                If the neuron has its `.units` set and `weight` is not `None`,
+                you can also pass a string such as "10 microns".
     weight :    'weight' | None
                 If "weight" (default) distances are physical edge lengths, if
                 `None` they are the number of hops.
@@ -1561,6 +1563,10 @@ def geodesic_clusters(
                 what you want is uniform sampling - see the warning above.
 
     """
+    # A unit string only means something when the weights are physical lengths -
+    # with `weight=None` the radius is a number of hops, which has no units
+    if weight is not None:
+        max_dist = x.map_units(max_dist, on_error="raise")
     max_dist = float(max_dist)
     if not np.isfinite(max_dist) or max_dist < 0:
         raise ValueError(f"`max_dist` must be finite and non-negative, got {max_dist}")
@@ -1940,7 +1946,7 @@ def find_main_branchpoint(
 def split_neurites(
     x: "core.NeuronObject",
     n: int = 2,
-    min_size: Optional[Union[float, str]] = None,
+    min_length: Optional[Union[float, str]] = None,
     reroot_soma: bool = False,
 ) -> "core.NeuronList":
     """Split a neuron into its longest neurites.
@@ -1959,7 +1965,7 @@ def split_neurites(
                         Must be a single neuron.
     n :                 int, optional
                         Number of neurites to split into. Must be >1.
-    min_size :          int | str, optional
+    min_length :          int | str, optional
                         Minimum size of a neurite to be cut off. If too
                         small, will stop cutting. This takes only the longest
                         path in each piece into account! If the neuron(s),
@@ -1984,7 +1990,7 @@ def split_neurites(
     >>> # Cut into two neurites
     >>> cut1 = navis.split_neurites(x, n=2)
     >>> # Cut into neurites of >10 um size
-    >>> cut2 = navis.split_neurites(x, n=float('inf'), min_size=10e3)
+    >>> cut2 = navis.split_neurites(x, n=float('inf'), min_length=10e3)
 
     """
     if isinstance(x, core.NeuronList):
@@ -2004,7 +2010,7 @@ def split_neurites(
     # At this point x is Skeleton
     x: core.Skeleton
 
-    min_size = x.map_units(min_size, on_error="raise")
+    min_length = x.map_units(min_length, on_error="raise")
 
     if reroot_soma and not isinstance(x.soma, type(None)):
         x.reroot(x.soma, inplace=True)
@@ -2024,7 +2030,7 @@ def split_neurites(
         parents,
         len(ids) if not np.isfinite(n) else int(n),
         weights=weights,
-        min_length=min_size if min_size else None,
+        min_length=min_length if min_length else None,
     )
 
     # Next, make some virtual cuts and get the complement of nodes for each

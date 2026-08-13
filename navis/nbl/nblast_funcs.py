@@ -96,7 +96,7 @@ class NBlaster(Blaster):
                        of nearest-neighbor pairs
     smat_kwargs:    Dictionary with additional parameters passed to scoring
                     functions. For example: `smat_kwargs["sigma_scoring"] = 10`.
-    limit_dist :    float | "auto" | None
+    max_dist :      float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
@@ -108,7 +108,7 @@ class NBlaster(Blaster):
     """
 
     def __init__(self, use_alpha=False, normalized=True, smat='auto',
-                 limit_dist=None, approx_nn=False, dtype=np.float64,
+                 max_dist=None, approx_nn=False, dtype=np.float64,
                  progress=True, smat_kwargs=dict()):
         """Initialize class."""
         super().__init__(progress=progress, dtype=dtype)
@@ -130,7 +130,7 @@ class NBlaster(Blaster):
         else:
             self.score_fn = smat
 
-        if limit_dist == "auto":
+        if max_dist == "auto":
             try:
                 if self.score_fn.axes[0].boundaries[-1] != np.inf:
                     self.distance_upper_bound = self.score_fn.axes[0].boundaries[-1]
@@ -142,7 +142,7 @@ class NBlaster(Blaster):
                 logger.warning("Could not infer distance upper bound from scoring function")
                 self.distance_upper_bound = None
         else:
-            self.distance_upper_bound = limit_dist
+            self.distance_upper_bound = max_dist
 
     def append(self, dotprops: Dotprops, self_hit: Optional[float] = None) -> NestedIndices:
         """Append dotprops.
@@ -239,7 +239,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                  normalized: bool = True,
                  use_alpha: bool = False,
                  smat: Optional[Union[str, pd.DataFrame]] = 'auto',
-                 limit_dist: Optional[Union[Literal['auto'], int, float]] = 'auto',
+                 max_dist: Optional[Union[Literal['auto'], int, float]] = 'auto',
                  approx_nn: bool = False,
                  precision: Union[int, str, np.dtype] = 64,
                  n_cores: Optional[int] = None,
@@ -305,7 +305,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                     first and second argument respectively.
     smat_kwargs:    Dictionary with additional parameters passed to scoring
                     functions.
-    limit_dist :    float | "auto" | None
+    max_dist :      float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
@@ -403,6 +403,9 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                      req_microns=isinstance(smat, str) and smat == 'auto')
 
     # Select the backend that will run this NBLAST
+    # `max_dist` may be given as a unit string, e.g. "5 microns"
+    max_dist = resolve_max_dist(query_dps, max_dist)
+
     be = resolve_backend("nblast_smart",
                          backend or config.default_nblast_backend,
                          scores=scores, approx_nn=approx_nn, smat=smat)
@@ -416,7 +419,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                            normalized=normalized,
                            use_alpha=use_alpha,
                            smat=smat,
-                           limit_dist=limit_dist,
+                           max_dist=max_dist,
                            approx_nn=approx_nn,
                            precision=precision,
                            n_cores=n_cores,
@@ -433,7 +436,7 @@ def nblast(query: Union[Dotprops, NeuronList],
            normalized: bool = True,
            use_alpha: bool = False,
            smat: Optional[Union[str, pd.DataFrame, Callable]] = 'auto',
-           limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
+           max_dist: Optional[Union[Literal['auto'], int, float]] = None,
            approx_nn: bool = False,
            precision: Union[int, str, np.dtype] = 64,
            n_cores: Optional[int] = None,
@@ -487,7 +490,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                     If `smat=None` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
-    limit_dist :    float | "auto" | None
+    max_dist :      float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
@@ -578,6 +581,9 @@ def nblast(query: Union[Dotprops, NeuronList],
                      req_microns=isinstance(smat, str) and smat == 'auto')
 
     # Select the backend that will run this NBLAST
+    # `max_dist` may be given as a unit string, e.g. "5 microns"
+    max_dist = resolve_max_dist(query_dps, max_dist)
+
     be = resolve_backend("nblast",
                          backend or config.default_nblast_backend,
                          scores=scores, approx_nn=approx_nn, smat=smat)
@@ -587,7 +593,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                      normalized=normalized,
                      use_alpha=use_alpha,
                      smat=smat,
-                     limit_dist=limit_dist,
+                     max_dist=max_dist,
                      approx_nn=approx_nn,
                      precision=precision,
                      n_cores=n_cores,
@@ -606,7 +612,7 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
                normalized: bool = True,
                use_alpha: bool = False,
                smat: Optional[Union[str, pd.DataFrame]] = 'auto',
-               limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
+               max_dist: Optional[Union[Literal['auto'], int, float]] = None,
                precision: Union[int, str, np.dtype] = 64,
                n_cores: Optional[int] = None,
                progress: bool = True,
@@ -677,7 +683,7 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
                     Scoring matrix. Defaults to the FCWB matrix ("auto"), which
                     expects neurons in microns. Callables and `"v1"` are not
                     supported here.
-    limit_dist :    float | "auto" | None
+    max_dist :      float | "auto" | None
                     Distance at which to stop the nearest-neighbour search.
     precision :     int [16, 32, 64] | str | np.dtype
                     Precision for the returned scores.
@@ -780,6 +786,8 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
                      n_cores,
                      req_unique_ids=True,
                      req_microns=isinstance(smat, str) and smat == 'auto')
+    # `max_dist` may be given as a unit string, e.g. "5 microns"
+    max_dist = resolve_max_dist(query_dps, max_dist)
 
     # Select the backend. Note we default to "auto" rather than to
     # `config.default_nblast_backend`: the latter is "builtin", which has no
@@ -797,7 +805,7 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
                          normalized=normalized,
                          use_alpha=use_alpha,
                          smat=smat,
-                         limit_dist=limit_dist,
+                         max_dist=max_dist,
                          precision=precision,
                          n_cores=n_cores,
                          progress=progress,
@@ -811,7 +819,7 @@ def nblast_allbyall(x: NeuronList,
                     normalized: bool = True,
                     use_alpha: bool = False,
                     smat: Optional[Union[str, pd.DataFrame, Callable]] = 'auto',
-                    limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
+                    max_dist: Optional[Union[Literal['auto'], int, float]] = None,
                     approx_nn: bool = False,
                     precision: Union[int, str, np.dtype] = 64,
                     n_cores: Optional[int] = None,
@@ -849,7 +857,7 @@ def nblast_allbyall(x: NeuronList,
                        nearest-neighbor pairs.
                      - If function, must consume distance and dot products as
                        first and second argument, respectively and return float.
-    limit_dist :    float | "auto" | None
+    max_dist :      float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
@@ -927,6 +935,8 @@ def nblast_allbyall(x: NeuronList,
     nblast_preflight(dps, dps, n_cores,
                      req_unique_ids=True,
                      req_microns=isinstance(smat, str) and smat == 'auto')
+    # `max_dist` may be given as a unit string, e.g. "5 microns"
+    max_dist = resolve_max_dist(dps, max_dist)
 
     # Select the backend that will run this NBLAST
     be = resolve_backend("nblast_allbyall",
@@ -937,7 +947,7 @@ def nblast_allbyall(x: NeuronList,
                               normalized=normalized,
                               use_alpha=use_alpha,
                               smat=smat,
-                              limit_dist=limit_dist,
+                              max_dist=max_dist,
                               approx_nn=approx_nn,
                               precision=precision,
                               n_cores=n_cores,
@@ -1263,6 +1273,19 @@ def sim_to_dist(x):
     return (x - mx) * -1
 
 
+def resolve_max_dist(x, max_dist):
+    """Let `max_dist` be given as a unit string, e.g. `"5 microns"`.
+
+    `"auto"` and `None` are the two non-numeric values NBLAST understands in
+    their own right and pass through untouched; anything else that is a string
+    is read against the neurons' `.units`.
+    """
+    if not isinstance(max_dist, str) or max_dist == "auto":
+        return max_dist
+
+    return float(NeuronList(x)[0].map_units(max_dist, on_error="raise"))
+
+
 def nblast_preflight(query, target, n_cores, batch_size=None,
                      req_unique_ids=False, req_dotprops=True, req_points=True,
                      req_microns=True):
@@ -1316,8 +1339,8 @@ def nblast_preflight(query, target, n_cores, batch_size=None,
             raise ValueError('`batch_size` must be >= 1 or `None`.')
 
 
-def eval_limit_dist(x):
-    """Evaluate `limit_dist` parameter."""
+def eval_max_dist(x):
+    """Evaluate `max_dist` parameter."""
     if x == 'auto':
         return
     if isinstance(x, type(None)):
@@ -1325,4 +1348,4 @@ def eval_limit_dist(x):
     if isinstance(x, numbers.Number):
         return
 
-    raise ValueError(f'`limit_dist` must be None, "auto" or float, got {x}' )
+    raise ValueError(f'`max_dist` must be None, "auto" or float, got {x}' )

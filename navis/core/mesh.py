@@ -671,6 +671,42 @@ class Mesh(BaseNeuron):
         """
         return meshes.fix_mesh(self, inplace=inplace)
 
+    def heal(self, inplace=False, **kwargs):
+        """Heal fragmentation by bridging this mesh's components.
+
+        Thin wrapper around [`navis.heal_mesh`][] - see there for `max_dist`,
+        `min_size`, `keep_largest` and `mask`. The repair is topological: the
+        bridges land in [`extra_edges`][navis.Mesh.extra_edges] and the surface
+        is untouched.
+
+        Returns
+        -------
+        Mesh
+                    Only if `inplace=False`.
+
+        """
+        x = morpho.heal_mesh(self, inplace=inplace, **kwargs)
+
+        if not inplace:
+            return x
+
+    def smooth(self, inplace=False, **kwargs):
+        """Smooth this mesh.
+
+        Thin wrapper around [`navis.smooth_mesh`][] - see there for
+        `iterations`, `L`, `method` and `backend`.
+
+        Returns
+        -------
+        Mesh
+                    Only if `inplace=False`.
+
+        """
+        x = meshes.smooth_mesh(self, inplace=inplace, **kwargs)
+
+        if not inplace:
+            return x
+
 
 # Pre-2.0 name. Must be a plain alias: `pickle` resolves classes by their
 # defining module and has to find this one without a warning.

@@ -485,7 +485,7 @@ def test_geodesic_matrix_mesh_limit():
     src = np.sort(rng.choice(len(m.vertices), 40, replace=False))
 
     limit = 5000
-    capped = G.geodesic_matrix(m, from_=src, limit=limit)
+    capped = G.geodesic_matrix(m, from_=src, max_dist=limit)
     full = G.geodesic_matrix(m, from_=src)
 
     assert np.isfinite(capped.values).any(), "the limit is cutting everything"

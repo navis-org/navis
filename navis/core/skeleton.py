@@ -1210,23 +1210,25 @@ class Skeleton(BaseNeuron):
         return None
 
     def prune_twigs(self,
-                    size: float,
+                    min_length: float,
                     inplace: bool = False,
                     recursive: Union[int, bool, float] = False
                     ) -> Optional['Skeleton']:
-        """Prune terminal twigs under a given size.
+        """Prune terminal twigs shorter than a given length.
 
         Parameters
         ----------
-        size :          int | float
-                        Twigs shorter than this will be pruned.
+        min_length :    int | float | str
+                        Twigs shorter than this will be pruned. If the neuron
+                        has its `.units` set, you can also pass a string such
+                        as "5 microns".
         inplace :       bool, optional
                         If False, pruning is performed on copy of original neuron
                         which is then returned.
         recursive :     int | bool | "inf", optional
                         If `int` will undergo that many rounds of recursive
                         pruning. Use `float("inf")` to prune until no more
-                        twigs under the given size are left.
+                        twigs under the given length are left.
 
         See Also
         --------
@@ -1239,11 +1241,109 @@ class Skeleton(BaseNeuron):
         else:
             x = self.copy()
 
-        morpho.prune_twigs(x, size=size, inplace=True)
+        morpho.prune_twigs(x, min_length=min_length, inplace=True)
 
         if not inplace:
             return x
         return None
+
+    def heal(self, inplace: bool = False, **kwargs) -> Optional['Skeleton']:
+        """Heal fragmentation by reconnecting this skeleton's components.
+
+        Thin wrapper around [`navis.heal_skeleton`][] - see there for `method`,
+        `max_dist`, `min_size`, `use_radius`, `keep_largest` and `mask`.
+
+        Parameters
+        ----------
+        inplace :   bool, optional
+                    If False, healing is performed on a copy which is then
+                    returned.
+
+        See Also
+        --------
+        [`navis.heal_skeleton`][]
+            Base function. See for details and examples.
+
+        """
+        x = morpho.heal_skeleton(self, inplace=inplace, **kwargs)
+
+        if not inplace:
+            return x
+        return None
+
+    def smooth(self, inplace: bool = False, **kwargs) -> Optional['Skeleton']:
+        """Smooth this skeleton's coordinates using a rolling window.
+
+        Thin wrapper around [`navis.smooth_skeleton`][] - see there for
+        `window`, `sigma`, `truncate` and `to_smooth`.
+
+        Parameters
+        ----------
+        inplace :   bool, optional
+                    If False, smoothing is performed on a copy which is then
+                    returned.
+
+        See Also
+        --------
+        [`navis.smooth_skeleton`][]
+            Base function. See for details and examples.
+
+        """
+        x = morpho.smooth_skeleton(self, inplace=inplace, **kwargs)
+
+        if not inplace:
+            return x
+        return None
+
+    def despike(self, inplace: bool = False, **kwargs) -> Optional['Skeleton']:
+        """Remove spikes - single nodes jumping out of an otherwise straight line.
+
+        Thin wrapper around [`navis.despike_skeleton`][] - see there for
+        `sigma`, `max_spike_length` and `reverse`.
+
+        Parameters
+        ----------
+        inplace :   bool, optional
+                    If False, despiking is performed on a copy which is then
+                    returned.
+
+        See Also
+        --------
+        [`navis.despike_skeleton`][]
+            Base function. See for details and examples.
+
+        """
+        x = morpho.despike_skeleton(self, inplace=inplace, **kwargs)
+
+        if not inplace:
+            return x
+        return None
+
+    def cut(self, where, ret: str = 'both') -> 'core.NeuronList':
+        """Cut this skeleton at given node(s).
+
+        Thin wrapper around [`navis.cut_skeleton`][]. Note this always returns
+        new neurons - there is no `inplace`, because a cut produces more
+        neurons than it was given.
+
+        Parameters
+        ----------
+        where :     int | str | list
+                    Node ID(s) or tag(s) to cut at.
+        ret :       "both" | "proximal" | "distal", optional
+                    Which piece(s) to return.
+
+        Returns
+        -------
+        NeuronList
+
+        See Also
+        --------
+        [`navis.cut_skeleton`][]
+            Base function. See for details and examples.
+
+        """
+        return graph.cut_skeleton(self, where=where, ret=ret)
 
     def prune_at_depth(self,
                        depth: Union[float, int],

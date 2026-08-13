@@ -379,8 +379,8 @@ def test_mask_accepts_bool_and_ids_alike():
     ids = n.nodes.node_id.values[mask]
 
     for kwargs in ({}, {"recursive": True}):
-        by_mask = navis.prune_twigs(n, size=2000, mask=mask, **kwargs)
-        by_ids = navis.prune_twigs(n, size=2000, mask=ids, **kwargs)
+        by_mask = navis.prune_twigs(n, min_length=2000, mask=mask, **kwargs)
+        by_ids = navis.prune_twigs(n, min_length=2000, mask=ids, **kwargs)
         assert by_mask.n_nodes == by_ids.n_nodes
         assert by_mask.cable_length == by_ids.cable_length
 

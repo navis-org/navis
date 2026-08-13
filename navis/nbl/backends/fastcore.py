@@ -95,7 +95,7 @@ class FastcoreBackend(NblastBackend):
         return smat
 
     def nblast(self, query, target, *, scores, normalized, use_alpha, smat,
-               limit_dist, approx_nn, precision, n_cores, progress, smat_kwargs):
+               max_dist, approx_nn, precision, n_cores, progress, smat_kwargs):
         from ... import utils
         symmetry = None if scores in (None, 'forward') else scores
         M = utils.fastcore.nblast(
@@ -104,7 +104,7 @@ class FastcoreBackend(NblastBackend):
             normalize=normalized,
             symmetry=symmetry,
             use_alpha=use_alpha,
-            limit_dist=limit_dist,
+            limit_dist=max_dist,
             n_cores=n_cores,
             precision=precision,
             progress=progress,
@@ -115,7 +115,7 @@ class FastcoreBackend(NblastBackend):
         return out
 
     def nblast_knn(self, query, target, *, k, scores, n_candidates, normalized,
-                   use_alpha, smat, limit_dist, precision, n_cores, progress,
+                   use_alpha, smat, max_dist, precision, n_cores, progress,
                    voxel, n_dirs, splat, format, smat_kwargs):
         from ... import utils
         symmetry = None if scores in (None, 'forward') else scores
@@ -135,7 +135,7 @@ class FastcoreBackend(NblastBackend):
             smat=self._convert_smat(smat, use_alpha),
             normalize=normalized,
             use_alpha=use_alpha,
-            limit_dist=limit_dist,
+            limit_dist=max_dist,
             n_cores=n_cores,
             precision=precision,
             progress=progress,
@@ -175,7 +175,7 @@ class FastcoreBackend(NblastBackend):
         return out
 
     def nblast_smart(self, query, target, *, aba, t, criterion, scores,
-                     return_mask, normalized, use_alpha, smat, limit_dist,
+                     return_mask, normalized, use_alpha, smat, max_dist,
                      approx_nn, precision, n_cores, progress, smat_kwargs):
         from ... import utils
         symmetry = None if scores in (None, 'forward') else scores
@@ -189,7 +189,7 @@ class FastcoreBackend(NblastBackend):
             normalize=normalized,
             symmetry=symmetry,
             use_alpha=use_alpha,
-            limit_dist=limit_dist,
+            limit_dist=max_dist,
             n_cores=n_cores,
             precision=precision,
             progress=progress,
@@ -270,7 +270,7 @@ class FastcoreBackend(NblastBackend):
         out.columns.name = 'target'
         return out
 
-    def nblast_allbyall(self, x, *, normalized, use_alpha, smat, limit_dist,
+    def nblast_allbyall(self, x, *, normalized, use_alpha, smat, max_dist,
                         approx_nn, precision, n_cores, progress, smat_kwargs):
         from ... import utils
         M = utils.fastcore.nblast_allbyall(
@@ -279,7 +279,7 @@ class FastcoreBackend(NblastBackend):
             normalize=normalized,
             symmetry=None,  # navis' all-by-all always returns forward scores
             use_alpha=use_alpha,
-            limit_dist=limit_dist,
+            limit_dist=max_dist,
             n_cores=n_cores,
             precision=precision,
             progress=progress,

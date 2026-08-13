@@ -101,6 +101,15 @@ def fix_mesh(
     -------
     fixed object :      trimesh.Trimesh or navis.Mesh
 
+    See Also
+    --------
+    [`navis.drop_internals`][]
+                Removes internal structures that are not visible from the outside.
+    [`navis.drop_fluff`][]
+                Drops small disconnected pieces by size, wherever they sit.
+    [`navis.fill_holes`][]
+                Closes openings without removing anything.
+
     """
     if not inplace:
         mesh = mesh.copy()

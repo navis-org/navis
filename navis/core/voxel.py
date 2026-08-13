@@ -1180,6 +1180,32 @@ class Voxels(BaseNeuron):
         out = sparsecubes.binary.thin(self.voxels, **kwargs)
         return self._replace_voxels(out, self._carry_values(out), inplace)
 
+    def smooth(self, inplace: bool = False, **kwargs) -> Optional["Voxels"]:
+        """Smooth this neuron with a Gaussian filter.
+
+        Thin wrapper around [`navis.smooth_voxels`][] - see there for `sigma`,
+        `backend`, `epsilon` and `truncate`.
+
+        Parameters
+        ----------
+        inplace :   bool, optional
+                    If False, will return a modified copy.
+
+        Returns
+        -------
+        [`navis.Voxels`][]
+                    Only if `inplace=False`.
+
+        """
+        # Imported here rather than at the top: `navis.morpho` reaches back into
+        # `navis.core`, which this module is part of.
+        from .. import morpho
+
+        x = morpho.smooth_voxels(self, inplace=inplace, **kwargs)
+
+        if not inplace:
+            return x
+
     def fill_cavities(
         self, fill=None, inplace: bool = False, **kwargs
     ) -> Optional["Voxels"]:

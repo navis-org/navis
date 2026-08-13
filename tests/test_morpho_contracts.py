@@ -144,7 +144,7 @@ def test_strahler_index_on_a_hand_computed_tree():
 @pytest.mark.parametrize("recursive", [True, False])
 def test_prune_twigs_removes_only_short_terminal_branches(n, recursive):
     size = 5000 / 8
-    pruned = navis.prune_twigs(n, size=size, recursive=recursive)
+    pruned = navis.prune_twigs(n, min_length=size, recursive=recursive)
 
     # Only ever a subset, and the root survives
     assert set(pruned.nodes.node_id) <= set(n.nodes.node_id)
@@ -160,8 +160,8 @@ def test_prune_twigs_removes_only_short_terminal_branches(n, recursive):
 
 def test_prune_twigs_is_monotonic_in_size(n):
     """A bigger threshold can only remove more."""
-    small = navis.prune_twigs(n, size=100)
-    big = navis.prune_twigs(n, size=1000)
+    small = navis.prune_twigs(n, min_length=100)
+    big = navis.prune_twigs(n, min_length=1000)
 
     assert set(big.nodes.node_id) <= set(small.nodes.node_id)
     assert big.cable_length <= small.cable_length
@@ -180,7 +180,7 @@ def test_prune_twigs_on_a_hand_computed_tree():
             "z": [0.0] * 6,
         }
     )
-    pruned = navis.prune_twigs(navis.Skeleton(nodes), size=1.5)
+    pruned = navis.prune_twigs(navis.Skeleton(nodes), min_length=1.5)
 
     assert 5 not in pruned.nodes.node_id.values, "the short twig should be gone"
     assert set(pruned.nodes.node_id.values.tolist()) == {0, 1, 2, 3, 4}

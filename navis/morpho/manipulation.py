@@ -280,24 +280,24 @@ def prune_by_strahler(
 @utils.meshneuron_skeleton(method="subset")
 def prune_twigs(
     x: NeuronObject,
-    size: Union[float, str],
+    min_length: Union[float, str],
     exact: bool = False,
     mask: Optional[Union[Sequence[int], Callable]] = None,
     inplace: bool = False,
     recursive: Union[int, bool, float] = False,
 ) -> NeuronObject:
-    """Prune terminal twigs under a given size.
+    """Prune terminal twigs shorter than a given length.
 
     By default this function will simply drop all terminal twigs shorter than
-    `size`. This is very fast but rather stupid: for example, if a twig is
-    just 1 nanometer longer than `size` it will not be touched at all. If you
-    require precision, set `exact=True` which will prune *exactly* `size`
+    `min_length`. This is very fast but rather stupid: for example, if a twig is
+    just 1 nanometer longer than `min_length` it will not be touched at all.
+    If you require precision, set `exact=True` which will prune *exactly* `min_length`
     off the terminals at a few times the cost.
 
     Parameters
     ----------
     x :             Skeleton | Mesh | NeuronList
-    size :          int | float | str
+    min_length :    int | float | str
                     Twigs shorter than this will be pruned. If the neuron has
                     its `.units` set, you can also pass a string including the
                     units, e.g. '5 microns'.
@@ -313,7 +313,7 @@ def prune_twigs(
     recursive :     int | bool, optional
                     If `int` will undergo that many rounds of recursive
                     pruning. If True will prune iteratively until no more
-                    terminal twigs under the given size are left. Only
+                    terminal twigs under the given length are left. Only
                     relevant if `exact=False`.
 
     Returns
@@ -330,7 +330,7 @@ def prune_twigs(
     >>> # Prune twigs smaller than 5 microns
     >>> # (example neuron are in 8x8x8nm units)
     >>> n_pr = navis.prune_twigs(n,
-    ...                          size=5000 / 8,
+    ...                          min_length=5000 / 8,
     ...                          recursive=float('inf'),
     ...                          inplace=False)
     >>> all(n.n_nodes > n_pr.n_nodes)
@@ -342,7 +342,7 @@ def prune_twigs(
     >>> # Prune twigs by exactly 5 microns
     >>> # (example neuron are in 8x8x8nm units)
     >>> n_pr = navis.prune_twigs(n,
-    ...                          size=5000 / 8,
+    ...                          min_length=5000 / 8,
     ...                          exact=True,
     ...                          inplace=False)
     >>> n.n_nodes > n_pr.n_nodes
@@ -355,9 +355,9 @@ def prune_twigs(
     >>> # Example neurons are in 8x8x8nm units...
     >>> n.units
     <Quantity(8, 'nanometer')>
-    >>> # ... therefore we can use units for `size`
+    >>> # ... therefore we can use units for `min_length`
     >>> n_pr = navis.prune_twigs(n,
-    ...                          size='5 microns',
+    ...                          min_length='5 microns',
     ...                          inplace=False)
     >>> n.n_nodes > n_pr.n_nodes
     True
@@ -368,19 +368,19 @@ def prune_twigs(
         raise TypeError(f"Expected Skeleton(s), got {type(x)}")
 
     # Convert to neuron units - numbers will be passed through
-    size = x.map_units(size, on_error="raise")
+    min_length = x.map_units(min_length, on_error="raise")
 
     if not exact:
         return _prune_twigs_simple(
-            x, size=size, inplace=inplace, recursive=recursive, mask=mask
+            x, min_length=min_length, inplace=inplace, recursive=recursive, mask=mask
         )
     else:
-        return _prune_twigs_precise(x, size=size, mask=mask, inplace=inplace)
+        return _prune_twigs_precise(x, min_length=min_length, mask=mask, inplace=inplace)
 
 
 def _prune_twigs_simple(
     neuron: "core.Skeleton",
-    size: float,
+    min_length: float,
     inplace: bool = False,
     mask: Optional[Union[Sequence[int], Callable]] = None,
     recursive: Union[int, bool, float] = False,
@@ -408,7 +408,7 @@ def _prune_twigs_simple(
     nodes_to_keep = utils.fastcore.prune_twigs(
         neuron.nodes.node_id.values,
         neuron.nodes.parent_id.values,
-        threshold=size,
+        threshold=min_length,
         weights=utils.fastcore.dag.parent_dist(
             neuron.nodes.node_id.values,
             neuron.nodes.parent_id.values,
@@ -423,7 +423,7 @@ def _prune_twigs_simple(
         if recursive:
             _prune_twigs_simple(
                 neuron,
-                size=size,
+                min_length=min_length,
                 inplace=True,
                 recursive=recursive - 1,
                 mask=mask_nodes,
@@ -460,7 +460,7 @@ def _subtree_height(neuron: "core.Skeleton", weight: str = "weight") -> pd.Serie
 
 def _prune_twigs_precise(
     neuron: "core.Skeleton",
-    size: float,
+    min_length: float,
     inplace: bool = False,
     mask: Optional[Union[Sequence[int], Callable]] = None,
     recursive: Union[int, bool, float] = False,
@@ -469,7 +469,7 @@ def _prune_twigs_precise(
     if not isinstance(neuron, core.Skeleton):
         raise TypeError(f"Expected Neuron/List, got {type(neuron)}")
 
-    if size <= 0:
+    if min_length <= 0:
         raise ValueError("`length` must be > 0")
 
     # Make a copy if necessary before making any changes
@@ -478,11 +478,11 @@ def _prune_twigs_precise(
 
     # Find all nodes that could possibly be within distance to a leaf. Note we ask
     # each node for its *nearest* leaf rather than asking each leaf for every node
-    # within `size`: the latter materialises one hit per (leaf, node) pair - easily
+    # within `min_length`: the latter materialises one hit per (leaf, node) pair - easily
     # millions - only to collapse them down to at most one entry per node.
     leaf_tree = scipy.spatial.cKDTree(neuron.leafs[["x", "y", "z"]].values)
     dist, _ = leaf_tree.query(
-        neuron.nodes[["x", "y", "z"]].values, k=1, distance_upper_bound=size
+        neuron.nodes[["x", "y", "z"]].values, k=1, distance_upper_bound=min_length
     )
     candidates = neuron.nodes.node_id.values[np.isfinite(dist)]
 
@@ -498,9 +498,9 @@ def _prune_twigs_precise(
     if not len(candidates):
         return neuron
 
-    # A node may be pruned only if *every* leaf distal to it lies within `size` -
+    # A node may be pruned only if *every* leaf distal to it lies within `min_length` -
     # i.e. iff the height of its sub-tree (the geodesic distance down to its
-    # furthest distal leaf) is <= size. `_subtree_height` gets that in a single
+    # furthest distal leaf) is <= min_length. `_subtree_height` gets that in a single
     # O(N) sweep; this used to run an all-pairs Dijkstra to answer the same
     # question.
     # N.B. computed on the *unpruned* neuron - we still need these heights after
@@ -508,7 +508,7 @@ def _prune_twigs_precise(
     height = _subtree_height(neuron)
 
     node_ids = neuron.nodes.node_id.values
-    in_range = np.intersect1d(node_ids[height.values <= size], candidates)
+    in_range = np.intersect1d(node_ids[height.values <= min_length], candidates)
 
     # For a node to be deleted its PARENT has to be within
     # `length` to ALL edges that are distal do it
@@ -535,7 +535,7 @@ def _prune_twigs_precise(
 
     # For each of the new leafs check how much we need to take of the existing
     # edge
-    len_to_prune = size - max_len
+    len_to_prune = min_length - max_len
 
     # Get vectors from leafs to their parents
     nodes = neuron.nodes.set_index("node_id")
@@ -1321,7 +1321,7 @@ def stitch_skeletons(
                                 fragment becomes the master neuron.
                             (3) 'FIRST': The first fragment provided becomes
                                 the master neuron.
-    max_dist :          float,  optional
+    max_dist :          float | str, optional
                         Max distance at which to stitch nodes. This can result
                         in a neuron with multiple roots.
     min_size :          int, optional
@@ -1375,6 +1375,10 @@ def stitch_skeletons(
     if len(nl) < 2:
         logger.warning(f"Need at least 2 neurons to stitch, found {len(nl)}")
         return nl[0]
+
+    # `max_dist` may be given as a unit string, e.g. "2 microns"
+    if max_dist is not None:
+        max_dist = nl[0].map_units(max_dist, on_error="raise")
 
     # If no soma, switch to largest
     if master == "SOMA" and not any(nl.has_soma):
@@ -1496,7 +1500,7 @@ def stitch_skeletons(
 
 def average_skeletons(
     x: "core.NeuronList",
-    limit: Union[int, str] = 10,
+    max_dist: Union[int, str] = 10,
     base_neuron: Optional[Union[int, "core.Skeleton"]] = None,
 ) -> "core.Skeleton":
     """Compute an average from a list of skeletons.
@@ -1508,7 +1512,7 @@ def average_skeletons(
     ----------
     x :             NeuronList
                     Neurons to be averaged.
-    limit :         int | str
+    max_dist :      int | str
                     Max distance for nearest neighbour search. If the neurons
                     have `.units` set, you can also pass a string such as e.g.
                     "2 microns".
@@ -1531,7 +1535,7 @@ def average_skeletons(
     ...         n.reroot(n.soma, inplace=True)
     >>> da2_pr = da2.prune_by_longest_neurite(inplace=False)
     >>> # Make average
-    >>> da2_avg = navis.average_skeletons(da2_pr, limit=10e3)
+    >>> da2_avg = navis.average_skeletons(da2_pr, max_dist=10e3)
     >>> # Plot
     >>> da2.plot3d() # doctest: +SKIP
     >>> da2_avg.plot3d() # doctest: +SKIP
@@ -1543,8 +1547,8 @@ def average_skeletons(
     if len(x) < 2:
         raise ValueError("Need at least 2 neurons to average!")
 
-    # Map limit into unit space, if applicable
-    limit = x[0].map_units(limit, on_error="raise")
+    # Map max_dist into unit space, if applicable
+    max_dist = x[0].map_units(max_dist, on_error="raise")
 
     # Generate KDTrees for each neuron
     for n in x:
@@ -1575,7 +1579,7 @@ def average_skeletons(
 
     # For each "other" neuron, collect nearest neighbour coordinates
     for n in other_neurons:
-        nn_dist, nn_ix = n.tree.query(base_nodes, k=1, distance_upper_bound=limit)
+        nn_dist, nn_ix = n.tree.query(base_nodes, k=1, distance_upper_bound=max_dist)
 
         # Translate indices into coordinates
         # First, make empty array
@@ -1600,7 +1604,7 @@ def average_skeletons(
     mean_y = np.mean(base_y, axis=1)
     mean_z = np.mean(base_z, axis=1)
 
-    # If any of the base coords has NO nearest neighbour within limit
+    # If any of the base coords has NO nearest neighbour within max_dist
     # whatsoever, the average of that row will be "NaN" -> in this case we
     # will fall back to the base coordinate
     mean_x[np.isnan(mean_x)] = base_nodes[np.isnan(mean_x), 0]
@@ -2366,7 +2370,7 @@ def prune_at_depth(
         raise ValueError(f'Source "{source}" not among nodes')
 
     # Get distance from source
-    dist = graph.geodesic_matrix(x, from_=source, directed=False, limit=depth)
+    dist = graph.geodesic_matrix(x, from_=source, directed=False, max_dist=depth)
     keep = dist.columns[dist.values[0] < np.inf]
 
     if not inplace:

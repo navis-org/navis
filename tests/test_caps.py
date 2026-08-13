@@ -107,7 +107,7 @@ def test_cap_holes_spares_pre_existing_openings(tube):
 
 def test_prune_twigs_does_not_cap_by_default():
     m = navis.example_neurons(1, kind="mesh")
-    pruned = navis.prune_twigs(m, size="5 microns")
+    pruned = navis.prune_twigs(m, min_length="5 microns")
 
     assert len(boundary(pruned)) > len(boundary(m))
     assert len(boundary(navis.fill_holes(pruned))) < len(boundary(pruned))
@@ -116,7 +116,7 @@ def test_prune_twigs_does_not_cap_by_default():
 def test_fill_holes_on_neuron_meshes():
     """The real thing: messy, already non-manifold, hundreds of openings."""
     m = navis.example_neurons(1, kind="mesh")
-    pruned = navis.prune_twigs(m, size="5 microns")
+    pruned = navis.prune_twigs(m, min_length="5 microns")
     filled = navis.fill_holes(pruned)
 
     # Most of the raw boundary goes; what is left sits on the junctions the

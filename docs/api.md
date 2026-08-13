@@ -63,6 +63,9 @@ class [`BaseNeurons`][navis.BaseNeuron].
 |--------|-------------|
 | [`Neuron.copy()`][navis.BaseNeuron.copy] | {{ autosummary("navis.BaseNeuron.copy") }} |
 | [`Neuron.connected_components()`][navis.BaseNeuron.connected_components] | {{ autosummary("navis.BaseNeuron.connected_components") }} |
+| [`Neuron.drop_fluff()`][navis.BaseNeuron.drop_fluff] | {{ autosummary("navis.BaseNeuron.drop_fluff") }} |
+| [`Neuron.subset()`][navis.BaseNeuron.subset] | {{ autosummary("navis.BaseNeuron.subset") }} |
+| [`Neuron.split_axon_dendrite()`][navis.BaseNeuron.split_axon_dendrite] | {{ autosummary("navis.BaseNeuron.split_axon_dendrite") }} |
 | [`Neuron.plot3d()`][navis.BaseNeuron.plot3d] | {{ autosummary("navis.BaseNeuron.plot3d") }} |
 | [`Neuron.plot2d()`][navis.BaseNeuron.plot2d] | {{ autosummary("navis.BaseNeuron.plot2d") }} |
 | [`Neuron.summary()`][navis.BaseNeuron.summary] | {{ autosummary("navis.BaseNeuron.summary") }} |
@@ -125,7 +128,11 @@ this neuron type. Note that most of them are simply short-hands for the other
 | [`Skeleton.prune_proximal_to()`][navis.Skeleton.prune_proximal_to] | {{ autosummary("navis.Skeleton.prune_proximal_to") }} |
 | [`Skeleton.prune_twigs()`][navis.Skeleton.prune_twigs] | {{ autosummary("navis.Skeleton.prune_twigs") }} |
 | [`Skeleton.reload()`][navis.Skeleton.reload] | {{ autosummary("navis.Skeleton.reload") }} |
+| [`Skeleton.cut()`][navis.Skeleton.cut] | {{ autosummary("navis.Skeleton.cut") }} |
+| [`Skeleton.despike()`][navis.Skeleton.despike] | {{ autosummary("navis.Skeleton.despike") }} |
+| [`Skeleton.heal()`][navis.Skeleton.heal] | {{ autosummary("navis.Skeleton.heal") }} |
 | [`Skeleton.reroot()`][navis.Skeleton.reroot] | {{ autosummary("navis.Skeleton.reroot") }} |
+| [`Skeleton.smooth()`][navis.Skeleton.smooth] | {{ autosummary("navis.Skeleton.smooth") }} |
 | [`Skeleton.resample()`][navis.Skeleton.resample] | {{ autosummary("navis.Skeleton.resample") }} |
 | [`Skeleton.snap()`][navis.Skeleton.snap] | {{ autosummary("navis.Skeleton.snap") }} |
 
@@ -182,7 +189,9 @@ Methods specific to [`navis.Mesh`][]:
 
 | Method | Description |
 |--------|-------------|
+| [`Mesh.heal()`][navis.Mesh.heal] | {{ autosummary("navis.Mesh.heal") }} |
 | [`Mesh.skeletonize()`][navis.Mesh.skeletonize] | {{ autosummary("navis.Mesh.skeletonize") }} |
+| [`Mesh.smooth()`][navis.Mesh.smooth] | {{ autosummary("navis.Mesh.smooth") }} |
 | [`Mesh.snap()`][navis.Mesh.snap] | {{ autosummary("navis.Mesh.snap") }} |
 | [`Mesh.validate()`][navis.Mesh.validate] | {{ autosummary("navis.Mesh.validate") }} |
 
@@ -221,6 +230,7 @@ These are methods and properties specific to [Voxels][navis.Voxels]:
 | [`Voxels.strip()`][navis.Voxels.strip] | {{ autosummary("navis.Voxels.strip") }} |
 | [`Voxels.surface_area`][navis.Voxels.surface_area] | {{ autosummary("navis.Voxels.surface_area") }} |
 | [`Voxels.symmetric_difference()`][navis.Voxels.symmetric_difference] | {{ autosummary("navis.Voxels.symmetric_difference") }} |
+| [`Voxels.smooth()`][navis.Voxels.smooth] | {{ autosummary("navis.Voxels.smooth") }} |
 | [`Voxels.thin()`][navis.Voxels.thin] | {{ autosummary("navis.Voxels.thin") }} |
 | [`Voxels.threshold()`][navis.Voxels.threshold] | {{ autosummary("navis.Voxels.threshold") }} |
 | [`Voxels.union()`][navis.Voxels.union] | {{ autosummary("navis.Voxels.union") }} |

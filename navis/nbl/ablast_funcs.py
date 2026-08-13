@@ -30,7 +30,7 @@ from ..compute.dispatch import default_n_workers, worker_initializer
 from ..transforms.align import _align_func
 
 from .base import Blaster, NestedIndices
-from .nblast_funcs import nblast_preflight, find_optimal_partition
+from .nblast_funcs import nblast_preflight, find_optimal_partition, resolve_max_dist
 from .smat import Lookup2d, _nblast_v1_scoring
 
 logger = config.logger
@@ -76,7 +76,7 @@ class NBlasterAlign(Blaster):
                        of nearest-neighbor pairs
     smat_kwargs:    Dictionary with additional parameters passed to scoring
                     functions. For example: `smat_kwargs["sigma_scoring"] = 10`.
-    limit_dist :    float | "auto" | None
+    max_dist :      float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
@@ -90,7 +90,7 @@ class NBlasterAlign(Blaster):
     def __init__(self,
                  align_func, two_way_align=True, sample_align=None,
                  use_alpha=False, normalized=True, smat='auto',
-                 limit_dist=None, approx_nn=False, dtype=np.float64,
+                 max_dist=None, approx_nn=False, dtype=np.float64,
                  progress=True,
                  smat_kwargs=dict(),
                  align_kwargs=dict(),
@@ -125,7 +125,7 @@ class NBlasterAlign(Blaster):
         else:
             self.score_fn = smat
 
-        if limit_dist == "auto":
+        if max_dist == "auto":
             try:
                 if self.score_fn.axes[0].boundaries[-1] != np.inf:
                     self.distance_upper_bound = self.score_fn.axes[0].boundaries[-1]
@@ -137,7 +137,7 @@ class NBlasterAlign(Blaster):
                 logger.warning("Could not infer distance upper bound from scoring function")
                 self.distance_upper_bound = None
         else:
-            self.distance_upper_bound = limit_dist
+            self.distance_upper_bound = max_dist
 
     def append(self, neuron: core.BaseNeuron) -> NestedIndices:
         """Append neurons.
@@ -270,7 +270,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                  normalized: bool = True,
                  use_alpha: bool = False,
                  smat: Optional[Union[str, pd.DataFrame, Callable]] = 'auto',
-                 limit_dist: Optional[Union[Literal['auto'], int, float]] = None,
+                 max_dist: Optional[Union[Literal['auto'], int, float]] = None,
                  approx_nn: bool = False,
                  precision: Union[int, str, np.dtype] = 64,
                  n_cores: Optional[int] = None,
@@ -337,7 +337,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                     If `smat=None` the scores will be
                     generated as the product of the distances and the dotproduct
                     of the vectors of nearest-neighbor pairs.
-    limit_dist :    float | "auto" | None
+    max_dist :      float | "auto" | None
                     Sets the max distance for the nearest neighbor search
                     (`distance_upper_bound`). Typically this should be the
                     highest distance considered by the scoring function. If
@@ -441,6 +441,8 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                      req_dotprops=False,
                      req_unique_ids=True,
                      req_microns=isinstance(smat, str) and smat=='auto')
+    # `max_dist` may be given as a unit string, e.g. "5 microns"
+    max_dist = resolve_max_dist(query, max_dist)
 
     # Find a partition that produces batches that each run in approximately
     # 10 seconds
@@ -484,7 +486,7 @@ def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                                          use_alpha=use_alpha,
                                          normalized=normalized,
                                          smat=smat,
-                                         limit_dist=limit_dist,
+                                         max_dist=max_dist,
                                          dtype=precision,
                                          approx_nn=approx_nn,
                                          progress=progress,

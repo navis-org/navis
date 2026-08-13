@@ -23,7 +23,7 @@ import pandas as pd
 from typing import Union, Callable, List, Optional, Tuple
 from typing_extensions import Literal
 
-from .. import utils, config, core, sampling, graph, morpho
+from .. import utils, config, core, sampling, graph
 
 from .base import BaseNeuron
 from .schema import CONNECTOR_AXIS, Axis, Ref, axes, connector_link, links
@@ -538,46 +538,8 @@ class Dotprops(BaseNeuron):
 
         return x
 
-    def drop_fluff(self, epsilon, min_size: int = None, n_largest: int = None, inplace=False):
-        """Keep only the largest connected component(s), dropping the rest.
-
-        By default, this function will remove all but the largest connected
-        component from the neuron. You can change that behavior using the
-        `min_size` and `n_largest` parameters. Note that pieces are judged by
-        size alone, never by where they sit - see [`navis.drop_fluff`][].
-
-        Parameters
-        ----------
-        epsilon :   float
-                    Distance at which to consider two points to be connected.
-                    If `None`, will use the default value of 5 times the average
-                    node distance (`self.sampling_resolution`).
-        min_size : float, optional
-                    Use this to set a size (in number of points) for small
-                    bits to keep. If `min_size` < 1 it will be intepreted as
-                    fraction of total nodes/vertices/points.
-        n_largest : int, optional
-                    If set, will keep the `n_largest` connected components. Note:
-                    if provided, `min_size` will be applied first!
-        inplace :   bool, optional
-                    If False, will return a copy and leave the original data
-                    unmodified.
-
-        Returns
-        -------
-        Dotprops
-                    Only if `inplace=False`.
-
-        See Also
-        --------
-        [`navis.drop_fluff`][]
-            Base function. See for details and examples.
-
-        """
-        x = morpho.drop_fluff(self, epsilon=epsilon, min_size=min_size, n_largest=n_largest, inplace=inplace)
-
-        if not inplace:
-            return x
+    # N.B. `drop_fluff` lives on `BaseNeuron` - every neuron type has it, not
+    # just this one. `epsilon` is Dotprops-only but the base function knows that.
 
     def recalculate_tangents(self, k: int, inplace=False):
         """Recalculate tangent vectors and alpha with a new `k`.

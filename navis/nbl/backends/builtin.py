@@ -191,13 +191,13 @@ class BuiltinBackend(NblastBackend):
                      this.targets_ix] = res.values
         return out
 
-    def _make_blaster(self, use_alpha, normalized, smat, limit_dist, precision,
+    def _make_blaster(self, use_alpha, normalized, smat, max_dist, precision,
                       approx_nn, progress, smat_kwargs):
         from ..nblast_funcs import NBlaster
         return NBlaster(use_alpha=use_alpha,
                         normalized=normalized,
                         smat=smat,
-                        limit_dist=limit_dist,
+                        max_dist=max_dist,
                         dtype=precision,
                         approx_nn=approx_nn,
                         progress=progress,
@@ -243,7 +243,7 @@ class BuiltinBackend(NblastBackend):
     # Operations
     # ------------------------------------------------------------------ #
     def nblast(self, query, target, *, scores, normalized, use_alpha, smat,
-               limit_dist, approx_nn, precision, n_cores, progress, smat_kwargs):
+               max_dist, approx_nn, precision, n_cores, progress, smat_kwargs):
         """Query -> target NBLAST."""
         query_dps, target_dps = query, target
 
@@ -252,7 +252,7 @@ class BuiltinBackend(NblastBackend):
                                          progress)
 
         # Calculate self-hits once for all neurons
-        nb = self._make_blaster(use_alpha, normalized, smat, limit_dist,
+        nb = self._make_blaster(use_alpha, normalized, smat, max_dist,
                                 precision, approx_nn, progress, smat_kwargs)
         query_self_hits = np.array([nb.calc_self_hit(n) for n in query_dps])
         target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps])
@@ -264,7 +264,7 @@ class BuiltinBackend(NblastBackend):
             for qix in np.array_split(np.arange(len(query_dps)), n_rows):
                 for tix in np.array_split(np.arange(len(target_dps)), n_cols):
                     this = self._make_blaster(use_alpha, normalized, smat,
-                                              limit_dist, precision, approx_nn,
+                                              max_dist, precision, approx_nn,
                                               progress, smat_kwargs)
                     for ix in qix:
                         this.append(query_dps[ix], query_self_hits[ix])
@@ -286,7 +286,7 @@ class BuiltinBackend(NblastBackend):
                             query_ids=query_dps.id, target_ids=target_dps.id,
                             dtype=nb.dtype, scores=scores)
 
-    def nblast_allbyall(self, x, *, normalized, use_alpha, smat, limit_dist,
+    def nblast_allbyall(self, x, *, normalized, use_alpha, smat, max_dist,
                         approx_nn, precision, n_cores, progress, smat_kwargs):
         """All-by-all NBLAST (always forward scores)."""
         dps = x
@@ -295,7 +295,7 @@ class BuiltinBackend(NblastBackend):
         n_rows, n_cols = self._partition(dps, dps, n_workers, progress)
 
         # Calculate self-hits once for all neurons
-        nb = self._make_blaster(use_alpha, normalized, smat, limit_dist,
+        nb = self._make_blaster(use_alpha, normalized, smat, max_dist,
                                 precision, approx_nn, progress, smat_kwargs)
         self_hits = np.array([nb.calc_self_hit(n) for n in dps])
 
@@ -305,7 +305,7 @@ class BuiltinBackend(NblastBackend):
             for qix in np.array_split(np.arange(len(dps)), n_rows):
                 for tix in np.array_split(np.arange(len(dps)), n_cols):
                     this = self._make_blaster(use_alpha, normalized, smat,
-                                              limit_dist, precision, approx_nn,
+                                              max_dist, precision, approx_nn,
                                               progress, smat_kwargs)
 
                     # Make sure we don't add the same neuron twice
@@ -337,7 +337,7 @@ class BuiltinBackend(NblastBackend):
                             dtype=nb.dtype)
 
     def nblast_smart(self, query, target, *, aba, t, criterion, scores,
-                     return_mask, normalized, use_alpha, smat, limit_dist,
+                     return_mask, normalized, use_alpha, smat, max_dist,
                      approx_nn, precision, n_cores, progress, smat_kwargs):
         """Smart(er) NBLAST: pre-NBLAST on simplified dotprops, then full."""
         query_dps, target_dps = query, target
@@ -375,7 +375,7 @@ class BuiltinBackend(NblastBackend):
         n_rows, n_cols = self._partition(query_dps_simp, target_dps_simp,
                                          n_workers, progress)
 
-        nb = self._make_blaster(use_alpha, normalized, smat, limit_dist,
+        nb = self._make_blaster(use_alpha, normalized, smat, max_dist,
                                 precision, approx_nn, progress, smat_kwargs)
         query_self_hits = np.array([nb.calc_self_hit(n) for n in query_dps_simp])
         target_self_hits = np.array([nb.calc_self_hit(n) for n in target_dps_simp])
@@ -386,7 +386,7 @@ class BuiltinBackend(NblastBackend):
             for qix in np.array_split(np.arange(len(query_dps_simp)), n_rows):
                 for tix in np.array_split(np.arange(len(target_dps_simp)), n_cols):
                     this = self._make_blaster(use_alpha, normalized, smat,
-                                              limit_dist, precision, approx_nn,
+                                              max_dist, precision, approx_nn,
                                               progress, smat_kwargs)
                     for ix in qix:
                         this.append(query_dps_simp[ix], query_self_hits[ix])
@@ -441,7 +441,7 @@ class BuiltinBackend(NblastBackend):
             for qix in np.array_split(np.arange(len(query_dps)), n_rows):
                 for tix in np.array_split(np.arange(len(target_dps)), n_cols):
                     this = self._make_blaster(use_alpha, normalized, smat,
-                                              limit_dist, precision, approx_nn,
+                                              max_dist, precision, approx_nn,
                                               progress, smat_kwargs)
                     for ix in qix:
                         this.append(query_dps[ix], query_self_hits[ix])

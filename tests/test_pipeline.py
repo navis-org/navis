@@ -96,14 +96,14 @@ def test_step_specs():
 
     variants = [
         navis.Pipeline(navis.heal_skeleton, (navis.prune_twigs, (5000,))),
-        navis.Pipeline(navis.heal_skeleton, (navis.prune_twigs, {'size': 5000})),
+        navis.Pipeline(navis.heal_skeleton, (navis.prune_twigs, {'min_length': 5000})),
         navis.Pipeline(navis.heal_skeleton, (navis.prune_twigs, (5000,), {})),
         navis.Pipeline(navis.heal_skeleton).add(navis.prune_twigs, 5000),
         navis.Pipeline(navis.heal_skeleton) | (navis.prune_twigs, (5000,)),
         navis.Pipeline().heal_skeleton().prune_twigs(5000),
         # Note the keyword: a partial's positional arguments come *before* the
         # neuron, which is not what you want here.
-        navis.Pipeline(navis.heal_skeleton, partial(navis.prune_twigs, size=5000)),
+        navis.Pipeline(navis.heal_skeleton, partial(navis.prune_twigs, min_length=5000)),
     ]
 
     nl = navis.example_neurons(2)
