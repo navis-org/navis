@@ -9203,7 +9203,10 @@ backend :       str, optional
 voxel :         float
                 Edge length of the signature voxels used for the shortlist,
                 in the units of the neurons (microns for the FCWB matrix).
-                10-20 measure equivalently.
+                10-20 measure equivalently. Neurons in smaller units imply a
+                proportionally finer - and much larger - grid; if it would
+                exceed `navis.config.max_grid_size` this raises a
+                `MemoryError` rather than letting the allocation fail.
 n_dirs :        int
                 Number of tangent-direction bins for the signature. Use 1 to
                 disable them.
