@@ -1410,7 +1410,7 @@ array(['post', 'post', 'post', 'post', 'post'], dtype=object)
 
 ## Manipulate
 
-### navis.average_skeletons(x, limit=10, base_neuron=None)
+### navis.average_skeletons(x, max_dist=10, base_neuron=None)
 
 *function*
 
@@ -1423,7 +1423,7 @@ Parameters
 ----------
 x :             NeuronList
                 Neurons to be averaged.
-limit :         int | str
+max_dist :      int | str
                 Max distance for nearest neighbour search. If the neurons
                 have `.units` set, you can also pass a string such as e.g.
                 "2 microns".
@@ -1446,7 +1446,7 @@ Examples
 ...         n.reroot(n.soma, inplace=True)
 >>> da2_pr = da2.prune_by_longest_neurite(inplace=False)
 >>> # Make average
->>> da2_avg = navis.average_skeletons(da2_pr, limit=10e3)
+>>> da2_avg = navis.average_skeletons(da2_pr, max_dist=10e3)
 >>> # Plot
 >>> da2.plot3d() # doctest: +SKIP
 >>> da2_avg.plot3d() # doctest: +SKIP
@@ -1846,7 +1846,7 @@ Examples
 --------
 >>> import navis
 >>> m = navis.example_neurons(1, kind='mesh')
->>> pruned = navis.prune_twigs(m, size='5 microns')
+>>> pruned = navis.prune_twigs(m, min_length='5 microns')
 >>> filled = navis.fill_holes(pruned)
 >>> # The twig stumps are closed, so the surface encloses less
 >>> filled.volume < pruned.volume
@@ -2424,22 +2424,22 @@ Examples
 >>> n.n_nodes > n_pr.n_nodes
 True
 
-### navis.prune_twigs(x, size, exact=False, mask=None, inplace=False, recursive=False)
+### navis.prune_twigs(x, min_length, exact=False, mask=None, inplace=False, recursive=False)
 
 *function*
 
-Prune terminal twigs under a given size.
+Prune terminal twigs shorter than a given length.
 
 By default this function will simply drop all terminal twigs shorter than
-`size`. This is very fast but rather stupid: for example, if a twig is
-just 1 nanometer longer than `size` it will not be touched at all. If you
-require precision, set `exact=True` which will prune *exactly* `size`
+`min_length`. This is very fast but rather stupid: for example, if a twig is
+just 1 nanometer longer than `min_length` it will not be touched at all.
+If you require precision, set `exact=True` which will prune *exactly* `min_length`
 off the terminals at a few times the cost.
 
 Parameters
 ----------
 x :             Skeleton | Mesh | NeuronList
-size :          int | float | str
+min_length :    int | float | str
                 Twigs shorter than this will be pruned. If the neuron has
                 its `.units` set, you can also pass a string including the
                 units, e.g. '5 microns'.
@@ -2455,7 +2455,7 @@ inplace :       bool, optional
 recursive :     int | bool, optional
                 If `int` will undergo that many rounds of recursive
                 pruning. If True will prune iteratively until no more
-                terminal twigs under the given size are left. Only
+                terminal twigs under the given length are left. Only
                 relevant if `exact=False`.
 parallel :      bool
                 If True and input is NeuronList, distribute the
@@ -2492,7 +2492,7 @@ Simple pruning
 >>> # Prune twigs smaller than 5 microns
 >>> # (example neuron are in 8x8x8nm units)
 >>> n_pr = navis.prune_twigs(n,
-...                          size=5000 / 8,
+...                          min_length=5000 / 8,
 ...                          recursive=float('inf'),
 ...                          inplace=False)
 >>> all(n.n_nodes > n_pr.n_nodes)
@@ -2504,7 +2504,7 @@ Exact pruning
 >>> # Prune twigs by exactly 5 microns
 >>> # (example neuron are in 8x8x8nm units)
 >>> n_pr = navis.prune_twigs(n,
-...                          size=5000 / 8,
+...                          min_length=5000 / 8,
 ...                          exact=True,
 ...                          inplace=False)
 >>> n.n_nodes > n_pr.n_nodes
@@ -2517,9 +2517,9 @@ Prune using units
 >>> # Example neurons are in 8x8x8nm units...
 >>> n.units
 <Quantity(8, 'nanometer')>
->>> # ... therefore we can use units for `size`
+>>> # ... therefore we can use units for `min_length`
 >>> n_pr = navis.prune_twigs(n,
-...                          size='5 microns',
+...                          min_length='5 microns',
 ...                          inplace=False)
 >>> n.n_nodes > n_pr.n_nodes
 True
@@ -2865,7 +2865,7 @@ navis.propagate_labels
         Functions for propagating arbitrary labels on a neuron.`split_axon_dendrite_prop` is
         a specific application of this function.
 
-### navis.split_neurites(x, n=2, min_size=None, reroot_soma=False)
+### navis.split_neurites(x, n=2, min_length=None, reroot_soma=False)
 
 *function*
 
@@ -2885,7 +2885,7 @@ x :                 Skeleton | Mesh | NeuronList
                     Must be a single neuron.
 n :                 int, optional
                     Number of neurites to split into. Must be >1.
-min_size :          int | str, optional
+min_length :          int | str, optional
                     Minimum size of a neurite to be cut off. If too
                     small, will stop cutting. This takes only the longest
                     path in each piece into account! If the neuron(s),
@@ -2910,7 +2910,7 @@ Examples
 >>> # Cut into two neurites
 >>> cut1 = navis.split_neurites(x, n=2)
 >>> # Cut into neurites of >10 um size
->>> cut2 = navis.split_neurites(x, n=float('inf'), min_size=10e3)
+>>> cut2 = navis.split_neurites(x, n=float('inf'), min_length=10e3)
 
 ### navis.stitch_skeletons(*x, method='ALL', master='SOMA', max_dist=None, min_size=None, use_radius=False)
 
@@ -2955,7 +2955,7 @@ master :            'SOMA' | 'LARGEST' | 'FIRST', optional
                             fragment becomes the master neuron.
                         (3) 'FIRST': The first fragment provided becomes
                             the master neuron.
-max_dist :          float,  optional
+max_dist :          float | str, optional
                     Max distance at which to stitch nodes. This can result
                     in a neuron with multiple roots.
 min_size :          int, optional
@@ -4058,7 +4058,7 @@ navis.downsample_neuron
 
 ## Comparing morphology
 
-### navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
+### navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', max_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
 
 *function*
 
@@ -4109,7 +4109,7 @@ smat :          str | pd.DataFrame | Callable
                 If `smat=None` the scores will be
                 generated as the product of the distances and the dotproduct
                 of the vectors of nearest-neighbor pairs.
-limit_dist :    float | "auto" | None
+max_dist :      float | "auto" | None
                 Sets the max distance for the nearest neighbor search
                 (`distance_upper_bound`). Typically this should be the
                 highest distance considered by the scoring function. If
@@ -4182,7 +4182,7 @@ navis.nblast_smart
 navis.synblast
             A synapse-based variant of NBLAST.
 
-### navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', limit_dist='auto', approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
+### navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', max_dist='auto', approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
 
 *function*
 
@@ -4245,7 +4245,7 @@ smat :          str | pd.DataFrame | Callable
                 first and second argument respectively.
 smat_kwargs:    Dictionary with additional parameters passed to scoring
                 functions.
-limit_dist :    float | "auto" | None
+max_dist :      float | "auto" | None
                 Sets the max distance for the nearest neighbor search
                 (`distance_upper_bound`). Typically this should be the
                 highest distance considered by the scoring function. If
@@ -4319,7 +4319,7 @@ navis.nblast_allbyall
 navis.synblast
             A synapse-based variant of NBLAST.
 
-### navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
+### navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', max_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})
 
 *function*
 
@@ -4354,7 +4354,7 @@ smat :          str | pd.DataFrame | Callable, optional
                    nearest-neighbor pairs.
                  - If function, must consume distance and dot products as
                    first and second argument, respectively and return float.
-limit_dist :    float | "auto" | None
+max_dist :      float | "auto" | None
                 Sets the max distance for the nearest neighbor search
                 (`distance_upper_bound`). Typically this should be the
                 highest distance considered by the scoring function. If
@@ -4420,7 +4420,7 @@ See Also
 navis.nblast
             For generic query -> target nblasts.
 
-### navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', limit_dist=None, precision=64, n_cores=None, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})
+### navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', max_dist=None, precision=64, n_cores=None, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})
 
 *function*
 
@@ -4486,7 +4486,7 @@ smat :          str | pd.DataFrame | Lookup2d
                 Scoring matrix. Defaults to the FCWB matrix ("auto"), which
                 expects neurons in microns. Callables and `"v1"` are not
                 supported here.
-limit_dist :    float | "auto" | None
+max_dist :      float | "auto" | None
                 Distance at which to stop the nearest-neighbour search.
 precision :     int [16, 32, 64] | str | np.dtype
                 Precision for the returned scores.
@@ -4567,7 +4567,7 @@ navis.nblast_smart
 navis.nbl.extract_matches
             Pulls top matches out of an existing score matrix.
 
-### navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})
+### navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', max_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})
 
 *function*
 
@@ -4630,7 +4630,7 @@ smat :          str | pd.DataFrame | Callable
                 If `smat=None` the scores will be
                 generated as the product of the distances and the dotproduct
                 of the vectors of nearest-neighbor pairs.
-limit_dist :    float | "auto" | None
+max_dist :      float | "auto" | None
                 Sets the max distance for the nearest neighbor search
                 (`distance_upper_bound`). Typically this should be the
                 highest distance considered by the scoring function. If
@@ -5393,7 +5393,7 @@ H :                 float
 
 ## Distances
 
-### navis.cable_overlap(a, b, dist=2, method='min')
+### navis.cable_overlap(a, b, max_dist=2, method='min')
 
 *function*
 
@@ -5405,7 +5405,7 @@ a,b :       Skeleton | NeuronList
             Neuron(s) for which to compute cable within distance. It is
             highly recommended to resample neurons to guarantee an even
             sampling rate.
-dist :      int | float, optional
+max_dist :  int | float, optional
             Maximum distance. If the neurons have their `.units` set, you
             can also provides this as a string such as "2 microns".
 method :    'min' | 'max' | 'mean' | 'forward' | 'reverse'
@@ -5450,7 +5450,7 @@ Examples
 >>> # Resample to half a micron
 >>> nl_res = nl.resample('.5 micron', inplace=False)
 >>> # Get overlapping cable within 2 microns
->>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
+>>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], max_dist='2 microns')
 
 ### navis.distal_to(x, a=None, b=None)
 
@@ -5608,7 +5608,7 @@ See Also
 navis.geodesic_matrix
                     For distances between all points.
 
-### navis.geodesic_matrix(x, from_=None, to_=None, directed=False, weight='weight', limit=inf)
+### navis.geodesic_matrix(x, from_=None, to_=None, directed=False, weight='weight', max_dist=inf)
 
 *function*
 
@@ -5634,9 +5634,9 @@ directed :  bool, optional
 weight :    'weight' | None, optional
             If "weight" distances are given as physical length.
             If `None` distance is the number of nodes.
-limit :     int | float, optional
-            Use to limit distance calculations. Nodes that are not within
-            `limit` will have distance `np.inf`. If neuron has its
+max_dist :  int | float | str, optional
+            Use to cap distance calculations. Nodes that are not within
+            `max_dist` will have distance `np.inf`. If neuron has its
             `.units` set, you can also pass a string such as "10 microns".
 
 Returns
@@ -5705,9 +5705,11 @@ ball around its seed **minus** whatever earlier clusters took.
 Parameters
 ----------
 x :         Skeleton | Mesh
-max_dist :  float
+max_dist :  float | str
             Maximum distance from a cluster's seed, in the neuron's units
             (or in hops if `weight=None`). Must be finite and non-negative.
+            If the neuron has its `.units` set and `weight` is not `None`,
+            you can also pass a string such as "10 microns".
 weight :    'weight' | None
             If "weight" (default) distances are physical edge lengths, if
             `None` they are the number of hops.

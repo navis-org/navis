@@ -155,7 +155,7 @@ Calculate sparseness of olfactory inputs to group of neurons:
 >>> _ = ax.set_xlabel('LTS')
 >>> plt.show()                                              # doctest: +SKIP
 
-### navis.cable_overlap(a, b, dist=2, method='min')
+### navis.cable_overlap(a, b, max_dist=2, method='min')
 
 *function*
 
@@ -167,7 +167,7 @@ a,b :       Skeleton | NeuronList
             Neuron(s) for which to compute cable within distance. It is
             highly recommended to resample neurons to guarantee an even
             sampling rate.
-dist :      int | float, optional
+max_dist :  int | float, optional
             Maximum distance. If the neurons have their `.units` set, you
             can also provides this as a string such as "2 microns".
 method :    'min' | 'max' | 'mean' | 'forward' | 'reverse'
@@ -212,7 +212,7 @@ Examples
 >>> # Resample to half a micron
 >>> nl_res = nl.resample('.5 micron', inplace=False)
 >>> # Get overlapping cable within 2 microns
->>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], dist='2 microns')
+>>> ol = navis.cable_overlap(nl_res[:2], nl_res[2:], max_dist='2 microns')
 
 ### navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=None)
 

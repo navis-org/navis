@@ -17,16 +17,7 @@
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="navis">navis</span>.<a class="autorefs autorefs-internal" title="&lt;code&gt;navis.Mesh&lt;/code&gt;" href="../../#navis.Mesh">Mesh</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <p><span class="doc-section-title">Examples:</span></p> <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">navis</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">example_neurons</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">'mesh'</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">meshes</span><span class="o">.</span><span class="n">mesh_utils</span><span class="o">.</span><span class="n">face_dist_sorting</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">from_</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">soma_pos</span><span class="p">)</span>
-</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">627</span>
-<span class="normal">628</span>
-<span class="normal">629</span>
-<span class="normal">630</span>
-<span class="normal">631</span>
-<span class="normal">632</span>
-<span class="normal">633</span>
-<span class="normal">634</span>
-<span class="normal">635</span>
-<span class="normal">636</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">636</span>
 <span class="normal">637</span>
 <span class="normal">638</span>
 <span class="normal">639</span>
@@ -90,7 +81,16 @@
 <span class="normal">697</span>
 <span class="normal">698</span>
 <span class="normal">699</span>
-<span class="normal">700</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">face_dist_sorting</span><span class="p">(</span>
+<span class="normal">700</span>
+<span class="normal">701</span>
+<span class="normal">702</span>
+<span class="normal">703</span>
+<span class="normal">704</span>
+<span class="normal">705</span>
+<span class="normal">706</span>
+<span class="normal">707</span>
+<span class="normal">708</span>
+<span class="normal">709</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">face_dist_sorting</span><span class="p">(</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">from_</span><span class="p">,</span> <span class="n">strahler_weight</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">heal_method</span><span class="o">=</span><span class="s2">"ALL"</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Sort faces by distance from given point.</span>
@@ -183,16 +183,7 @@
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> Volume | Trimesh</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>n_cores</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Number of cores to use for parallel processing. Each unique
     label will be processed on a separate core. Defaults to half
     the available cores.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>meshes</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>List of <code>navis.Volume</code>. Their names correspond to unique <code>labels</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
-<span class="normal">338</span>
-<span class="normal">339</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>meshes</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>List of <code>navis.Volume</code>. Their names correspond to unique <code>labels</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">339</span>
 <span class="normal">340</span>
 <span class="normal">341</span>
 <span class="normal">342</span>
@@ -472,7 +463,16 @@
 <span class="normal">616</span>
 <span class="normal">617</span>
 <span class="normal">618</span>
-<span class="normal">619</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">pointlabels_to_meshes</span><span class="p">(</span>
+<span class="normal">619</span>
+<span class="normal">620</span>
+<span class="normal">621</span>
+<span class="normal">622</span>
+<span class="normal">623</span>
+<span class="normal">624</span>
+<span class="normal">625</span>
+<span class="normal">626</span>
+<span class="normal">627</span>
+<span class="normal">628</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">pointlabels_to_meshes</span><span class="p">(</span>
     <span class="n">points</span><span class="p">,</span>
     <span class="n">labels</span><span class="p">,</span>
     <span class="n">res</span><span class="p">,</span>
@@ -787,16 +787,7 @@
         around it. This smooths the staircase you would otherwise
         get on diagonal surfaces.
       - False gives blocky, axis-aligned quads.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="trimesh">trimesh</span>.<span title="trimesh.Trimesh">Trimesh</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span>
-<span class="normal">157</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="trimesh">trimesh</span>.<span title="trimesh.Trimesh">Trimesh</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/mesh_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">157</span>
 <span class="normal">158</span>
 <span class="normal">159</span>
 <span class="normal">160</span>
@@ -865,7 +856,16 @@
 <span class="normal">223</span>
 <span class="normal">224</span>
 <span class="normal">225</span>
-<span class="normal">226</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">points_to_mesh</span><span class="p">(</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">points_to_mesh</span><span class="p">(</span>
     <span class="n">points</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">denoise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">"sparsecubes"</span><span class="p">,</span> <span class="n">smooth</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Generate mesh from point cloud.</span>

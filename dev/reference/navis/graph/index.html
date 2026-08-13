@@ -139,13 +139,7 @@
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># we expect to see all nodes in the subgraph</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">sg</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">n</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="go">True</span>
-</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2654</span>
-<span class="normal">2655</span>
-<span class="normal">2656</span>
-<span class="normal">2657</span>
-<span class="normal">2658</span>
-<span class="normal">2659</span>
-<span class="normal">2660</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2660</span>
 <span class="normal">2661</span>
 <span class="normal">2662</span>
 <span class="normal">2663</span>
@@ -310,7 +304,13 @@
 <span class="normal">2822</span>
 <span class="normal">2823</span>
 <span class="normal">2824</span>
-<span class="normal">2825</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">connecting_nodes</span><span class="p">(</span>
+<span class="normal">2825</span>
+<span class="normal">2826</span>
+<span class="normal">2827</span>
+<span class="normal">2828</span>
+<span class="normal">2829</span>
+<span class="normal">2830</span>
+<span class="normal">2831</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">connecting_nodes</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s2">"core.Skeleton"</span><span class="p">,</span> <span class="n">nx</span><span class="o">.</span><span class="n">DiGraph</span><span class="p">],</span> <span class="n">ss</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""Return the nodes needed to connect all nodes in subset `ss`.</span>
@@ -483,13 +483,7 @@
 
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">include</span><span class="p">)),</span> <span class="n">new_roots</span>
 </code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.graph.generate_list_of_childs" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">generate_list_of_childs</span></code> <a href="#navis.graph.generate_list_of_childs" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Return list of childs.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>If List, must contain a SINGLE neuron.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> Skeleton | NeuronList</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p><code>{parent_id: [child_id, child_id, ...]}</code></p> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2470</span>
-<span class="normal">2471</span>
-<span class="normal">2472</span>
-<span class="normal">2473</span>
-<span class="normal">2474</span>
-<span class="normal">2475</span>
-<span class="normal">2476</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> Skeleton | NeuronList</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p><code>{parent_id: [child_id, child_id, ...]}</code></p> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2476</span>
 <span class="normal">2477</span>
 <span class="normal">2478</span>
 <span class="normal">2479</span>
@@ -509,7 +503,13 @@
 <span class="normal">2493</span>
 <span class="normal">2494</span>
 <span class="normal">2495</span>
-<span class="normal">2496</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_list_of_childs</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="s2">"core.NeuronObject"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+<span class="normal">2496</span>
+<span class="normal">2497</span>
+<span class="normal">2498</span>
+<span class="normal">2499</span>
+<span class="normal">2500</span>
+<span class="normal">2501</span>
+<span class="normal">2502</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_list_of_childs</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="s2">"core.NeuronObject"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""Return list of childs.</span>
 
 <span class="sd">    Parameters</span>
@@ -539,13 +539,7 @@
 </code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.graph.node_label_sorting" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">node_label_sorting</span></code> <a href="#navis.graph.node_label_sorting" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Return nodes ordered by node label sorting according to Cuntz et al., PLoS Computational Biology (2010).</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> Skeleton</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>weighted</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    If True will use actual distances instead of just node count.
     Depending on how evenly spaced your points are, this might not
     make much difference.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p><code>[root, node_id, node_id, ...]</code></p> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2526</span>
-<span class="normal">2527</span>
-<span class="normal">2528</span>
-<span class="normal">2529</span>
-<span class="normal">2530</span>
-<span class="normal">2531</span>
-<span class="normal">2532</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p><code>[root, node_id, node_id, ...]</code></p> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2532</span>
 <span class="normal">2533</span>
 <span class="normal">2534</span>
 <span class="normal">2535</span>
@@ -622,7 +616,13 @@
 <span class="normal">2606</span>
 <span class="normal">2607</span>
 <span class="normal">2608</span>
-<span class="normal">2609</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">node_label_sorting</span><span class="p">(</span>
+<span class="normal">2609</span>
+<span class="normal">2610</span>
+<span class="normal">2611</span>
+<span class="normal">2612</span>
+<span class="normal">2613</span>
+<span class="normal">2614</span>
+<span class="normal">2615</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">node_label_sorting</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="s2">"core.Skeleton"</span><span class="p">,</span> <span class="n">weighted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""Return nodes ordered by node label sorting according to Cuntz</span>
@@ -706,13 +706,7 @@
         <span class="n">node_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seg_dict</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="mi">1</span><span class="p">:])</span>
 
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">node_list</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.graph.segment_lengths" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">segment_lengths</span></code> <a href="#navis.graph.segment_lengths" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Get the length of each of many linear segments.</p> <p>Same as calling <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;segment_length&lt;/span&gt;&lt;/code&gt;" href="../#navis.segment_length"><code>navis.segment_length</code></a> on each segment but builds the node lookup once instead of once per segment.</p> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><a class="autorefs autorefs-external" title="&lt;code&gt;numpy&lt;/code&gt;" href="https://numpy.org/doc/stable/reference/index.html#module-numpy">np</a>.<a class="autorefs autorefs-external" title="&lt;code&gt;numpy.ndarray&lt;/code&gt;" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Length of each segment.</p> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1671</span>
-<span class="normal">1672</span>
-<span class="normal">1673</span>
-<span class="normal">1674</span>
-<span class="normal">1675</span>
-<span class="normal">1676</span>
-<span class="normal">1677</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.graph.segment_lengths" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">segment_lengths</span></code> <a href="#navis.graph.segment_lengths" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Get the length of each of many linear segments.</p> <p>Same as calling <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;segment_length&lt;/span&gt;&lt;/code&gt;" href="../#navis.segment_length"><code>navis.segment_length</code></a> on each segment but builds the node lookup once instead of once per segment.</p> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><a class="autorefs autorefs-external" title="&lt;code&gt;numpy&lt;/code&gt;" href="https://numpy.org/doc/stable/reference/index.html#module-numpy">np</a>.<a class="autorefs autorefs-external" title="&lt;code&gt;numpy.ndarray&lt;/code&gt;" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Length of each segment.</p> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1677</span>
 <span class="normal">1678</span>
 <span class="normal">1679</span>
 <span class="normal">1680</span>
@@ -742,7 +736,13 @@
 <span class="normal">1704</span>
 <span class="normal">1705</span>
 <span class="normal">1706</span>
-<span class="normal">1707</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">segment_lengths</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="s2">"core.Skeleton"</span><span class="p">,</span> <span class="n">segments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]):</span>
+<span class="normal">1707</span>
+<span class="normal">1708</span>
+<span class="normal">1709</span>
+<span class="normal">1710</span>
+<span class="normal">1711</span>
+<span class="normal">1712</span>
+<span class="normal">1713</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">segment_lengths</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="s2">"core.Skeleton"</span><span class="p">,</span> <span class="n">segments</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]):</span>
 <span class="w">    </span><span class="sd">"""Get the length of each of many linear segments.</span>
 
 <span class="sd">    Same as calling [`navis.segment_length`][] on each segment but builds the node</span>
@@ -1083,16 +1083,16 @@
         <span class="n">adj</span> <span class="o">=</span> <span class="n">adj</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">sort</span><span class="p">,</span> <span class="n">sort</span><span class="p">]</span>
 
     <span class="k">return</span> <span class="n">adj</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.graph.subset_igraph" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">subset_igraph</span></code> <a href="#navis.graph.subset_igraph" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Induce the sub-graph of a neuron's igraph on a set of node IDs.</p> <p>The igraph equivalent of <code>x.graph.subgraph(keep)</code>, but without paying to build the networkx graph. <code>node_id</code> is carried over onto the new vertices.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2612</span>
-<span class="normal">2613</span>
-<span class="normal">2614</span>
-<span class="normal">2615</span>
-<span class="normal">2616</span>
-<span class="normal">2617</span>
-<span class="normal">2618</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.graph.subset_igraph" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">subset_igraph</span></code> <a href="#navis.graph.subset_igraph" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Induce the sub-graph of a neuron's igraph on a set of node IDs.</p> <p>The igraph equivalent of <code>x.graph.subgraph(keep)</code>, but without paying to build the networkx graph. <code>node_id</code> is carried over onto the new vertices.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/graph/graph_utils.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2618</span>
 <span class="normal">2619</span>
 <span class="normal">2620</span>
-<span class="normal">2621</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">subset_igraph</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="s2">"core.Skeleton"</span><span class="p">,</span> <span class="n">keep</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"igraph.Graph"</span><span class="p">:</span>
+<span class="normal">2621</span>
+<span class="normal">2622</span>
+<span class="normal">2623</span>
+<span class="normal">2624</span>
+<span class="normal">2625</span>
+<span class="normal">2626</span>
+<span class="normal">2627</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">subset_igraph</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="s2">"core.Skeleton"</span><span class="p">,</span> <span class="n">keep</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"igraph.Graph"</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Induce the sub-graph of a neuron's igraph on a set of node IDs.</span>
 
 <span class="sd">    The igraph equivalent of `x.graph.subgraph(keep)`, but without paying to build</span>

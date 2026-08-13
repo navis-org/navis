@@ -385,7 +385,7 @@ plt.tight_layout()
 # Alternatively, we can prune terminal branches based on size:
 
 # This will prune all branches smaller than 10 microns
-m_pruned = navis.prune_twigs(m, size="10 microns", inplace=False)
+m_pruned = navis.prune_twigs(m, min_length="10 microns", inplace=False)
 
 # Plot original neuron in red
 fig, ax = m.plot2d(color="red", figsize=(10, 10), view=("x", "-z"))

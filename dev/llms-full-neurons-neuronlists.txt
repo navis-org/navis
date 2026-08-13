@@ -213,6 +213,83 @@ Examples
 >>> m.connected_components().max() + 1
 14
 
+### navis.BaseNeuron.drop_fluff(inplace=False, **kwargs)
+
+*function*
+
+Keep only the largest connected component(s), dropping the rest.
+
+Thin wrapper around navis.drop_fluff - see there for `min_size`,
+`n_largest`, `epsilon` and `connectivity`, and for the warning that
+pieces are judged by size alone, never by where they sit.
+
+Parameters
+----------
+inplace :   bool, optional
+            If False, will return a copy and leave the original data
+            unmodified.
+
+Returns
+-------
+Neuron
+            Only if `inplace=False`.
+
+Examples
+--------
+>>> import navis
+>>> m = navis.example_neurons(1, kind='mesh')
+>>> m.drop_fluff().n_vertices
+17058
+
+### navis.BaseNeuron.subset(subset, inplace=False, **kwargs)
+
+*function*
+
+Subset this neuron to a set of nodes/vertices/points.
+
+Thin wrapper around navis.subset_neuron - see there for
+`keep_disc_cn`, `prevent_fragments` and `cap_holes`.
+
+Parameters
+----------
+subset :    list-like | NetworkX graph | pandas.DataFrame | callable
+            What to keep. See navis.subset_neuron.
+inplace :   bool, optional
+            If False, will return a copy and leave the original data
+            unmodified.
+
+Returns
+-------
+Neuron
+            Only if `inplace=False`.
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> n.subset(n.nodes.node_id.values[:100]).n_nodes
+100
+
+### navis.BaseNeuron.split_axon_dendrite(**kwargs)
+
+*function*
+
+Split this neuron into axon and dendrite.
+
+Thin wrapper around navis.split_axon_dendrite - see there for
+`metric`, `flow_thresh`, `split`, `cellbodyfiber` and `label_only`.
+
+Returns
+-------
+NeuronList
+
+Examples
+--------
+>>> import navis
+>>> n = navis.example_neurons(1, kind='skeleton')
+>>> len(n.split_axon_dendrite())
+3
+
 ### navis.BaseNeuron.plot3d(**kwargs)
 
 *function*
@@ -996,23 +1073,25 @@ See Also
 navis.cut_skeleton
     Base function. See for details and examples.
 
-### navis.Skeleton.prune_twigs(size, inplace=False, recursive=False)
+### navis.Skeleton.prune_twigs(min_length, inplace=False, recursive=False)
 
 *function*
 
-Prune terminal twigs under a given size.
+Prune terminal twigs shorter than a given length.
 
 Parameters
 ----------
-size :          int | float
-                Twigs shorter than this will be pruned.
+min_length :    int | float | str
+                Twigs shorter than this will be pruned. If the neuron
+                has its `.units` set, you can also pass a string such
+                as "5 microns".
 inplace :       bool, optional
                 If False, pruning is performed on copy of original neuron
                 which is then returned.
 recursive :     int | bool | "inf", optional
                 If `int` will undergo that many rounds of recursive
                 pruning. Use `float("inf")` to prune until no more
-                twigs under the given size are left.
+                twigs under the given length are left.
 
 See Also
 --------
@@ -1029,6 +1108,72 @@ Returns
 -------
 Skeleton
         If `inplace=False`.
+
+### navis.Skeleton.cut(where, ret='both')
+
+*function*
+
+Cut this skeleton at given node(s).
+
+Thin wrapper around navis.cut_skeleton. Note this always returns
+new neurons - there is no `inplace`, because a cut produces more
+neurons than it was given.
+
+Parameters
+----------
+where :     int | str | list
+            Node ID(s) or tag(s) to cut at.
+ret :       "both" | "proximal" | "distal", optional
+            Which piece(s) to return.
+
+Returns
+-------
+NeuronList
+
+See Also
+--------
+navis.cut_skeleton
+    Base function. See for details and examples.
+
+### navis.Skeleton.despike(inplace=False, **kwargs)
+
+*function*
+
+Remove spikes - single nodes jumping out of an otherwise straight line.
+
+Thin wrapper around navis.despike_skeleton - see there for
+`sigma`, `max_spike_length` and `reverse`.
+
+Parameters
+----------
+inplace :   bool, optional
+            If False, despiking is performed on a copy which is then
+            returned.
+
+See Also
+--------
+navis.despike_skeleton
+    Base function. See for details and examples.
+
+### navis.Skeleton.heal(inplace=False, **kwargs)
+
+*function*
+
+Heal fragmentation by reconnecting this skeleton's components.
+
+Thin wrapper around navis.heal_skeleton - see there for `method`,
+`max_dist`, `min_size`, `use_radius`, `keep_largest` and `mask`.
+
+Parameters
+----------
+inplace :   bool, optional
+            If False, healing is performed on a copy which is then
+            returned.
+
+See Also
+--------
+navis.heal_skeleton
+    Base function. See for details and examples.
 
 ### navis.Skeleton.reroot(new_root, inplace=False)
 
@@ -1047,6 +1192,26 @@ inplace :   bool, optional
 See Also
 --------
 navis.reroot_skeleton
+    Base function. See for details and examples.
+
+### navis.Skeleton.smooth(inplace=False, **kwargs)
+
+*function*
+
+Smooth this skeleton's coordinates using a rolling window.
+
+Thin wrapper around navis.smooth_skeleton - see there for
+`window`, `sigma`, `truncate` and `to_smooth`.
+
+Parameters
+----------
+inplace :   bool, optional
+            If False, smoothing is performed on a copy which is then
+            returned.
+
+See Also
+--------
+navis.smooth_skeleton
     Base function. See for details and examples.
 
 ### navis.Skeleton.resample(resample_to, inplace=False)
@@ -1518,6 +1683,22 @@ watertight.
 
 Average distance between vertices.
 
+### navis.Mesh.heal(inplace=False, **kwargs)
+
+*function*
+
+Heal fragmentation by bridging this mesh's components.
+
+Thin wrapper around navis.heal_mesh - see there for `max_dist`,
+`min_size`, `keep_largest` and `mask`. The repair is topological: the
+bridges land in navis.Mesh.extra_edges and the surface
+is untouched.
+
+Returns
+-------
+Mesh
+            Only if `inplace=False`.
+
 ### navis.Mesh.skeletonize(method='wavefront', heal=True, inv_dist=None, **kwargs)
 
 *function*
@@ -1544,6 +1725,20 @@ inv_dist :  int | float
 Returns
 -------
 skeleton :  navis.Skeleton
+
+### navis.Mesh.smooth(inplace=False, **kwargs)
+
+*function*
+
+Smooth this mesh.
+
+Thin wrapper around navis.smooth_mesh - see there for
+`iterations`, `L`, `method` and `backend`.
+
+Returns
+-------
+Mesh
+            Only if `inplace=False`.
 
 ### navis.Mesh.snap(locs, to='vertices')
 
@@ -2058,6 +2253,25 @@ other :     Voxels | (N, 3) array
 fill :      int | float, optional
             Value given to voxels contributed by `other`. Defaults to
             this neuron's maximum.
+inplace :   bool, optional
+            If False, will return a modified copy.
+
+Returns
+-------
+navis.Voxels
+            Only if `inplace=False`.
+
+### navis.Voxels.smooth(inplace=False, **kwargs)
+
+*function*
+
+Smooth this neuron with a Gaussian filter.
+
+Thin wrapper around navis.smooth_voxels - see there for `sigma`,
+`backend`, `epsilon` and `truncate`.
+
+Parameters
+----------
 inplace :   bool, optional
             If False, will return a modified copy.
 

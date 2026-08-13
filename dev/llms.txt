@@ -174,6 +174,9 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 
 - `navis.BaseNeuron.copy(deepcopy=False)` - Return a copy of the neuron.
 - `navis.BaseNeuron.connected_components(**kwargs)` - Label this neuron's connected components, largest component first.
+- `navis.BaseNeuron.drop_fluff(inplace=False, **kwargs)` - Keep only the largest connected component(s), dropping the rest.
+- `navis.BaseNeuron.subset(subset, inplace=False, **kwargs)` - Subset this neuron to a set of nodes/vertices/points.
+- `navis.BaseNeuron.split_axon_dendrite(**kwargs)` - Split this neuron into axon and dendrite.
 - `navis.BaseNeuron.plot3d(**kwargs)` - Plot neuron using navis.plot3d.
 - `navis.BaseNeuron.plot2d(**kwargs)` - Plot neuron using navis.plot2d.
 - `navis.BaseNeuron.summary(add_props=None)` - Get a summary of this neuron.
@@ -216,9 +219,13 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 - `navis.Skeleton.prune_by_volume(v, mode='IN', prevent_fragments=False, inplace=False)` - Prune neuron by intersection with given volume(s).
 - `navis.Skeleton.prune_distal_to(node, inplace=False)` - Cut off nodes distal to given nodes.
 - `navis.Skeleton.prune_proximal_to(node, inplace=False)` - Remove nodes proximal to given node. Reroots neuron to cut node.
-- `navis.Skeleton.prune_twigs(size, inplace=False, recursive=False)` - Prune terminal twigs under a given size.
+- `navis.Skeleton.prune_twigs(min_length, inplace=False, recursive=False)` - Prune terminal twigs shorter than a given length.
 - `navis.Skeleton.reload(inplace=False)` - Reload neuron. Must have filepath as `.origin` as attribute.
+- `navis.Skeleton.cut(where, ret='both')` - Cut this skeleton at given node(s).
+- `navis.Skeleton.despike(inplace=False, **kwargs)` - Remove spikes - single nodes jumping out of an otherwise straight line.
+- `navis.Skeleton.heal(inplace=False, **kwargs)` - Heal fragmentation by reconnecting this skeleton's components.
 - `navis.Skeleton.reroot(new_root, inplace=False)` - Reroot neuron to given node ID or node tag.
+- `navis.Skeleton.smooth(inplace=False, **kwargs)` - Smooth this skeleton's coordinates using a rolling window.
 - `navis.Skeleton.resample(resample_to, inplace=False)` - Resample neuron to given resolution.
 - `navis.Skeleton.snap(locs, to='nodes')` - Snap xyz location(s) to closest node or synapse.
 - `navis.Skeleton.adjacency_matrix` - Adjacency matrix of the skeleton.
@@ -253,7 +260,9 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 - `navis.Mesh.trimesh` - Trimesh representation of the neuron.
 - `navis.Mesh.volume` - Volume of the neuron.
 - `navis.Mesh.sampling_resolution` - Average distance between vertices.
+- `navis.Mesh.heal(inplace=False, **kwargs)` - Heal fragmentation by bridging this mesh's components.
 - `navis.Mesh.skeletonize(method='wavefront', heal=True, inv_dist=None, **kwargs)` - Skeletonize mesh.
+- `navis.Mesh.smooth(inplace=False, **kwargs)` - Smooth this mesh.
 - `navis.Mesh.snap(locs, to='vertices')` - Snap xyz location(s) to closest vertex or synapse.
 - `navis.Mesh.validate(inplace=False)` - Use trimesh to try and fix some common mesh issues.
 
@@ -284,6 +293,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 - `navis.Voxels.strip(inplace=False)` - Strip empty voxels (leading/trailing planes of zeros).
 - `navis.Voxels.surface_area` - Area of the neuron's exposed (blocky, staircase) surface.
 - `navis.Voxels.symmetric_difference(other, fill=None, inplace=False)` - Voxels in exactly one of this neuron and `other` (set XOR).
+- `navis.Voxels.smooth(inplace=False, **kwargs)` - Smooth this neuron with a Gaussian filter.
 - `navis.Voxels.thin(inplace=False, **kwargs)` - Thin the neuron to a one-voxel-wide medial curve (centerline).
 - `navis.Voxels.threshold(threshold, inplace=False)` - Drop below-threshold voxels.
 - `navis.Voxels.union(*others, fill=None, inplace=False)` - Voxels present in this neuron *or* any of the others.
@@ -384,7 +394,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 
 #### Manipulate
 
-- `navis.average_skeletons(x, limit=10, base_neuron=None)` - Compute an average from a list of skeletons.
+- `navis.average_skeletons(x, max_dist=10, base_neuron=None)` - Compute an average from a list of skeletons.
 - `navis.split_components(x, min_size=None, connectivity=None, epsilon=None)` - Split a neuron into its connected components.
 - `navis.despike_skeleton(x, sigma=5, max_spike_length=1, inplace=False, reverse=False)` - Remove spikes in skeleton (e.g. from jumps in image data).
 - `navis.drop_fluff(x, min_size=None, n_largest=None, epsilon=None, connectivity=None, inplace=False)` - Keep only the largest connected component(s), dropping the rest.
@@ -398,12 +408,12 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.heal_mesh(x, max_dist=None, min_size=None, keep_largest=False, mask=None, inplace=False)` - Heal fragmented mesh(es).
 - `navis.longest_neurite(x, n=1, reroot_soma=False, from_root=True, inverse=False, inplace=False)` - Return a neuron consisting of only the longest neurite(s).
 - `navis.prune_by_strahler(x, to_prune, inplace=False, reroot_soma=True, force_strahler_update=False)` - Prune neuron based on [Strahler order](https://en.wikipedia.org/wiki/Strahler_number).
-- `navis.prune_twigs(x, size, exact=False, mask=None, inplace=False, recursive=False)` - Prune terminal twigs under a given size.
+- `navis.prune_twigs(x, min_length, exact=False, mask=None, inplace=False, recursive=False)` - Prune terminal twigs shorter than a given length.
 - `navis.prune_at_depth(x, depth, *, source=None, inplace=False)` - Prune all neurites past a given distance from a source.
 - `navis.reroot_skeleton(x, new_root, inplace=False)` - Reroot neuron to new root.
 - `navis.split_axon_dendrite(x, metric='synapse_flow_centrality', flow_thresh=0.9, split='prepost', cellbodyfiber=False, reroot_soma=True, label_only=False)` - Split a neuron into axon and dendrite using flow metrics.
 - `navis.split_axon_dendrite_prop(x, use_weights='balance', alpha=1, max_iter=10000, tol=1, label_only=False, verbose=False)` - Split a neuron into axon and dendrite using label propagation.
-- `navis.split_neurites(x, n=2, min_size=None, reroot_soma=False)` - Split a neuron into its longest neurites.
+- `navis.split_neurites(x, n=2, min_length=None, reroot_soma=False)` - Split a neuron into its longest neurites.
 - `navis.stitch_skeletons(*x, method='ALL', master='SOMA', max_dist=None, min_size=None, use_radius=False)` - Stitch multiple skeletons together.
 - `navis.subset_neuron(x, subset, inplace=False, keep_disc_cn=False, prevent_fragments=False, cap_holes=False, track=False)` - Subset a neuron to a given set of nodes/vertices.
 - `navis.merge_subset(x, subset, inplace=False)` - Fold a tracked subset back into the neuron it was taken from.
@@ -423,11 +433,11 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 
 #### Comparing morphology
 
-- `navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})` - NBLAST query against target neurons.
-- `navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', limit_dist='auto', approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})` - Smart(er) NBLAST query against target neurons.
-- `navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})` - All-by-all NBLAST of inputs neurons.
-- `navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', limit_dist=None, precision=64, n_cores=None, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})` - Find the `k` nearest neighbours of each neuron, without the full matrix.
-- `navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', limit_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})` - Run NBLAST on pairwise-aligned neurons.
+- `navis.nblast(query, target=None, scores='forward', normalized=True, use_alpha=False, smat='auto', max_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})` - NBLAST query against target neurons.
+- `navis.nblast_smart(query, target=None, t=90, criterion='percentile', scores='forward', return_mask=False, normalized=True, use_alpha=False, smat='auto', max_dist='auto', approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})` - Smart(er) NBLAST query against target neurons.
+- `navis.nblast_allbyall(x, normalized=True, use_alpha=False, smat='auto', max_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, backend=None, smat_kwargs={})` - All-by-all NBLAST of inputs neurons.
+- `navis.nblast_knn(query, target=None, k=20, scores='mean', n_candidates=200, format='long', normalized=True, use_alpha=False, smat='auto', max_dist=None, precision=64, n_cores=None, progress=True, backend=None, voxel=20.0, n_dirs=3, splat=True, smat_kwargs={})` - Find the `k` nearest neighbours of each neuron, without the full matrix.
+- `navis.nblast_align(query, target=None, align_method='rigid', two_way_align=True, sample_align=None, scores='mean', normalized=True, use_alpha=False, smat='auto', max_dist=None, approx_nn=False, precision=64, n_cores=None, progress=True, dotprop_kwargs={}, align_kwargs={}, smat_kwargs={})` - Run NBLAST on pairwise-aligned neurons.
 - `navis.synblast(query, target, by_type=False, cn_types=None, scores='forward', normalized=True, smat='auto', n_cores=None, progress=True, backend=None)` - Synapsed-based variant of NBLAST.
 - `navis.persistence_distances(q, t=None, augment=True, normalize=True, bw=0.2, **persistence_kwargs)` - Calculate morphological similarity using persistence diagrams.
 - `navis.nbl.smat.Lookup2d(axis0, axis1, cells)` - Convenience class inheriting from LookupNd for the common 2D float case.
@@ -449,11 +459,11 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 
 #### Distances
 
-- `navis.cable_overlap(a, b, dist=2, method='min')` - Calculate the amount of cable of neuron A within distance of neuron B.
+- `navis.cable_overlap(a, b, max_dist=2, method='min')` - Calculate the amount of cable of neuron A within distance of neuron B.
 - `navis.distal_to(x, a=None, b=None)` - Check if nodes A are distal to nodes B.
 - `navis.dist_between(x, a, b)` - Get the geodesic distance between nodes in nanometers.
 - `navis.dist_to_root(x, weight=None, igraph_indices=False)` - Calculate distance to root for each node.
-- `navis.geodesic_matrix(x, from_=None, to_=None, directed=False, weight='weight', limit=inf)` - Generate geodesic ("along-the-arbor") distance matrix between nodes/vertices.
+- `navis.geodesic_matrix(x, from_=None, to_=None, directed=False, weight='weight', max_dist=inf)` - Generate geodesic ("along-the-arbor") distance matrix between nodes/vertices.
 - `navis.graph.geodesic_clusters(x, max_dist, weight='weight', seeds=None, connected=True)` - Partition a neuron into clusters of bounded geodesic radius.
 - `navis.segment_length(x, segment)` - Get length of a linear segment.
 
@@ -535,7 +545,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-connectivity.txt
 
 - `navis.connectivity_similarity(adjacency, metric='vertex_normalized', threshold=None, n_cores=None, **kwargs)` - Calculate connectivity similarity.
 - `navis.connectivity_sparseness(x, which='LTS')` - Calculate sparseness.
-- `navis.cable_overlap(a, b, dist=2, method='min')` - Calculate the amount of cable of neuron A within distance of neuron B.
+- `navis.cable_overlap(a, b, max_dist=2, method='min')` - Calculate the amount of cable of neuron A within distance of neuron B.
 - `navis.synapse_similarity(x, sigma, omega, mu_score=True, restrict_cn=None, n_cores=None)` - Cluster neurons based on their synapse placement.
 
 ### Import/Export
