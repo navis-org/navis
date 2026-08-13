@@ -350,6 +350,7 @@ has some useful perks: [`navis.Volume`][].
 | `navis.Volume` | {{ autosummary("navis.Volume") }} |
 | `navis.Volume.combine` | {{ autosummary("navis.Volume.combine") }} |
 | `navis.Volume.plot3d` | {{ autosummary("navis.Volume.plot3d") }} |
+| `navis.Volume.fill_holes` | {{ autosummary("navis.Volume.fill_holes") }} |
 | `navis.Volume.validate` | {{ autosummary("navis.Volume.validate") }} |
 | `navis.Volume.resize` | {{ autosummary("navis.Volume.resize") }} |
 

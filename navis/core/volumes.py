@@ -684,8 +684,31 @@ class Volume(UnitObject, trimesh.Trimesh):
         except BaseException:
             raise
 
+    def fill_holes(self) -> bool:
+        """Triangulate the holes in this mesh, in place.
+
+        Overrides `trimesh.Trimesh.fill_holes`, which only ever closes single
+        triangle and quad holes - see [`navis.fill_holes`][] for what this does
+        instead.
+
+        Returns
+        -------
+        watertight :    bool
+                        Whether the mesh is watertight afterwards, as for the
+                        trimesh method this replaces. Note that answering it
+                        costs rather more than the fill itself.
+
+        """
+        # Local import: `navis.core` is imported before `navis.morpho`, which
+        # needs `Volume` back (via `meshes` -> `intersection`)
+        from ..morpho.caps import cap_openings
+
+        cap_openings(self)
+
+        return self.is_watertight
+
     def validate(self):
-        """Use trimesh to try and fix issues (holes/normals)."""
+        """Try and fix issues (holes/normals) with this mesh."""
         if not self.is_volume:
             logger.info("Mesh not valid, attempting to fix")
             self.fill_holes()

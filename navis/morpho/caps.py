@@ -16,15 +16,16 @@
 Subsetting a `Mesh` drops every face that loses a corner, which leaves the cut
 cross-sections standing open. Finding those openings and triangulating them
 shut is `navis-fastcore`'s `caps` module; what is left here is the
-[`navis.fill_holes`][] entry point and the one step both callers share.
+[`navis.fill_holes`][] entry point and the steps its callers share.
 
-There are two callers and they enter at different points. `fill_holes` closes
-every opening the mesh has, so it has to group the edges of the whole mesh
-(`boundary_halfedges`); [`navis.subset_neuron`][]'s `cap_holes` already knows
-which vertices are going away, and `exposed_halfedges` gets its answer out of
-the collar of faces around the cut without looking at the rest. Both hand their
-half-edges to the same `trace_loops` -> `triangulate_rings` pair, which is what
-`cap_boundary` below is.
+Callers enter at one of two points. Everything that closes *every* opening a
+mesh has - [`navis.fill_holes`][], [`navis.fix_mesh`][]'s `fill_holes` and
+[`navis.Volume.fill_holes`][] - has to group the edges of the whole mesh first
+(`boundary_halfedges`), and so is `cap_openings` below with nothing to add;
+[`navis.subset_neuron`][]'s `cap_holes` already knows which vertices are going
+away, and `exposed_halfedges` gets its answer out of the collar of faces around
+the cut without looking at the rest. Both hand their half-edges to the same
+`trace_loops` -> `triangulate_rings` pair, which is what `cap_boundary` is.
 
 No vertices are added, only faces. That keeps every vertex index - in `faces`,
 in `extra_edges`, in `connectors`, in a tracked subset's provenance - pointing
@@ -59,6 +60,40 @@ def cap_boundary(vertices, halfedges):
     """
     rings, offsets = utils.fastcore.trace_loops(halfedges)
     return utils.fastcore.triangulate_rings(rings, offsets, vertices)
+
+
+def cap_openings(mesh) -> int:
+    """Close every opening in a mesh, in place.
+
+    The step the three whole-mesh entry points share - [`navis.fill_holes`][],
+    [`navis.fix_mesh`][]'s `fill_holes` and [`navis.Volume.fill_holes`][].
+    Anything with `.vertices` and a settable `.faces` will do, which is why
+    this takes the mesh rather than a `Mesh`: two of the three callers hold a
+    `trimesh.Trimesh`.
+
+    Parameters
+    ----------
+    mesh :      Mesh | Volume | trimesh.Trimesh
+                Modified in place.
+
+    Returns
+    -------
+    int
+                Number of faces added. Zero leaves `mesh.faces` untouched -
+                and with it whatever the mesh has cached off it.
+
+    """
+    faces = np.asarray(mesh.faces)
+    new_faces = cap_boundary(mesh.vertices, utils.fastcore.boundary_halfedges(faces))
+
+    if not len(new_faces):
+        return 0
+
+    # The cast keeps the trimesh setter's `asanyarray(..., dtype=int64)` free,
+    # and stops `vstack` promoting an int32/uint32 pair to int64 behind us
+    mesh.faces = np.vstack((faces, new_faces.astype(faces.dtype)))
+
+    return len(new_faces)
 
 
 @utils.map_neuronlist(desc="Filling", allow_parallel=True)
@@ -114,11 +149,6 @@ def fill_holes(x: "core.Mesh", inplace: bool = False) -> "core.Mesh":
     if not inplace:
         x = x.copy()
 
-    faces = np.asarray(x.faces)
-    halfedges = utils.fastcore.boundary_halfedges(faces)
-    if len(halfedges):
-        new_faces = cap_boundary(np.asarray(x.vertices), halfedges)
-        if len(new_faces):
-            x.faces = np.vstack((faces, new_faces.astype(faces.dtype)))
+    cap_openings(x)
 
     return x

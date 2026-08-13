@@ -74,19 +74,21 @@ def fix_mesh(
 ):
     """Try to fix some common problems with mesh.
 
-     1. Remove infinite values
-     2. Merge duplicate vertices
-     3. Remove duplicate and degenerate faces
-     4. Fix normals
-     5. Remove unreference vertices
-     6. Remove disconnected fragments (Optional)
-     7. Fill holes (Optional)
+     1. Remove disconnected fragments (optional)
+     2. Remove infinite values
+     3. Merge duplicate vertices
+     4. Remove duplicate and degenerate faces
+     5. Fill holes (optional)
+     6. Fix normals
+     7. Remove unreferenced vertices
 
     Parameters
     ----------
     mesh :              trimesh.Trimesh | navis.Mesh
     fill_holes :        bool
-                        If True will try to fix holes in the mesh.
+                        If True, will triangulate every opening the mesh has -
+                        see [`navis.fill_holes`][]. No vertices are added, only
+                        faces.
     remove_fragments :  False | int
                         If a number is given, will iterate over the mesh's
                         connected components and remove those consisting of less
@@ -128,9 +130,6 @@ def fix_mesh(
         sizes = np.bincount(labels)
         m.update_vertices(sizes[labels] > remove_fragments)
 
-    if fill_holes:
-        m.fill_holes()
-
     m.remove_infinite_values()
     m.merge_vertices()
 
@@ -142,6 +141,13 @@ def fix_mesh(
     else:
         m.remove_duplicate_faces()
         m.remove_degenerate_faces()
+
+    if fill_holes:
+        # Both neighbours matter, and both are pinned by tests: after the
+        # clean-up because a boundary is topological, so a duplicate vertex or
+        # a degenerate face invents openings and hides real ones; before
+        # `fix_normals` because that cannot orient an open mesh.
+        morpho.caps.cap_openings(m)
 
     m.fix_normals()
     m.remove_unreferenced_vertices()

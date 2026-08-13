@@ -1,10 +1,14 @@
 """Tests for the mesh operations that are not rebuilds - `fix_mesh`,
 `smooth_mesh` and `points_to_mesh`.
 
-For `fix_mesh` the thing worth pinning is the trimesh-version gate:
-`Trimesh.remove_duplicate_faces`/`.remove_degenerate_faces` were replaced by
-`.unique_faces()`/`.nondegenerate_faces()` in trimesh 3.23 and removed in 4.10,
-and `fix_mesh` supports both.
+For `fix_mesh` there are two things worth pinning. One is the trimesh-version
+gate: `Trimesh.remove_duplicate_faces`/`.remove_degenerate_faces` were replaced
+by `.unique_faces()`/`.nondegenerate_faces()` in trimesh 3.23 and removed in
+4.10, and `fix_mesh` supports both. The other is `fill_holes`, which no longer
+goes through trimesh at all - see `test_caps.py` for the capping itself, and
+below for the two things `fix_mesh` adds to it: that openings bigger than a
+quad are closed (trimesh's never were) and that the fill runs *after* the
+clean-up rather than before it.
 
 For `smooth_mesh` it is the contract that lets it stay out of the rebuild
 machinery: it moves vertices and replaces none of them, so the faces, the vertex
@@ -19,6 +23,7 @@ voxels actually are, and that the dense one is still reachable and unchanged.
 import warnings
 
 import navis
+import navis_fastcore as fastcore
 import numpy as np
 import pytest
 import sparsecubes
@@ -114,13 +119,93 @@ def test_fix_mesh_remove_fragments():
     assert fixed.n_vertices == sum(s for s in sizes if s > 5)
 
 
-def test_fix_mesh_fill_holes(messy_box):
-    fixed = navis.fix_mesh(messy_box, fill_holes=True)
+@pytest.fixture
+def open_tube():
+    """A cylinder with both end caps taken off: two 16-vertex openings.
+
+    Bigger than a quad on purpose. `Trimesh.fill_holes`, which `fix_mesh` used
+    to call, closes single triangle and quad holes and nothing else - in every
+    version of trimesh navis supports - so this is precisely the case it could
+    not do.
+    """
+    m = tm.creation.cylinder(radius=1, height=4, sections=16)
+    m.merge_vertices()
+    verts, faces = np.asarray(m.vertices), np.asarray(m.faces)
+    # A cap face is one whose three corners are all at the same height; the
+    # side faces straddle the two ends, so they keep both of theirs
+    z = verts[:, 2][faces]
+    return navis.Mesh((verts, faces[~(z == z[:, :1]).all(axis=1)]), process=False)
+
+
+def test_fix_mesh_fill_holes_with_no_holes_to_fill(messy_box):
+    """The box has none once the degenerate face goes, so asking changes nothing."""
+    filled = navis.fix_mesh(messy_box, fill_holes=True)
+
+    assert filled.trimesh.is_watertight
+    assert np.array_equal(filled.faces, navis.fix_mesh(messy_box).faces)
+
+
+def test_fix_mesh_fills_holes_bigger_than_a_quad(open_tube):
+    assert not open_tube.trimesh.is_watertight
+
+    fixed = navis.fix_mesh(open_tube, fill_holes=True)
+
     assert fixed.trimesh.is_watertight
+    # A cap wound with its ring rather than against it would close the opening
+    # just the same, so check the two sides agree about which way is out.
+    assert fixed.trimesh.is_winding_consistent
+    # A ring of k vertices caps to exactly k - 2 triangles, and there are two
+    assert len(fixed.faces) == len(open_tube.faces) + 2 * 14
+    # Only faces are added, never vertices - i.e. the ones the tube referenced
+    # to begin with, `fix_mesh` having dropped the centres the caps hung off
+    assert fixed.n_vertices == len(np.unique(open_tube.faces))
+    # A 16-gon prism, so a little under the cylinder it approximates
+    assert float(fixed.trimesh.volume) == pytest.approx(np.pi * 4, rel=0.05)
+
+
+def test_fix_mesh_leaves_holes_alone_unless_asked(open_tube):
+    assert not navis.fix_mesh(open_tube).trimesh.is_watertight
+
+
+def test_fix_mesh_fills_after_the_clean_up(open_tube):
+    """A degenerate face can hide a real opening, so the fill goes last.
+
+    `[x, y, y]` puts a second face on the boundary edge `(x, y)`, which takes
+    that edge off the boundary and breaks the ring it belongs to: traced from
+    the half-edges alone the opening is no longer a loop, and what is not a
+    loop cannot be capped. Dropping degenerate faces first makes it whole
+    again - which only helps if it happens first.
+    """
+    verts, faces = np.asarray(open_tube.vertices), np.asarray(open_tube.faces)
+    x, y = fastcore.boundary_halfedges(faces)[0]
+    messy = navis.Mesh((verts, np.vstack([faces, [[x, y, y]]])), process=False)
+
+    fixed = navis.fix_mesh(messy, fill_holes=True)
+
+    assert fixed.trimesh.is_watertight
+    assert len(fixed.faces) == len(faces) + 2 * 14
+
+
+def test_fix_mesh_fills_before_fixing_normals(open_tube):
+    """`fix_normals` cannot orient an open mesh, so the caps go in first.
+
+    Given a tube whose faces are wound every which way, filling first leaves
+    `fix_normals` a closed surface it can point outwards. Filling afterwards
+    leaves it guessing, and it guesses inwards - which shows up as a negative
+    volume rather than as anything the watertightness check would catch.
+    """
+    faces = np.asarray(open_tube.faces).copy()
+    faces[::2] = faces[::2, ::-1]
+    scrambled = navis.Mesh((open_tube.vertices, faces), process=False)
+
+    fixed = navis.fix_mesh(scrambled, fill_holes=True)
+
+    assert fixed.trimesh.is_watertight
+    assert float(fixed.trimesh.volume) > 0
 
 
 def test_fix_mesh_trimesh_in_trimesh_out(messy_box):
-    """`fix_mesh` also takes a raw trimesh (e.g. from `Volume.validate`)."""
+    """`fix_mesh` also takes a raw trimesh - a `Volume`, say, which is one."""
     raw = tm.Trimesh(messy_box.vertices, messy_box.faces, process=False)
 
     fixed = navis.fix_mesh(raw)

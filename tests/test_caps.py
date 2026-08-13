@@ -1,10 +1,15 @@
 """Tests for closing the holes cut into a mesh.
 
-Two entry points, with deliberately different scope:
+Entry points, with deliberately different scope:
 
 - `navis.fill_holes` closes every opening the mesh has.
 - `subset_neuron(..., cap_holes=True)` closes only the ones that call made,
   which means it has to leave pre-existing openings alone.
+- `Volume.fill_holes` is `navis.fill_holes` for the other mesh class, and
+  overrides the trimesh method of that name. `Volume.validate` goes through it.
+
+`navis.fix_mesh(..., fill_holes=True)` is the fourth; it lives in
+`test_mesh_ops.py` with the rest of `fix_mesh`.
 
 """
 
@@ -156,6 +161,29 @@ def test_ring_tracing_covers_every_half_edge(cut_tube):
     halfedges = boundary(cut_tube)
     rings, offsets = fastcore.trace_loops(halfedges)
     assert offsets[-1] == len(rings) == len(halfedges)
+
+
+def test_volume_fill_holes(cut_tube):
+    """`Volume` overrides trimesh's method, which only did tris and quads."""
+    vol = navis.Volume(cut_tube.vertices, cut_tube.faces)
+    assert not vol.is_watertight
+    assert len(boundary(vol)) > 4  # i.e. more than trimesh's would have managed
+
+    assert vol.fill_holes() is True  # same return as the method it replaces
+
+    assert vol.is_watertight
+    assert len(boundary(vol)) == 0
+    assert len(vol.vertices) == cut_tube.n_vertices
+
+
+def test_volume_validate(cut_tube):
+    """`validate` goes through `fill_holes`, so it can fix this now."""
+    vol = navis.Volume(cut_tube.vertices, cut_tube.faces)
+    assert not vol.is_volume
+
+    vol.validate()  # must not raise
+
+    assert vol.is_volume
 
 
 def test_cap_holes_keeps_provenance_usable(tube):
