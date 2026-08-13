@@ -11,7 +11,9 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
+from .internals import drop_internals, openness
 from .mesh_utils import fix_mesh
 from .operations import simplify_mesh, smooth_mesh
 
-__all__ = ['fix_mesh', 'simplify_mesh', 'smooth_mesh']
+__all__ = ['drop_internals', 'fix_mesh', 'openness', 'simplify_mesh',
+           'smooth_mesh']

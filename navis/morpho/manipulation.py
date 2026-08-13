@@ -2500,6 +2500,15 @@ def drop_fluff(
     >>> surface.n_vertices
     15039
 
+    See Also
+    --------
+    [`navis.drop_internals`][]
+                For meshes, the complementary cleanup: fluff is what a neuron
+                has too much of on the *outside*, internals what it has too much
+                of on the inside. A free-floating organelle is both - but an
+                invagination is part of the main component, so no size or
+                connectivity criterion can reach it.
+
     """
     utils.eval_param(
         x,

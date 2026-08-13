@@ -370,6 +370,7 @@ Functions to analyze morphology.
 | [`navis.find_soma()`][navis.find_soma] | {{ autosummary("navis.find_soma") }} |
 | [`navis.find_soma_mesh()`][navis.find_soma_mesh] | {{ autosummary("navis.find_soma_mesh") }} |
 | [`navis.form_factor()`][navis.form_factor] | {{ autosummary("navis.form_factor") }} |
+| [`navis.openness()`][navis.openness] | {{ autosummary("navis.openness") }} |
 | [`navis.persistence_points()`][navis.persistence_points] | {{ autosummary("navis.persistence_points") }} |
 | [`navis.persistence_vectors()`][navis.persistence_vectors] | {{ autosummary("navis.persistence_vectors") }} |
 | [`navis.strahler_index()`][navis.strahler_index] | {{ autosummary("navis.strahler_index") }} |
@@ -394,6 +395,7 @@ Functions to edit morphology:
 | [`navis.break_fragments()`][navis.break_fragments] | {{ autosummary("navis.break_fragments") }} |
 | [`navis.despike_skeleton()`][navis.despike_skeleton] | {{ autosummary("navis.despike_skeleton") }} |
 | [`navis.drop_fluff()`][navis.drop_fluff] | {{ autosummary("navis.drop_fluff") }} |
+| [`navis.drop_internals()`][navis.drop_internals] | {{ autosummary("navis.drop_internals") }} |
 | [`navis.fill_holes()`][navis.fill_holes] | {{ autosummary("navis.fill_holes") }} |
 | [`navis.cell_body_fiber()`][navis.cell_body_fiber] | {{ autosummary("navis.cell_body_fiber") }} |
 | [`navis.combine_neurons()`][navis.combine_neurons] | {{ autosummary("navis.combine_neurons") }} |
