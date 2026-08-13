@@ -9,10 +9,16 @@ The last two are what actually went wrong before: `drop_fluff` was a method on
 morphology functions had no method at all.
 """
 
+import inspect
+import warnings
+
 import numpy as np
 import pytest
 
 import navis
+
+from tests.conftest import no_deprecation_warning
+from navis._deprecated import DEPRECATED_KWARGS, renamed_kwargs
 
 
 @pytest.fixture(scope="module")
@@ -227,8 +233,6 @@ def test_not_inplace_leaves_original_alone(fragmented, method):
 # new function cannot quietly reintroduce a fifth spelling of "cap the distance
 # here", or use `min_size` for something measured in nanometres.
 
-import inspect
-
 
 def _public_functions():
     return {
@@ -308,3 +312,151 @@ def test_unit_string_matches_the_explicit_number(skeleton):
         navis.prune_twigs(skeleton, min_length="5 microns").n_nodes
         == navis.prune_twigs(skeleton, min_length=in_units).n_nodes
     )
+
+
+# ---------------------------------------------------------------------------
+# Renamed keyword arguments
+# ---------------------------------------------------------------------------
+
+
+#: The calls that exercise each shim, keyed by the function's qualified name.
+#: `DEPRECATED_KWARGS` is the source of truth for *which* shims exist - see
+#: `test_every_registered_shim_is_exercised`, which fails if one is added here
+#: without a call to drive it.
+KWARG_CALLS = {
+    "prune_twigs": ("skeleton", {}),
+    "Skeleton.prune_twigs": ("skeleton", {}),
+    "drop_fluff": ("mesh", {}),
+    "heal_skeleton": ("skeleton", {"max_dist": 1}),
+    "heal_mesh": ("mesh", {}),
+    "geodesic_matrix": ("skeleton", {}),
+    "split_neurites": ("skeleton", {"n": 3}),
+    "average_skeletons": ("neuronlist", {}),
+    "cable_overlap": ("pair", {}),
+    "smooth_mesh": ("mesh", {"iterations": 1}),
+    "nblast": ("dotprops_pair", {"progress": False}),
+    "nblast_smart": ("dotprops_pair", {"progress": False}),
+    "nblast_knn": ("dotprops", {"k": 1, "progress": False}),
+    "nblast_allbyall": ("dotprops", {"progress": False}),
+    "nblast_align": ("dotprops_pair", {"progress": False}),
+}
+
+#: Value to pass for the renamed argument. `1` suits every shim - they are all
+#: distances, counts or (for `keep_largest`) truthy flags - bar `smooth_mesh`'s
+#: `lamb`, which is a filter coefficient with a valid range.
+KWARG_VALUES = {"smooth_mesh": 0.5}
+KWARG_VALUE = 1
+
+
+def _call(name, fixtures, kwargs):
+    """Invoke `name` - a function or a `Class.method` - with `kwargs`."""
+    shape, extra = KWARG_CALLS[name]
+    kwargs = {**extra, **kwargs}
+
+    if "." in name:
+        cls, meth = name.split(".")
+        return getattr(fixtures["skeleton"], meth)(**kwargs)
+
+    f = getattr(navis, name)
+    if shape == "pair":
+        return f(fixtures["neuronlist"][:1], fixtures["neuronlist"][1:], **kwargs)
+    if shape == "dotprops_pair":
+        return f(fixtures["dotprops_nl"], fixtures["dotprops_nl"], **kwargs)
+    if shape == "dotprops":
+        return f(fixtures["dotprops_nl"], **kwargs)
+    return f(fixtures[shape], **kwargs)
+
+
+@pytest.fixture(scope="module")
+def kwarg_fixtures():
+    nl = navis.example_neurons(2, kind="skeleton")
+    return {
+        "skeleton": nl[0],
+        "mesh": navis.example_neurons(1, kind="mesh"),
+        "neuronlist": nl,
+        "dotprops_nl": navis.make_dotprops(nl, k=5),
+    }
+
+
+def test_every_registered_shim_is_exercised():
+    """`DEPRECATED_KWARGS` is filled in by the decorator, so this cannot drift.
+
+    Eight of the fifteen shims had no test at all before this existed.
+    """
+    assert set(DEPRECATED_KWARGS) == set(KWARG_CALLS)
+
+
+@pytest.mark.parametrize("name", sorted(KWARG_CALLS))
+def test_old_kwarg_warns_and_forwards(kwarg_fixtures, name):
+    (old, new), = DEPRECATED_KWARGS[name].items()
+
+    value = KWARG_VALUES.get(name, KWARG_VALUE)
+
+    with pytest.warns(DeprecationWarning, match=old):
+        via_old = _call(name, kwarg_fixtures, {old: value})
+
+    via_new = _call(name, kwarg_fixtures, {new: value})
+
+    assert type(via_old) is type(via_new)
+    assert str(via_old) == str(via_new)
+
+
+@pytest.mark.parametrize("name", sorted(KWARG_CALLS))
+def test_passing_both_names_is_an_error(kwarg_fixtures, name):
+    (old, new), = DEPRECATED_KWARGS[name].items()
+
+    value = KWARG_VALUES.get(name, KWARG_VALUE)
+
+    with pytest.raises(TypeError, match="old name"):
+        _call(name, kwarg_fixtures, {old: value, new: value})
+
+
+def test_kwarg_warning_fires_once_per_session(skeleton):
+    with pytest.warns(DeprecationWarning):
+        navis.prune_twigs(skeleton, size=625)
+
+    # A loop over a NeuronList mustn't produce one warning per neuron
+    with no_deprecation_warning():
+        for _ in range(3):
+            navis.prune_twigs(skeleton, size=625)
+
+
+def test_new_kwarg_does_not_warn(skeleton):
+    with no_deprecation_warning():
+        navis.prune_twigs(skeleton, min_length=625)
+
+
+def test_method_kwarg_shim(skeleton):
+    """`Skeleton.prune_twigs(size=)` is shimmed too, not just the function."""
+    with pytest.warns(DeprecationWarning, match="Skeleton.prune_twigs"):
+        assert skeleton.prune_twigs(size=625).n_nodes == (
+            skeleton.prune_twigs(min_length=625).n_nodes
+        )
+
+
+def test_decorator_keeps_the_new_signature():
+    """`inspect.signature` must show the current names, not the old ones."""
+    params = inspect.signature(navis.prune_twigs).parameters
+
+    assert "min_length" in params
+    assert "size" not in params
+
+
+def test_drop_fluff_epsilon_is_not_silently_positional(dotprops):
+    """Pre-2.0 `Dotprops.drop_fluff(500)` meant `epsilon=500`.
+
+    The shared method has no positional slot for it, and `inplace` is
+    keyword-only so that 500 cannot quietly land there instead.
+    """
+    with pytest.raises(TypeError):
+        dotprops.drop_fluff(500)
+
+
+def test_decorator_is_reusable_standalone():
+    @renamed_kwargs(old_name="new_name")
+    def f(new_name=None):
+        return new_name
+
+    with pytest.warns(DeprecationWarning):
+        assert f(old_name=3) == 3
+    assert f(new_name=3) == 3

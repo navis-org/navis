@@ -1209,6 +1209,7 @@ class Skeleton(BaseNeuron):
             return x
         return None
 
+    @_deprecated.renamed_kwargs(size="min_length")
     def prune_twigs(self,
                     min_length: float,
                     inplace: bool = False,

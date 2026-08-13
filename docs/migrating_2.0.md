@@ -74,6 +74,13 @@ than 1.12 did, because that is what a fix to a silent bug looks like - see
 | `Skeleton.is_tree` | [`Skeleton.is_acyclic`][navis.Skeleton.is_acyclic] |
 | `bridging_graph(reciprocal=)` & co. | `inverse_weight=` (and the default changed from `0.5` to `1`) |
 | `smooth_mesh(L=)` | `lamb=` |
+| `nblast_*(limit_dist=)` | `max_dist=` |
+| `geodesic_matrix(limit=)`, `average_skeletons(limit=)` | `max_dist=` |
+| `cable_overlap(dist=)` | `max_dist=` |
+| `split_neurites(min_size=)` | `min_length=` |
+| `prune_twigs(size=)`, `Skeleton.prune_twigs(size=)` | `min_length=` |
+| `drop_fluff(keep_size=)` | `min_size=` |
+| `heal_skeleton(drop_disc=)`, `heal_mesh(drop_disc=)` | `keep_largest=` |
 | `simplify_mesh(backend=)`, `smooth_mesh(backend=)` | gone; there is only one backend now (the argument is ignored) |
 
 The class names are **aliases**, not subclasses: `isinstance(x, navis.TreeNeuron)`
@@ -83,6 +90,10 @@ now reads `"navis.Skeleton"` - code matching on that string, including anything
 filtering a [`NeuronList.summary()`][navis.NeuronList.summary] table by `type`,
 needs updating.
 
+The renamed *keyword arguments* are shimmed too: the old spelling warns and is
+forwarded, and passing both spellings is a `TypeError` rather than a coin toss
+over which one wins.
+
 Python hides `DeprecationWarning`s by default outside `__main__`; run with
 `python -W default::DeprecationWarning` (or `pytest -W default`) to find the old
 names in your code.
@@ -91,13 +102,6 @@ names in your code.
 
 | Old | New | Where |
 |-----|-----|-------|
-| `limit_dist=` | `max_dist=` | all five `nblast_*` |
-| `limit=` | `max_dist=` | [`geodesic_matrix`][navis.geodesic_matrix], [`average_skeletons`][navis.average_skeletons] |
-| `dist=` | `max_dist=` | [`cable_overlap`][navis.cable_overlap] |
-| `min_size=` | `min_length=` | [`split_neurites`][navis.split_neurites] |
-| `size=` | `min_length=` | [`prune_twigs`][navis.prune_twigs], `Skeleton.prune_twigs()` |
-| `keep_size=` | `min_size=` | [`drop_fluff`][navis.drop_fluff] |
-| `drop_disc=` | `keep_largest=` | [`heal_skeleton`][navis.heal_skeleton], [`heal_mesh`][navis.heal_mesh] |
 | `dp.drop_fluff(500)` | `dp.drop_fluff(epsilon=500)` | `epsilon` is keyword-only on the shared method |
 | `navis.betweeness_centrality` | [`navis.betweenness_centrality`][navis.betweenness_centrality] | the misspelling is gone |
 | `navis.graph.connected_components_of(x, mask)` | `navis.connected_components(x, mask=...)` | |
@@ -215,6 +219,8 @@ The changes that touch the most code are the ones that make {{ navis }} say the 
     The rule now holds throughout: **`min_size` counts elements** (nodes/vertices/voxels - [`drop_fluff`][navis.drop_fluff], [`split_components`][navis.split_components], [`heal_skeleton`][navis.heal_skeleton], [`heal_mesh`][navis.heal_mesh], [`stitch_skeletons`][navis.stitch_skeletons]), **`min_length` is a distance**, and **`max_dist` caps a distance**. `epsilon` is deliberately untouched: it does not cap a search but *defines* the edges of a neighbourhood graph, which is a different question.
 
     `limit` survives only where it never meant a distance - restricting which files a reader reads, and `guess_radius`' count of consecutive missing radii.
+
+    **Every old spelling still works**, with a `DeprecationWarning` - as do the ones renamed earlier in this cycle (`drop_fluff(keep_size=)`, `heal_*(drop_disc=)`) and `smooth_mesh(L=)`, whose hand-rolled shim now goes through the same machinery. Passing both spellings is a `TypeError`, and each warns once per session so mapping over a `NeuronList` does not produce one warning per neuron.
 
     **Every one of these now accepts a unit string** (e.g. `"5 microns"`) via [`map_units`][navis.BaseNeuron.map_units], where it did not already. Newly gained: [`stitch_skeletons`][navis.stitch_skeletons], [`navis.graph.geodesic_clusters`][navis.graph.geodesic_clusters] (only when `weight` is not `None` - with `weight=None` the radius is a number of hops, which has no units) and the `nblast_*` family (`"auto"` and `None` keep their own meaning and pass through).
 

@@ -21,29 +21,24 @@ try:
 except ModuleNotFoundError:
     from scipy.spatial import cKDTree as KDTree
 
-from .. import core, config, utils
+from .. import core, config, utils, _deprecated
 from ..core import schema
 
 
-#: `stacklevel` values that make a `DeprecationWarning` raised in one of the
-#: functions below land on the *caller*: two to clear `warnings.warn` and the
-#: function raising it, plus one for each navis decorator wrapping that function.
-#: That is where it has to land - Python's default filters only show a
-#: `DeprecationWarning` attributed to `__main__`, so one blamed on
-#: `map_neuronlist` is a warning nobody ever sees. `test_mesh_ops.py` pins both.
-_MAPPED = 3  # `@map_neuronlist`
-_MAPPED_REBUILD = 4  # `@map_neuronlist` over `@rebuilds`
 
-
-def _deprecated_backend(func):
-    """The `backend` argument both mesh operations used to take.
+def _warn_backend(func):
+    """Warn about the `backend` argument both mesh operations used to take.
 
     Neither has one any more - `navis-fastcore` is a hard requirement, so there
     is nothing left to choose between.
     """
-    return (
+    warnings.warn(
         f"`{func}(backend=...)` is deprecated and ignored - it now always runs "
-        "on `navis-fastcore`. Drop the argument."
+        "on `navis-fastcore`. Drop the argument.",
+        DeprecationWarning,
+        # The walk skips this frame by construction, so it still lands on the
+        # user - see `navis._deprecated.caller_stacklevel`.
+        stacklevel=_deprecated.caller_stacklevel(),
     )
 
 
@@ -101,8 +96,7 @@ def simplify_mesh(x, F, backend=None, inplace=False, **kwargs):
 
     """
     if backend is not None:
-        warnings.warn(_deprecated_backend('simplify_mesh'),
-                      DeprecationWarning, stacklevel=_MAPPED_REBUILD)
+        _warn_backend('simplify_mesh')
 
     if not utils.is_mesh(x):
         raise TypeError(f'Expected mesh-like, got "{type(x)}"')
@@ -251,7 +245,8 @@ def combine_meshes(meshes, max_dist='auto', progress=True):
 
 
 @utils.map_neuronlist(desc='Smoothing', allow_parallel=True)
-def smooth_mesh(x, iterations=5, L=None, method='taubin', backend=None,
+@_deprecated.renamed_kwargs(L='lamb')
+def smooth_mesh(x, iterations=5, method='taubin', backend=None,
                 inplace=False, **kwargs):
     """Smooth meshes (TriMesh, Mesh, Volume).
 
@@ -269,10 +264,6 @@ def smooth_mesh(x, iterations=5, L=None, method='taubin', backend=None,
     iterations :    int
                     Rounds of smoothing to apply. For `"taubin"` a round is a
                     full shrink-then-inflate pair, i.e. two sweeps over the mesh.
-    L :             float [0-1], optional
-                    Deprecated: this is `lamb` now, the name
-                    `navis_fastcore.smooth_mesh` gives it. Passing it raises a
-                    `DeprecationWarning`.
     method :        "taubin" | "laplacian" | "humphrey"
                     Which filter to run:
 
@@ -318,21 +309,7 @@ def smooth_mesh(x, iterations=5, L=None, method='taubin', backend=None,
 
     """
     if backend is not None:
-        warnings.warn(_deprecated_backend('smooth_mesh'),
-                      DeprecationWarning, stacklevel=_MAPPED)
-
-    if L is not None:
-        if 'lamb' in kwargs:
-            raise TypeError('`L` and `lamb` are the same argument - pass '
-                            '`lamb` only.')
-        warnings.warn(
-            "`smooth_mesh(L=...)` is deprecated - it is `lamb` now, which is "
-            "what `navis_fastcore.smooth_mesh` calls it and leaves room for "
-            "the `mu` it pairs with. Rename the argument.",
-            DeprecationWarning,
-            stacklevel=_MAPPED,
-        )
-        kwargs['lamb'] = L
+        _warn_backend('smooth_mesh')
 
     if not utils.is_mesh(x):
         raise TypeError(f'Expected mesh-like, got "{type(x)}"')

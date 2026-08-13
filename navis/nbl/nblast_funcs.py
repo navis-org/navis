@@ -28,7 +28,7 @@ from typing_extensions import Literal
 
 from navis.nbl.smat import Lookup2d, smat_fcwb, _nblast_v1_scoring
 
-from .. import utils, config
+from .. import utils, config, _deprecated
 from ..compute.dispatch import cpu_count, default_n_workers
 from ..core import NeuronList, Dotprops, make_dotprops
 from .base import Blaster, NestedIndices
@@ -225,6 +225,7 @@ class NBlaster(Blaster):
         return scr
 
 
+@_deprecated.renamed_kwargs(limit_dist="max_dist")
 def nblast_smart(query: Union[Dotprops, NeuronList],
                  target: Optional[str] = None,
                  t: Union[int, float] = 90,
@@ -427,6 +428,7 @@ def nblast_smart(query: Union[Dotprops, NeuronList],
                            smat_kwargs=smat_kwargs)
 
 
+@_deprecated.renamed_kwargs(limit_dist="max_dist")
 def nblast(query: Union[Dotprops, NeuronList],
            target: Optional[str] = None,
            scores: Union[Literal['forward'],
@@ -601,6 +603,7 @@ def nblast(query: Union[Dotprops, NeuronList],
                      smat_kwargs=smat_kwargs)
 
 
+@_deprecated.renamed_kwargs(limit_dist="max_dist")
 def nblast_knn(query: Union[Dotprops, NeuronList],
                target: Optional[Union[Dotprops, NeuronList]] = None,
                k: int = 20,
@@ -815,6 +818,7 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
                          smat_kwargs=smat_kwargs)
 
 
+@_deprecated.renamed_kwargs(limit_dist="max_dist")
 def nblast_allbyall(x: NeuronList,
                     normalized: bool = True,
                     use_alpha: bool = False,

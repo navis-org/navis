@@ -17,7 +17,7 @@ import trimesh as tm
 
 import navis
 
-from navis._deprecated import DEPRECATED_PROPERTIES, reset_deprecation_warnings
+from navis._deprecated import DEPRECATED_PROPERTIES
 from navis.graph.graph_utils import _component_ids
 
 
@@ -325,12 +325,6 @@ def test_heal_keep_largest_keeps_label_zero(fragmented):
 # ---------------------------------------------------------------------------
 # Deprecated spellings
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture(autouse=True)
-def fresh_warnings():
-    """Warn-once state is global; each test needs it clean to observe a warning."""
-    reset_deprecation_warnings()
 
 
 @pytest.mark.parametrize(

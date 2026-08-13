@@ -1,3 +1,4 @@
+import contextlib
 import os
 import nrrd
 import json
@@ -5,6 +6,7 @@ import navis
 import pytest
 import functools
 import threading
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -189,3 +191,26 @@ def neuron_connections(fixture_dir: Path):
         nrns.append(nrn)
 
     return nrns, expected
+
+
+# ---------------------------------------------------------------------------
+# Deprecation warnings
+# ---------------------------------------------------------------------------
+#
+# `navis._deprecated` warns once per name per session, so a test that wants to
+# *observe* a warning needs the record cleared first. Four test files were
+# carrying their own copy of this pair.
+
+
+@pytest.fixture(autouse=True)
+def fresh_deprecation_warnings():
+    """Warn-once state is global; each test starts with it clean."""
+    navis._deprecated.reset_deprecation_warnings()
+
+
+@contextlib.contextmanager
+def no_deprecation_warning():
+    """Turn any DeprecationWarning raised in the block into an error."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        yield

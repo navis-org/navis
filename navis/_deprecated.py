@@ -13,14 +13,16 @@
 
 """Machinery for names that navis has renamed.
 
-Three kinds of rename live here, each with a table so that the shims and the
-tests read from one place:
+Four kinds of rename live here, each served by one helper so that the shims,
+the docs and the tests cannot drift apart:
 
 - **classes** - navis 2.0 renamed the neuron classes to `Skeleton`, `Mesh` and
-  `Voxels`;
+  `Voxels` (`DEPRECATED_NEURON_CLASSES`);
 - **top-level functions** - 2.0 settled on "component" as the one word for a
-  connected piece of a neuron;
-- **properties** - the same, on `Skeleton`.
+  connected piece of a neuron (`DEPRECATED_FUNCTIONS`);
+- **properties** - the same, on `Skeleton` (`DEPRECATED_PROPERTIES`);
+- **keyword arguments** - one name per concept: `max_dist` for a distance cap,
+  `min_size` for a count, `min_length` for a distance (`renamed_kwargs`).
 
 The first two resolve in the top-level `navis` namespace via PEP 562 module
 `__getattr__` - and only there, because a plain module global is found by
@@ -33,16 +35,20 @@ defining module and must find them without a warning. Aliases either way, so
 `isinstance` and subclassing are unaffected by the rename.
 """
 
+import functools
 import sys
 import warnings
 
 __all__ = [
     "DEPRECATED_NEURON_CLASSES",
     "DEPRECATED_FUNCTIONS",
+    "DEPRECATED_KWARGS",
     "DEPRECATED_PROPERTIES",
     "DEPRECATED_TOP_LEVEL",
     "deprecated_getattr",
     "deprecated_property",
+    "caller_stacklevel",
+    "renamed_kwargs",
     "reset_deprecation_warnings",
     "warn_renamed",
 ]
@@ -73,6 +79,13 @@ DEPRECATED_PROPERTIES = {
     },
 }
 
+#: Qualified function name -> `{old kwarg: new kwarg}`, filled in by
+#: `renamed_kwargs` as each decorated function is defined. Unlike the three
+#: tables above this cannot be written by hand: the decorator has to sit at each
+#: `def`, in eight modules. Registering from there keeps the docs and the tests
+#: derivable from the shims rather than hand-copied alongside them.
+DEPRECATED_KWARGS = {}
+
 #: Everything the `navis` namespace serves under an old name.
 DEPRECATED_TOP_LEVEL = {**DEPRECATED_NEURON_CLASSES, **DEPRECATED_FUNCTIONS}
 
@@ -81,8 +94,44 @@ DEPRECATED_TOP_LEVEL = {**DEPRECATED_NEURON_CLASSES, **DEPRECATED_FUNCTIONS}
 _warned = set()
 
 
-def warn_renamed(old, new, stacklevel=3):
-    """Warn once per session that `old` has been renamed to `new`."""
+#: Top-level package name, for `caller_stacklevel`.
+_ROOT_PACKAGE = __name__.partition(".")[0]
+
+
+def caller_stacklevel():
+    """`stacklevel` of the first frame outside navis, i.e. the user's.
+
+    Counting frames by hand is what `stacklevel=` normally asks for, but the
+    count depends on how many of navis' own decorators a function happens to
+    carry - so adding one silently re-points every warning underneath it at
+    navis' own source. Python's default filters only surface a
+    `DeprecationWarning` attributed to `__main__`, so a misblamed warning is one
+    nobody ever sees.
+
+    "Inside navis" is decided by the frame's module rather than by its filename:
+    a path prefix is an artefact of one install shape, and would take a sibling
+    distribution (`navis-fastcore`) for our own and lose track of us entirely
+    under zipimport or `exec(compile(...))`.
+
+    N.B. Python 3.12 has `warnings.warn(skip_file_prefixes=...)` for this;
+    `setup.py` still allows 3.10.
+    """
+    # Frame 1 is our caller, which is the frame `warnings.warn` counts as
+    # level 1 - so that is where the walk starts.
+    frame, level = sys._getframe(1), 1
+    while frame is not None and (
+        frame.f_globals.get("__name__", "").partition(".")[0] == _ROOT_PACKAGE
+    ):
+        frame, level = frame.f_back, level + 1
+    return level
+
+
+def warn_renamed(old, new, stacklevel=None):
+    """Warn once per session that `old` has been renamed to `new`.
+
+    `stacklevel` defaults to whatever points at the caller - see
+    `caller_stacklevel`.
+    """
     if old in _warned:
         return
 
@@ -90,7 +139,7 @@ def warn_renamed(old, new, stacklevel=3):
         f"`{old}` is deprecated and will be removed in a future version - "
         f"use `{new}` instead.",
         DeprecationWarning,
-        stacklevel=stacklevel,
+        stacklevel=caller_stacklevel() if stacklevel is None else stacklevel,
     )
     # Recorded only once the warning is through: under `-W
     # error::DeprecationWarning` the line above raises, and marking the name
@@ -136,6 +185,83 @@ def deprecated_property(cls_name, old, fget=None):
     return property(getter, doc=f"Deprecated. Use `{cls_name}.{new}` instead.")
 
 
+def renamed_kwargs(**renames):
+    """Decorator: keep accepting a function's old keyword argument names.
+
+    Each old name warns once per session and is then forwarded to the new one.
+    Passing both is an error rather than a coin toss over which wins.
+
+    Apply this **innermost** - directly above the `def`, below
+    `@map_neuronlist` and friends. `map_neuronlist` dispatches to worker
+    processes by pickling *its own* wrapper, and pickle resolves a function by
+    looking its qualified name up in the module and checking the result is the
+    same object; a decorator above it takes over that name and the check fails
+    with a `PicklingError`. Nothing in navis' decorators binds the full keyword
+    set, so translating from underneath them is safe.
+
+    The warning still blames the caller: `warn_renamed` finds the first frame
+    outside navis rather than counting a fixed number of them.
+
+    Note the wrapper keeps the *new* signature (via `functools.wraps`), so
+    `inspect.signature` and anything validating against it - e.g.
+    [`navis.Pipeline`][] - still see only the current names. This shim is for
+    direct calls.
+
+    Parameters
+    ----------
+    **renames
+                `old_name="new_name"` pairs.
+
+    Examples
+    --------
+    >>> from navis._deprecated import renamed_kwargs
+    >>> @renamed_kwargs(size="min_length")
+    ... def prune(x, min_length=1):
+    ...     return min_length
+    >>> import warnings
+    >>> with warnings.catch_warnings():
+    ...     warnings.simplefilter("ignore")
+    ...     prune(None, size=5)
+    5
+
+    """
+
+    def decorator(func):
+        # `__qualname__` so that a method reads as `Skeleton.prune_twigs`
+        name = func.__qualname__
+
+        # Wrapping a `map_neuronlist` wrapper is the mistake this cannot survive
+        # (see above) and it only shows up under `parallel=True`, as a
+        # `PicklingError` blaming the user's own arguments. Fail at import.
+        if getattr(func, "__maps_neuronlist__", False):
+            raise TypeError(
+                f"`renamed_kwargs` must be applied below `@map_neuronlist` "
+                f"(i.e. closer to the `def`), but is above it on `{name}`. "
+                "Above it, it takes over the module-level name that pickle "
+                "resolves the mapped wrapper by, and parallel dispatch fails."
+            )
+
+        DEPRECATED_KWARGS[name] = dict(renames)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for old, new in renames.items():
+                if old not in kwargs:
+                    continue
+                if new in kwargs:
+                    raise TypeError(
+                        f"`{name}()` got both `{old}` and `{new}`. `{old}` is "
+                        f"the old name for `{new}` - pass only `{new}`."
+                    )
+                warn_renamed(f"{name}(..., {old}=...)", f"{new}=...")
+                kwargs[new] = kwargs.pop(old)
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def deprecated_getattr(module_name, renames=DEPRECATED_TOP_LEVEL):
     """Build a PEP 562 `__getattr__` that serves renamed attributes.
 
@@ -164,7 +290,7 @@ def deprecated_getattr(module_name, renames=DEPRECATED_TOP_LEVEL):
                 f"module {module_name!r} has no attribute {name!r}"
             )
 
-        warn_renamed(f"{module_name}.{name}", f"{module_name}.{new}", stacklevel=2)
+        warn_renamed(f"{module_name}.{name}", f"{module_name}.{new}")
 
         # Via the module rather than a captured `globals()` so that a rename
         # pointing at a missing target raises AttributeError, not KeyError.

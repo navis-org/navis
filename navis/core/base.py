@@ -1461,12 +1461,17 @@ class BaseNeuron(UnitObject):
         # purpose is an ordering this discards.
         return graph.graph_utils._n_components(self)
 
-    def drop_fluff(self, inplace: bool = False, **kwargs):
+    # Keyword-only: before 2.0 this lived on `Dotprops` alone and took
+    # `epsilon` first and positionally, so without the `*` a leftover
+    # `dp.drop_fluff(500)` would quietly bind 500 to `inplace`.
+    def drop_fluff(self, *, inplace: bool = False, **kwargs):
         """Keep only the largest connected component(s), dropping the rest.
 
         Thin wrapper around [`navis.drop_fluff`][] - see there for `min_size`,
         `n_largest`, `epsilon` and `connectivity`, and for the warning that
         pieces are judged by size alone, never by where they sit.
+
+        Everything is keyword-only.
 
         Parameters
         ----------

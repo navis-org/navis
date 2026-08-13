@@ -233,6 +233,12 @@ def map_neuronlist(
         # Update the docstring
         wrapper = map_neuronlist_update_docstring(wrapper, allow_parallel)
 
+        # Parallel dispatch pickles this wrapper by *name*, so anything stacked
+        # above it takes over the module attribute and breaks that lookup. The
+        # marker lets such a decorator refuse at import rather than blow up
+        # under `parallel=True` - see `navis._deprecated.renamed_kwargs`.
+        wrapper.__maps_neuronlist__ = True
+
         return wrapper
 
     return decorator
@@ -369,6 +375,12 @@ def map_neuronlist_df(
 
         # Update the docstring
         wrapper = map_neuronlist_update_docstring(wrapper, allow_parallel)
+
+        # Parallel dispatch pickles this wrapper by *name*, so anything stacked
+        # above it takes over the module attribute and breaks that lookup. The
+        # marker lets such a decorator refuse at import rather than blow up
+        # under `parallel=True` - see `navis._deprecated.renamed_kwargs`.
+        wrapper.__maps_neuronlist__ = True
 
         return wrapper
 

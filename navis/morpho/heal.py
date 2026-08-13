@@ -29,7 +29,7 @@ from typing import Optional, Sequence
 import numpy as np
 
 from . import subset
-from .. import graph, utils, core
+from .. import graph, utils, core, _deprecated
 from ..core import schema
 
 # N.B. `navis.graph.graph_utils` imports `morpho` at module level, so
@@ -40,6 +40,7 @@ __all__ = ["heal_mesh"]
 
 
 @utils.map_neuronlist(desc="Healing", allow_parallel=True)
+@_deprecated.renamed_kwargs(drop_disc="keep_largest")
 def heal_mesh(
     x: "core.Mesh",
     max_dist: Optional[float] = None,

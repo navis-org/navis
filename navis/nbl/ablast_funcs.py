@@ -25,7 +25,7 @@ from typing import Callable, Dict, Union, Optional
 from typing_extensions import Literal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from .. import config, utils, core
+from .. import config, utils, core, _deprecated
 from ..compute.dispatch import default_n_workers, worker_initializer
 from ..transforms.align import _align_func
 
@@ -256,6 +256,7 @@ class NBlasterAlign(Blaster):
         return scr
 
 
+@_deprecated.renamed_kwargs(limit_dist="max_dist")
 def nblast_align(query: Union[core.BaseNeuron, core.NeuronList],
                  target: Optional[str] = None,
                  align_method: Union[Literal['rigid', 'deform',

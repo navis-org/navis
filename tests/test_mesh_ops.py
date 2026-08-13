@@ -353,7 +353,7 @@ def test_smooth_mesh_L_is_lamb(neuron):
 
     assert np.array_equal(renamed.vertices, navis.smooth_mesh(neuron, lamb=0.3).vertices)
 
-    with pytest.raises(TypeError, match="same argument"):
+    with pytest.raises(TypeError, match="old name"):
         navis.smooth_mesh(neuron, L=0.3, lamb=0.5)
 
 

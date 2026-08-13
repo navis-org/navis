@@ -21,7 +21,7 @@ from typing import Union
 from typing_extensions import Literal
 
 from ..core import Skeleton, NeuronList
-from .. import config, graph
+from .. import config, graph, _deprecated
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -29,6 +29,7 @@ logger = config.get_logger(__name__)
 NeuronObject = Union[Skeleton, NeuronList]
 
 
+@_deprecated.renamed_kwargs(dist="max_dist")
 def cable_overlap(a: NeuronObject,
                   b: NeuronObject,
                   max_dist: Union[float, str] = 2,

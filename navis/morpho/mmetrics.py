@@ -25,7 +25,7 @@ import numpy as np
 from typing import Union, Optional, Sequence
 from typing_extensions import Literal
 
-from .. import config, graph, sampling, core, utils
+from .. import config, graph, sampling, core, utils, _deprecated
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -1023,7 +1023,8 @@ def flow_centrality(x: "core.NeuronObject") -> "core.NeuronObject":
         "morphology-only flow. "
         "This warning will be removed in a future version of navis."
     )
-    warnings.warn(msg, DeprecationWarning)
+    warnings.warn(msg, DeprecationWarning,
+                  stacklevel=_deprecated.caller_stacklevel())
     logger.warning(msg)
 
     if not isinstance(x, core.Skeleton):

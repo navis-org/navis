@@ -25,7 +25,7 @@ from typing_extensions import Literal
 import scipy.spatial
 
 from . import mmetrics, subset
-from .. import graph, utils, config, core
+from .. import graph, utils, config, core, _deprecated
 from ..core import schema
 
 # Set up logging
@@ -278,6 +278,7 @@ def prune_by_strahler(
 
 @utils.map_neuronlist(desc="Pruning", allow_parallel=True)
 @utils.meshneuron_skeleton(method="subset")
+@_deprecated.renamed_kwargs(size="min_length")
 def prune_twigs(
     x: NeuronObject,
     min_length: Union[float, str],
@@ -1498,6 +1499,7 @@ def stitch_skeletons(
 
 
 
+@_deprecated.renamed_kwargs(limit="max_dist")
 def average_skeletons(
     x: "core.NeuronList",
     max_dist: Union[int, str] = 10,
@@ -2083,6 +2085,7 @@ def split_components(
 
 
 @utils.map_neuronlist(desc="Healing", allow_parallel=True)
+@_deprecated.renamed_kwargs(drop_disc="keep_largest")
 def heal_skeleton(
     x: "core.NeuronList",
     method: Union[Literal["LEAFS"], Literal["ALL"]] = "ALL",
@@ -2419,6 +2422,7 @@ def _drop_fluff_voxels(x, min_size, n_largest, connectivity, inplace):
 
 
 @utils.map_neuronlist(desc="Removing fluff", allow_parallel=True)
+@_deprecated.renamed_kwargs(keep_size="min_size")
 def drop_fluff(
     x: Union["core.Skeleton", "core.Mesh", "core.NeuronList"],
     min_size: Optional[float] = None,

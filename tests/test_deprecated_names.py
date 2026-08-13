@@ -12,6 +12,8 @@ import pickle
 import warnings
 
 import navis
+
+from tests.conftest import no_deprecation_warning
 import navis.core
 import navis.core.mesh
 import navis.core.neurons
@@ -23,27 +25,12 @@ from navis._deprecated import (
     DEPRECATED_FUNCTIONS,
     DEPRECATED_NEURON_CLASSES,
     DEPRECATED_TOP_LEVEL,
-    reset_deprecation_warnings,
 )
 
 #: Everything `navis.<old>` serves - classes and renamed functions alike.
 RENAMES = sorted(DEPRECATED_TOP_LEVEL.items())
 #: Only the classes are *also* aliased inside `navis.core` (see the last test).
 CLASS_RENAMES = sorted(DEPRECATED_NEURON_CLASSES.items())
-
-
-@contextlib.contextmanager
-def no_deprecation_warning():
-    """Turn any DeprecationWarning in the block into an error."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", DeprecationWarning)
-        yield
-
-
-@pytest.fixture(autouse=True)
-def fresh_warnings():
-    """Warn-once state is global; each test needs it clean to observe a warning."""
-    reset_deprecation_warnings()
 
 
 def test_rename_tables():

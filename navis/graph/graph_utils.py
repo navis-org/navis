@@ -28,7 +28,7 @@ from typing import Union, Optional, List, Tuple, Sequence, Dict, Set, overload, 
 from scipy.special import softmax
 from scipy.sparse import csgraph, coo_matrix, csr_matrix, diags
 
-from .. import graph, utils, config, core, morpho
+from .. import graph, utils, config, core, morpho, _deprecated
 
 # Set up logging
 logger = config.get_logger(__name__)
@@ -1228,6 +1228,7 @@ def skeleton_adjacency_matrix(
     return adj
 
 
+@_deprecated.renamed_kwargs(limit="max_dist")
 def geodesic_matrix(
     x: "core.NeuronObject",
     from_: Optional[Iterable[int]] = None,
@@ -1943,6 +1944,7 @@ def find_main_branchpoint(
 
 
 @utils.meshneuron_skeleton(method="split")
+@_deprecated.renamed_kwargs(min_size="min_length")
 def split_neurites(
     x: "core.NeuronObject",
     n: int = 2,
