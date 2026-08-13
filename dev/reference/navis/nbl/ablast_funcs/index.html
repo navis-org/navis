@@ -1432,11 +1432,7 @@
     <span class="k">return</span> <span class="n">scr</span>
 </code></pre></div></td></tr></tbody></table></div> </details> </div> </div> </div> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.nbl.ablast_funcs.find_optimal_partition" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">nbl</span><span class="o">.</span><span class="n">ablast_funcs</span><span class="o">.</span><span class="n">find_optimal_partition</span></code> <a href="#navis.nbl.ablast_funcs.find_optimal_partition" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Find a balanced (n_rows, n_cols) grid using the minimal number of blocks.</p> <p>Thin wrapper around <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nbl&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nblast_funcs&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;partition_grid&lt;/span&gt;&lt;/code&gt;" href="../nblast_funcs/#navis.nbl.nblast_funcs.partition_grid"><code>partition_grid</code></a> for callers that only have the query and target NeuronLists at hand. Passes no meaningful block target, so the grid lands on <code>partition_grid</code>'s <code>min_per_core</code> floor - the smallest partition that still keeps every core busy.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>n_cores</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Number of available cores.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>q</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Query and targets, respectively.
-</code></pre></div> </div> <p> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code>(<span title="n_rows">n_rows</span>, <span title="n_cols">n_cols</span>)</code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/nbl/nblast_funcs.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1077</span>
-<span class="normal">1078</span>
-<span class="normal">1079</span>
-<span class="normal">1080</span>
-<span class="normal">1081</span>
+</code></pre></div> </div> <p> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code>(<span title="n_rows">n_rows</span>, <span title="n_cols">n_cols</span>)</code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/nbl/nblast_funcs.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1081</span>
 <span class="normal">1082</span>
 <span class="normal">1083</span>
 <span class="normal">1084</span>
@@ -1453,7 +1449,11 @@
 <span class="normal">1095</span>
 <span class="normal">1096</span>
 <span class="normal">1097</span>
-<span class="normal">1098</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">find_optimal_partition</span><span class="p">(</span><span class="n">n_cores</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+<span class="normal">1098</span>
+<span class="normal">1099</span>
+<span class="normal">1100</span>
+<span class="normal">1101</span>
+<span class="normal">1102</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">find_optimal_partition</span><span class="p">(</span><span class="n">n_cores</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Find a balanced (n_rows, n_cols) grid using the minimal number of blocks.</span>
 
 <span class="sd">    Thin wrapper around [`partition_grid`][navis.nbl.nblast_funcs.partition_grid]</span>
@@ -1475,11 +1475,7 @@
 
 <span class="sd">    """</span>
     <span class="k">return</span> <span class="n">partition_grid</span><span class="p">(</span><span class="n">n_cores</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">q</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="n">target_blocks</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.nbl.ablast_funcs.nblast_preflight" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">nbl</span><span class="o">.</span><span class="n">ablast_funcs</span><span class="o">.</span><span class="n">nblast_preflight</span></code> <a href="#navis.nbl.ablast_funcs.nblast_preflight" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Run preflight checks for NBLAST.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/nbl/nblast_funcs.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1289</span>
-<span class="normal">1290</span>
-<span class="normal">1291</span>
-<span class="normal">1292</span>
-<span class="normal">1293</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.nbl.ablast_funcs.nblast_preflight" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">nbl</span><span class="o">.</span><span class="n">ablast_funcs</span><span class="o">.</span><span class="n">nblast_preflight</span></code> <a href="#navis.nbl.ablast_funcs.nblast_preflight" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Run preflight checks for NBLAST.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/nbl/nblast_funcs.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1293</span>
 <span class="normal">1294</span>
 <span class="normal">1295</span>
 <span class="normal">1296</span>
@@ -1525,7 +1521,11 @@
 <span class="normal">1336</span>
 <span class="normal">1337</span>
 <span class="normal">1338</span>
-<span class="normal">1339</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">nblast_preflight</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">n_cores</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="normal">1339</span>
+<span class="normal">1340</span>
+<span class="normal">1341</span>
+<span class="normal">1342</span>
+<span class="normal">1343</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">nblast_preflight</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">n_cores</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
                      <span class="n">req_unique_ids</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">req_dotprops</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">req_points</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                      <span class="n">req_microns</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Run preflight checks for NBLAST."""</span>
@@ -1576,17 +1576,17 @@
     <span class="k">if</span> <span class="n">batch_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">batch_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">'`batch_size` must be &gt;= 1 or `None`.'</span><span class="p">)</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.nbl.ablast_funcs.resolve_max_dist" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">nbl</span><span class="o">.</span><span class="n">ablast_funcs</span><span class="o">.</span><span class="n">resolve_max_dist</span></code> <a href="#navis.nbl.ablast_funcs.resolve_max_dist" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Let <code>max_dist</code> be given as a unit string, e.g. <code>"5 microns"</code>.</p> <p><code>"auto"</code> and <code>None</code> are the two non-numeric values NBLAST understands in their own right and pass through untouched; anything else that is a string is read against the neurons' <code>.units</code>.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/nbl/nblast_funcs.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1276</span>
-<span class="normal">1277</span>
-<span class="normal">1278</span>
-<span class="normal">1279</span>
-<span class="normal">1280</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.nbl.ablast_funcs.resolve_max_dist" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">nbl</span><span class="o">.</span><span class="n">ablast_funcs</span><span class="o">.</span><span class="n">resolve_max_dist</span></code> <a href="#navis.nbl.ablast_funcs.resolve_max_dist" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Let <code>max_dist</code> be given as a unit string, e.g. <code>"5 microns"</code>.</p> <p><code>"auto"</code> and <code>None</code> are the two non-numeric values NBLAST understands in their own right and pass through untouched; anything else that is a string is read against the neurons' <code>.units</code>.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/nbl/nblast_funcs.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1280</span>
 <span class="normal">1281</span>
 <span class="normal">1282</span>
 <span class="normal">1283</span>
 <span class="normal">1284</span>
 <span class="normal">1285</span>
-<span class="normal">1286</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">resolve_max_dist</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">max_dist</span><span class="p">):</span>
+<span class="normal">1286</span>
+<span class="normal">1287</span>
+<span class="normal">1288</span>
+<span class="normal">1289</span>
+<span class="normal">1290</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">resolve_max_dist</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">max_dist</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Let `max_dist` be given as a unit string, e.g. `"5 microns"`.</span>
 
 <span class="sd">    `"auto"` and `None` are the two non-numeric values NBLAST understands in</span>

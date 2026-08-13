@@ -3317,7 +3317,7 @@ navis.smooth_mesh
 navis.smooth_voxels
                 For smoothing Voxels.
 
-### navis.smooth_mesh(x, iterations=5, L=None, method='taubin', backend=None, inplace=False, **kwargs)
+### navis.smooth_mesh(x, iterations=5, method='taubin', backend=None, inplace=False, **kwargs)
 
 *function*
 
@@ -3337,10 +3337,6 @@ x :             navis.Mesh/List | navis.Volume | trimesh.Trimesh
 iterations :    int
                 Rounds of smoothing to apply. For `"taubin"` a round is a
                 full shrink-then-inflate pair, i.e. two sweeps over the mesh.
-L :             float [0-1], optional
-                Deprecated: this is `lamb` now, the name
-                `navis_fastcore.smooth_mesh` gives it. Passing it raises a
-                `DeprecationWarning`.
 method :        "taubin" | "laplacian" | "humphrey"
                 Which filter to run:
 

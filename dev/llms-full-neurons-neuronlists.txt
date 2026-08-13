@@ -213,7 +213,7 @@ Examples
 >>> m.connected_components().max() + 1
 14
 
-### navis.BaseNeuron.drop_fluff(inplace=False, **kwargs)
+### navis.BaseNeuron.drop_fluff(*, inplace=False, **kwargs)
 
 *function*
 
@@ -222,6 +222,8 @@ Keep only the largest connected component(s), dropping the rest.
 Thin wrapper around navis.drop_fluff - see there for `min_size`,
 `n_largest`, `epsilon` and `connectivity`, and for the warning that
 pieces are judged by size alone, never by where they sit.
+
+Everything is keyword-only.
 
 Parameters
 ----------

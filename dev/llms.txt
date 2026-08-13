@@ -174,7 +174,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neurons-neuronlists
 
 - `navis.BaseNeuron.copy(deepcopy=False)` - Return a copy of the neuron.
 - `navis.BaseNeuron.connected_components(**kwargs)` - Label this neuron's connected components, largest component first.
-- `navis.BaseNeuron.drop_fluff(inplace=False, **kwargs)` - Keep only the largest connected component(s), dropping the rest.
+- `navis.BaseNeuron.drop_fluff(*, inplace=False, **kwargs)` - Keep only the largest connected component(s), dropping the rest.
 - `navis.BaseNeuron.subset(subset, inplace=False, **kwargs)` - Subset this neuron to a set of nodes/vertices/points.
 - `navis.BaseNeuron.split_axon_dendrite(**kwargs)` - Split this neuron into axon and dendrite.
 - `navis.BaseNeuron.plot3d(**kwargs)` - Plot neuron using navis.plot3d.
@@ -419,7 +419,7 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-neuron-morphology.t
 - `navis.merge_subset(x, subset, inplace=False)` - Fold a tracked subset back into the neuron it was taken from.
 - `navis.masked(x, mask, reset=True, warn_cut=True)` - Work on part of a neuron, then put it back.
 - `navis.smooth_skeleton(x, window=None, sigma=None, truncate=4.0, to_smooth=['x', 'y', 'z'], inplace=False)` - Smooth skeleton(s) along their linear segments.
-- `navis.smooth_mesh(x, iterations=5, L=None, method='taubin', backend=None, inplace=False, **kwargs)` - Smooth meshes (TriMesh, Mesh, Volume).
+- `navis.smooth_mesh(x, iterations=5, method='taubin', backend=None, inplace=False, **kwargs)` - Smooth meshes (TriMesh, Mesh, Volume).
 - `navis.smooth_voxels(x, sigma=1, backend='sparsecubes', epsilon=0, truncate=4.0, inplace=False)` - Smooth voxel(s) using a Gaussian filter.
 - `navis.thin_voxels(x, backend='auto', inplace=False, **kwargs)` - Skeletonize image data to single voxel width.
 

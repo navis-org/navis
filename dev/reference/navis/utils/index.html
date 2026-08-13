@@ -1205,19 +1205,7 @@
         <span class="k">return</span> <span class="kc">True</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">False</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.utils.lock_neuron" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">lock_neuron</span></code> <a href="#navis.utils.lock_neuron" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Lock neuron while function is executed.</p> <p>This makes sure that temporary attributes aren't re-calculated as changes are being made.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/decorators.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span>
-<span class="normal">443</span>
-<span class="normal">444</span>
-<span class="normal">445</span>
-<span class="normal">446</span>
-<span class="normal">447</span>
-<span class="normal">448</span>
-<span class="normal">449</span>
-<span class="normal">450</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.utils.lock_neuron" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">lock_neuron</span></code> <a href="#navis.utils.lock_neuron" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Lock neuron while function is executed.</p> <p>This makes sure that temporary attributes aren't re-calculated as changes are being made.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/decorators.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">450</span>
 <span class="normal">451</span>
 <span class="normal">452</span>
 <span class="normal">453</span>
@@ -1241,7 +1229,19 @@
 <span class="normal">471</span>
 <span class="normal">472</span>
 <span class="normal">473</span>
-<span class="normal">474</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">lock_neuron</span><span class="p">(</span><span class="n">function</span><span class="p">):</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
+<span class="normal">482</span>
+<span class="normal">483</span>
+<span class="normal">484</span>
+<span class="normal">485</span>
+<span class="normal">486</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">lock_neuron</span><span class="p">(</span><span class="n">function</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Lock neuron while function is executed.</span>
 
 <span class="sd">    This makes sure that temporary attributes aren't re-calculated as changes</span>
@@ -1748,7 +1748,13 @@
 <span class="normal">235</span>
 <span class="normal">236</span>
 <span class="normal">237</span>
-<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">map_neuronlist</span><span class="p">(</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">map_neuronlist</span><span class="p">(</span>
     <span class="n">desc</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
     <span class="n">can_zip</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">must_zip</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[],</span>
@@ -1946,6 +1952,12 @@
         <span class="c1"># Update the docstring</span>
         <span class="n">wrapper</span> <span class="o">=</span> <span class="n">map_neuronlist_update_docstring</span><span class="p">(</span><span class="n">wrapper</span><span class="p">,</span> <span class="n">allow_parallel</span><span class="p">)</span>
 
+        <span class="c1"># Parallel dispatch pickles this wrapper by *name*, so anything stacked</span>
+        <span class="c1"># above it takes over the module attribute and breaks that lookup. The</span>
+        <span class="c1"># marker lets such a decorator refuse at import rather than blow up</span>
+        <span class="c1"># under `parallel=True` - see `navis._deprecated.renamed_kwargs`.</span>
+        <span class="n">wrapper</span><span class="o">.</span><span class="n">__maps_neuronlist__</span> <span class="o">=</span> <span class="kc">True</span>
+
         <span class="k">return</span> <span class="n">wrapper</span>
 
     <span class="k">return</span> <span class="n">decorator</span>
@@ -1957,13 +1969,7 @@
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> bool</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>True</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>allow_parallel</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>         If True and the function is called with `parallel=True`,
          will use multiple cores to process the neuronlist. Number
          of cores a can be set using `n_cores` keyword argument.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/decorators.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span>
-<span class="normal">247</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/decorators.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">247</span>
 <span class="normal">248</span>
 <span class="normal">249</span>
 <span class="normal">250</span>
@@ -2091,7 +2097,19 @@
 <span class="normal">372</span>
 <span class="normal">373</span>
 <span class="normal">374</span>
-<span class="normal">375</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">map_neuronlist_df</span><span class="p">(</span>
+<span class="normal">375</span>
+<span class="normal">376</span>
+<span class="normal">377</span>
+<span class="normal">378</span>
+<span class="normal">379</span>
+<span class="normal">380</span>
+<span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">map_neuronlist_df</span><span class="p">(</span>
     <span class="n">desc</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
     <span class="n">id_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"neuron"</span><span class="p">,</span>
     <span class="n">reset_index</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -2222,6 +2240,12 @@
 
         <span class="c1"># Update the docstring</span>
         <span class="n">wrapper</span> <span class="o">=</span> <span class="n">map_neuronlist_update_docstring</span><span class="p">(</span><span class="n">wrapper</span><span class="p">,</span> <span class="n">allow_parallel</span><span class="p">)</span>
+
+        <span class="c1"># Parallel dispatch pickles this wrapper by *name*, so anything stacked</span>
+        <span class="c1"># above it takes over the module attribute and breaks that lookup. The</span>
+        <span class="c1"># marker lets such a decorator refuse at import rather than blow up</span>
+        <span class="c1"># under `parallel=True` - see `navis._deprecated.renamed_kwargs`.</span>
+        <span class="n">wrapper</span><span class="o">.</span><span class="n">__maps_neuronlist__</span> <span class="o">=</span> <span class="kc">True</span>
 
         <span class="k">return</span> <span class="n">wrapper</span>
 
@@ -2415,19 +2439,7 @@
     openings the cut leaves in the mesh. Off by default because it
     can double the cost of the subset; callers who want it can reach
     for [`navis.fill_holes`][] afterwards.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/decorators.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">570</span>
-<span class="normal">571</span>
-<span class="normal">572</span>
-<span class="normal">573</span>
-<span class="normal">574</span>
-<span class="normal">575</span>
-<span class="normal">576</span>
-<span class="normal">577</span>
-<span class="normal">578</span>
-<span class="normal">579</span>
-<span class="normal">580</span>
-<span class="normal">581</span>
-<span class="normal">582</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>False</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/decorators.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">582</span>
 <span class="normal">583</span>
 <span class="normal">584</span>
 <span class="normal">585</span>
@@ -2607,7 +2619,19 @@
 <span class="normal">759</span>
 <span class="normal">760</span>
 <span class="normal">761</span>
-<span class="normal">762</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">meshneuron_skeleton</span><span class="p">(</span>
+<span class="normal">762</span>
+<span class="normal">763</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span>
+<span class="normal">767</span>
+<span class="normal">768</span>
+<span class="normal">769</span>
+<span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span>
+<span class="normal">774</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">meshneuron_skeleton</span><span class="p">(</span>
     <span class="n">method</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
         <span class="n">Literal</span><span class="p">[</span><span class="s2">"subset"</span><span class="p">],</span>
         <span class="n">Literal</span><span class="p">[</span><span class="s2">"split"</span><span class="p">],</span>
@@ -3072,19 +3096,7 @@
 
     <span class="k">return</span> <span class="n">neurons</span><span class="p">,</span> <span class="n">volumes</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="n">visuals</span>
 </code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.utils.rebuilds" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">rebuilds</span></code> <a href="#navis.utils.rebuilds" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Decorate a function that replaces an axis' elements rather than selecting.</p> <p>Rebuilding is a different thing from selecting and needs saying so. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;subset_neuron&lt;/span&gt;&lt;/code&gt;" href="../#navis.subset_neuron"><code>navis.subset_neuron</code></a> takes elements away, so everything else - a connector's node, a tag, anything attached - follows by construction. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;resample_skeleton&lt;/span&gt;&lt;/code&gt;" href="../#navis.resample_skeleton"><code>navis.resample_skeleton</code></a> does not remove any part of the neuron; it re-samples it, so the node a connector named is gone while the connector still sits on the arbour. Only the function knows where it went.</p> <p>So the function says. It returns <code>(neuron, schema.Rebuild)</code> instead of just the neuron, and this unwraps that: the <code>Rebuild</code> goes to <code>schema.apply_rebuild</code> and the caller gets the neuron, as before.</p> <p>Two things happen around the call:</p> <ul> <li>the axis' attached data is taken out of the way first, because the function will assign the new elements through the public setter, which - knowing nothing of the rebuild - would drop it;</li> <li><code>_replacing</code> is stood down for the same reason, so it does not warn about something we are about to put back.</li> </ul> <p>Goes <em>inside</em> <code>map_neuronlist</code>, so it always sees a single neuron.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>axis</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>Name of the axis being rebuilt, e.g. `"nodes"`.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/decorators.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">477</span>
-<span class="normal">478</span>
-<span class="normal">479</span>
-<span class="normal">480</span>
-<span class="normal">481</span>
-<span class="normal">482</span>
-<span class="normal">483</span>
-<span class="normal">484</span>
-<span class="normal">485</span>
-<span class="normal">486</span>
-<span class="normal">487</span>
-<span class="normal">488</span>
-<span class="normal">489</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/decorators.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">489</span>
 <span class="normal">490</span>
 <span class="normal">491</span>
 <span class="normal">492</span>
@@ -3138,7 +3150,19 @@
 <span class="normal">540</span>
 <span class="normal">541</span>
 <span class="normal">542</span>
-<span class="normal">543</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rebuilds</span><span class="p">(</span><span class="n">axis</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span>
+<span class="normal">550</span>
+<span class="normal">551</span>
+<span class="normal">552</span>
+<span class="normal">553</span>
+<span class="normal">554</span>
+<span class="normal">555</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rebuilds</span><span class="p">(</span><span class="n">axis</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Decorate a function that replaces an axis' elements rather than selecting.</span>
 
 <span class="sd">    Rebuilding is a different thing from selecting and needs saying so.</span>
