@@ -101,6 +101,7 @@ pytest-xvfb
 pytest-timeout
 gitpython
 scikit-image
+scikit-learn
 # Repeated from `cluster` so CI actually exercises those backends - they are
 # kept out of `navis[all]` but should not go untested.
 dask[distributed]>=2023.1
