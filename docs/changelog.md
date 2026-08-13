@@ -20,7 +20,8 @@ pip uninstall navis -y
 pip install git+https://github.com/navis-org/navis@master
 ```
 
-{{ navis }} 2.0 is a major release with a lot of breaking changes - the entries here are the short version. See **[Migrating to {{ navis }} 2.0](migrating_2.0.md)** for a summary of the release, a migration checklist and the full list of changes
+!!! example "Migrating to {{ navis }} 2.0"
+    {{ navis }} 2.0 is a major release with a lot of breaking changes - the entries here are the short version. See **[Migrating to {{ navis }} 2.0](migrating_2.0.md)** for a summary of the release, a migration checklist and the full list of changes
 
 ##### Breaking
 - the neuron classes have been renamed: `TreeNeuron` :material-arrow-right-thin: [`Skeleton`][navis.Skeleton], `MeshNeuron` :material-arrow-right-thin: [`Mesh`][navis.Mesh], `VoxelNeuron` :material-arrow-right-thin: [`Voxels`][navis.Voxels]. The old names still work (as aliases, so `isinstance` and subclassing are unaffected) but emit a `DeprecationWarning`; note that `.type` now reads e.g. `"navis.Skeleton"`
