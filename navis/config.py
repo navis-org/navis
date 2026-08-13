@@ -254,6 +254,9 @@ elastix_invertible = False
 # overcommit, numpy hands out such an array without complaint and the process
 # is then OOM-killed (SIGKILL, no traceback) once the pages are touched - hence
 # we check up-front instead of relying on `MemoryError`.
+# Also caps `navis.nblast_knn`'s signature grid, which is sized the same way -
+# from the neurons' extent and `voxel`, not from the voxels they occupy - and
+# whose allocation happens in Rust, where failure aborts the process outright.
 # Set to 0 or None to disable the check.
 max_grid_size = int(os.environ.get("NAVIS_MAX_GRID_SIZE", 4 * 1024**3))  # 4 GiB
 

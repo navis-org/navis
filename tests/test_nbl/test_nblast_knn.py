@@ -198,6 +198,56 @@ def test_builtin_backend_is_rejected(dps):
         navis.nblast_knn(dps, k=2, backend="builtin", progress=False)
 
 
+@pytest.mark.parametrize("voxel", [0, -1])
+def test_rejects_non_positive_voxel(dps, voxel):
+    with pytest.raises(ValueError, match="voxel"):
+        navis.nblast_knn(dps, k=2, voxel=voxel, progress=False)
+
+
+# ------------------------------------------------------------- the signature grid
+
+
+@pytest.fixture(scope="module")
+def dps_nm():
+    """The same neurons in their native 8 nm units - i.e. *not* in microns."""
+    return navis.make_dotprops(navis.example_neurons(n=2), k=5, progress=False)
+
+
+def test_units_that_imply_an_impossible_grid_raise(dps_nm):
+    """The failure this replaces was a SIGABRT, not an exception.
+
+    `voxel` is an edge length in the units of the points, so 8 nm coordinates
+    ask for a grid 125x too fine per axis - two million times the cells, which
+    fastcore allocates in one block. On a machine that cannot supply it, Rust
+    aborts the process: no traceback, no `MemoryError`, exit code 134.
+    """
+    with pytest.raises(MemoryError, match="not in microns"):
+        navis.nblast_knn(dps_nm, k=1, progress=False)
+
+
+def test_the_grid_is_measured_across_query_and_target(dps, dps_nm):
+    """One grid spans both sets, so either side can blow it up."""
+    with pytest.raises(MemoryError, match="not in microns"):
+        navis.nblast_knn(dps, target=dps_nm, k=1, progress=False)
+
+
+def test_matching_voxel_to_the_units_works(dps_nm):
+    """The advice the error gives has to actually work."""
+    out = navis.nblast_knn(dps_nm, k=1, voxel=20 * 1000 / 8, progress=False)
+
+    assert len(out) == len(dps_nm)
+
+
+def test_the_limit_is_navis_config(dps, monkeypatch):
+    """Same knob as navis' own dense grids, and it can be turned off."""
+    monkeypatch.setattr(navis.config, "max_grid_size", 1)
+    with pytest.raises(MemoryError, match="max_grid_size"):
+        navis.nblast_knn(dps, k=1, progress=False)
+
+    monkeypatch.setattr(navis.config, "max_grid_size", 0)
+    assert len(navis.nblast_knn(dps, k=1, progress=False)) == len(dps)
+
+
 # N.B. there used to be two tests here for a missing or too-old navis-fastcore.
 # Both are gone with the optional dependency: fastcore is required now, and the
 # version floor (`>=0.9.0`) guarantees `nblast_knn`, so neither state is

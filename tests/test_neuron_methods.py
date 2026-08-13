@@ -374,7 +374,12 @@ def kwarg_fixtures():
         "skeleton": nl[0],
         "mesh": navis.example_neurons(1, kind="mesh"),
         "neuronlist": nl,
-        "dotprops_nl": navis.make_dotprops(nl, k=5),
+        # In microns, like every other NBLAST test: `nblast_knn` sizes its
+        # signature grid in the units of the points, so 8 nm ones make it 125x
+        # too fine per axis - half a million times the cells, which fastcore
+        # asks for in one 25 GB allocation. That fails on a CI-sized machine,
+        # and a failed allocation aborts the interpreter rather than raising.
+        "dotprops_nl": navis.make_dotprops(nl * (8 / 1000), k=5, progress=False),
     }
 
 

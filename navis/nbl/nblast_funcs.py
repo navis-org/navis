@@ -14,6 +14,7 @@
 
 """Module contains functions implementing NBLAST."""
 
+import math
 import time
 import numbers
 import os
@@ -603,6 +604,57 @@ def nblast(query: Union[Dotprops, NeuronList],
                      smat_kwargs=smat_kwargs)
 
 
+def _check_signature_grid(query, target, voxel, n_dirs):
+    """Refuse a signature grid that could not be allocated.
+
+    `nblast_knn`'s first stage bins every point into a voxel grid spanning the
+    query and target clouds; the candidate search then walks a *dense* feature
+    -> neuron index over it. That index is allocated from the grid's shape
+    rather than from the voxels that are actually occupied, so what it costs is
+    set by the neurons' extent and not by their size - and `voxel` is an edge
+    length in whatever units the points are in. The same neurons in nanometres
+    instead of microns therefore imply a grid 1000x finer per axis, i.e. 1e9
+    times the cells.
+
+    Getting that wrong is not a slow run but a dead interpreter: the index is
+    one contiguous block, and a failed allocation in Rust aborts the process -
+    no `MemoryError`, no traceback, just SIGABRT. Hence the check up-front,
+    against the same limit that guards navis' own dense grids.
+    """
+    if not voxel > 0:
+        raise ValueError(f'`voxel` must be a positive edge length, got {voxel}')
+
+    clouds = [n.points for n in query]
+    if target is not None:
+        clouds += [n.points for n in target]
+    clouds = [p for p in clouds if len(p)]
+    if not clouds:
+        return
+
+    lo = np.min([p.min(axis=0) for p in clouds], axis=0)
+    hi = np.max([p.max(axis=0) for p in clouds], axis=0)
+
+    # A NaN or infinite coordinate makes the extent unmeasurable rather than
+    # large. Leave those to fastcore, which drops non-finite points out of the
+    # bounding box, instead of guessing at a grid size here.
+    if not np.isfinite(hi - lo).all():
+        return
+
+    # Mirrors fastcore's `SigGrid::spanning`: a voxel of margin below the
+    # lowest point and above the highest, plus two cells of slack per axis.
+    dims = [math.ceil(span / voxel) + 4 for span in (hi - lo)]
+
+    # One `usize` per (voxel, direction bin). fastcore briefly holds two such
+    # arrays at once, so the effective ceiling is conservative by 2x.
+    utils.check_grid_size(
+        dims + [max(int(n_dirs), 1)],
+        dtype=np.int64,
+        hint=(f'`nblast_knn` bins points into {voxel}-unit voxels (x{n_dirs} '
+              'tangent-direction bins), so this usually means the neurons are '
+              'not in microns - convert them (e.g. `nl / 1000` for nanometres) '
+              'or raise `voxel` to match the units they are in.'))
+
+
 @_deprecated.renamed_kwargs(limit_dist="max_dist")
 def nblast_knn(query: Union[Dotprops, NeuronList],
                target: Optional[Union[Dotprops, NeuronList]] = None,
@@ -701,7 +753,10 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
     voxel :         float
                     Edge length of the signature voxels used for the shortlist,
                     in the units of the neurons (microns for the FCWB matrix).
-                    10-20 measure equivalently.
+                    10-20 measure equivalently. Neurons in smaller units imply a
+                    proportionally finer - and much larger - grid; if it would
+                    exceed `navis.config.max_grid_size` this raises a
+                    `MemoryError` rather than letting the allocation fail.
     n_dirs :        int
                     Number of tangent-direction bins for the signature. Use 1 to
                     disable them.
@@ -791,6 +846,8 @@ def nblast_knn(query: Union[Dotprops, NeuronList],
                      req_microns=isinstance(smat, str) and smat == 'auto')
     # `max_dist` may be given as a unit string, e.g. "5 microns"
     max_dist = resolve_max_dist(query_dps, max_dist)
+
+    _check_signature_grid(query_dps, target_dps, voxel, n_dirs)
 
     # Select the backend. Note we default to "auto" rather than to
     # `config.default_nblast_backend`: the latter is "builtin", which has no
