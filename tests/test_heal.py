@@ -95,7 +95,7 @@ def brute_force_mst_cable(x, cols=("x", "y", "z")):
     pair of nodes between every pair of fragments) and runs a global MST over
     it. This is the ground truth `heal_skeleton` must reproduce.
     """
-    labels = navis.graph.graph_utils._connected_components(x)
+    labels = navis.graph.graph_utils._component_ids(x)
     coords = x.nodes[list(cols)].values.astype(float)
     ids = x.nodes.node_id.values
     pos = {n: i for i, n in enumerate(ids)}
@@ -277,11 +277,11 @@ def test_heal_min_size_skips_small_fragments():
     assert healed.n_nodes == n.n_nodes
 
 
-def test_heal_drop_disc():
+def test_heal_keep_largest():
     n = navis.example_neurons(1, kind="skeleton")
     frag = fragment(n, 50)
 
-    healed = navis.heal_skeleton(frag, max_dist=10, drop_disc=True)
+    healed = navis.heal_skeleton(frag, max_dist=10, keep_largest=True)
 
     assert len(healed.root) == 1
     assert healed.n_nodes < n.n_nodes

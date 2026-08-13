@@ -24,9 +24,11 @@ from .converters import (
 )
 from .graph_utils import (
     classify_nodes,
+    connected_components,
+    _component_ids,
     cut_skeleton,
     longest_neurite,
-    split_into_fragments,
+    split_neurites,
     reroot_skeleton,
     distal_to,
     dist_between,
@@ -40,10 +42,8 @@ from .graph_utils import (
     _generate_segments,
     segment_length,
     segment_lengths,
-    _connected_components,
     rewire_skeleton,
-    connected_subgraph,
-    connected_components_of,
+    connecting_nodes,
     subset_igraph,
     insert_nodes,
     remove_nodes,
@@ -56,9 +56,10 @@ from .clinic import health_check
 
 
 __all__ = [
+    "connected_components",
     "cut_skeleton",
     "longest_neurite",
-    "split_into_fragments",
+    "split_neurites",
     "reroot_skeleton",
     "distal_to",
     "dist_between",

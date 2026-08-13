@@ -106,7 +106,7 @@ def test_fix_mesh_copy_semantics(messy_box):
 def test_fix_mesh_remove_fragments():
     """Small disconnected bits are dropped."""
     m = navis.example_neurons(1, kind="mesh")
-    sizes = sorted(len(c) for c in navis.graph.graph_utils._connected_components(m))
+    sizes = sorted(len(c) for c in navis.graph.graph_utils._component_ids(m))
 
     fixed = navis.fix_mesh(m, remove_fragments=5)
 

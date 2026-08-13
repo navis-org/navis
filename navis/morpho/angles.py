@@ -275,17 +275,15 @@ def root_angles(x, degrees=True):
     n2 = coords.index.values[non_root]  # distal node of the edge
     n1 = pid.values[non_root]           # proximal (parent) node of the edge
 
-    # Map each proximal node to the root of its connected component
-    root_set = set(int(r) for r in x.root)
-    if len(root_set) == 1:
-        root_of_n1 = np.full(len(n1), next(iter(root_set)))
-    else:
-        node2root = {}
-        for sub in x.subtrees:
-            sub = set(int(s) for s in sub)
-            r = next(iter(root_set & sub))
-            node2root.update({nd: r for nd in sub})
-        root_of_n1 = np.array([node2root[int(nd)] for nd in n1])
+    # Map each proximal node to the root of its connected component. Fastcore
+    # answers this directly - it labels each node *by its root's ID*, which is
+    # the mapping we want rather than something to invert a labelling for.
+    node_ids = x.nodes.node_id.values
+    root_of = pd.Series(
+        utils.fastcore.connected_components(node_ids, x.nodes.parent_id.values),
+        index=node_ids,
+    )
+    root_of_n1 = root_of.loc[n1].values
 
     u = incoming.loc[n2].values                              # edge direction
     v = coords.loc[n1].values - coords.loc[root_of_n1].values  # root -> parent

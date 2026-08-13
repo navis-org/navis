@@ -113,14 +113,11 @@ def fix_mesh(
     assert isinstance(m, tm.Trimesh)
 
     if remove_fragments:
-        to_drop = []
-        for c in graph.graph_utils._connected_components(m):
-            if len(c) <= remove_fragments:
-                to_drop += list(c)
-
-        # Remove dropped vertices
-        remove = np.isin(np.arange(m.vertices.shape[0]), to_drop)
-        m.update_vertices(~remove)
+        # A component's size is `bincount`'s entry for its label, so the ones to
+        # drop can be read off in one go. No mask here, so no -1s to work around.
+        labels = graph.connected_components(m)
+        sizes = np.bincount(labels)
+        m.update_vertices(sizes[labels] > remove_fragments)
 
     if fill_holes:
         m.fill_holes()

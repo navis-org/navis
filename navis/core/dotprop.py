@@ -538,12 +538,13 @@ class Dotprops(BaseNeuron):
 
         return x
 
-    def drop_fluff(self, epsilon, keep_size: int = None, n_largest: int = None, inplace=False):
-        """Remove fluff from neuron.
+    def drop_fluff(self, epsilon, min_size: int = None, n_largest: int = None, inplace=False):
+        """Keep only the largest connected component(s), dropping the rest.
 
         By default, this function will remove all but the largest connected
         component from the neuron. You can change that behavior using the
-        `keep_size` and `n_largest` parameters.
+        `min_size` and `n_largest` parameters. Note that pieces are judged by
+        size alone, never by where they sit - see [`navis.drop_fluff`][].
 
         Parameters
         ----------
@@ -551,13 +552,13 @@ class Dotprops(BaseNeuron):
                     Distance at which to consider two points to be connected.
                     If `None`, will use the default value of 5 times the average
                     node distance (`self.sampling_resolution`).
-        keep_size : float, optional
+        min_size : float, optional
                     Use this to set a size (in number of points) for small
-                    bits to keep. If `keep_size` < 1 it will be intepreted as
+                    bits to keep. If `min_size` < 1 it will be intepreted as
                     fraction of total nodes/vertices/points.
         n_largest : int, optional
                     If set, will keep the `n_largest` connected components. Note:
-                    if provided, `keep_size` will be applied first!
+                    if provided, `min_size` will be applied first!
         inplace :   bool, optional
                     If False, will return a copy and leave the original data
                     unmodified.
@@ -573,7 +574,7 @@ class Dotprops(BaseNeuron):
             Base function. See for details and examples.
 
         """
-        x = morpho.drop_fluff(self, epsilon=epsilon, keep_size=keep_size, n_largest=n_largest, inplace=inplace)
+        x = morpho.drop_fluff(self, epsilon=epsilon, min_size=min_size, n_largest=n_largest, inplace=inplace)
 
         if not inplace:
             return x

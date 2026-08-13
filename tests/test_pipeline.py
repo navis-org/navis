@@ -229,7 +229,7 @@ def test_type_changing_steps(nl):
 
 def test_one_to_many_tail_is_flattened(nl):
     """A step that returns several neurons per input just adds to the list."""
-    pipe = navis.Pipeline(navis.heal_skeleton).add(navis.break_fragments)
+    pipe = navis.Pipeline(navis.heal_skeleton).add(navis.split_components)
 
     res = pipe(nl)
 

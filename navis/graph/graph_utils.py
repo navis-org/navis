@@ -18,6 +18,7 @@ from collections import defaultdict
 import igraph
 import numpy as np
 import pandas as pd
+import sparsecubes
 import trimesh as tm
 import networkx as nx
 
@@ -44,9 +45,11 @@ _FASTCORE_NODE_TYPES = np.array(
 __all__ = sorted(
     [
         "classify_nodes",
+        "connected_components",
+        "connecting_nodes",
         "cut_skeleton",
         "longest_neurite",
-        "split_into_fragments",
+        "split_neurites",
         "reroot_skeleton",
         "distal_to",
         "dist_between",
@@ -124,13 +127,42 @@ def _generate_segments(
         return segs
 
 
-def _group_by_label(labels: np.ndarray) -> List[np.ndarray]:
-    """Group indices by their label: one array of indices per component."""
-    order = np.argsort(labels, kind="mergesort")
-    _, start_idx, counts = np.unique(
-        labels[order], return_index=True, return_counts=True
-    )
-    return [order[start : start + count] for start, count in zip(start_idx, counts)]
+def _compress(
+    labels: np.ndarray, where: Optional[np.ndarray], n: int
+) -> Tuple[np.ndarray, int]:
+    """Renumber `labels` to a contiguous `0 .. k - 1` and place them in an array.
+
+    The union-find primitives all label a component by its smallest member's
+    index, which is neither contiguous nor - once a mask has taken elements out
+    of the running - free of gaps. This is the one way back.
+
+    Parameters
+    ----------
+    labels :    (M, ) array
+                Labels of the elements that are *in* a component.
+    where :     (M, ) index or bool array, optional
+                Where those elements sit in the full array. `None` means they
+                already are the full array.
+    n :         int
+                Length of the full array. Ignored if `where` is `None`.
+
+    Returns
+    -------
+    labels :    (N, ) int64 array
+                `-1` wherever `where` left a gap.
+    k :         int
+                Number of distinct labels.
+
+    """
+    uniq, out = np.unique(labels, return_inverse=True)
+    out = out.reshape(-1).astype(np.int64, copy=False)
+
+    if where is None:
+        return out, len(uniq)
+
+    full = np.full(n, -1, dtype=np.int64)
+    full[where] = out
+    return full, len(uniq)
 
 
 def _merge_labels(labels: np.ndarray, edges: Optional[np.ndarray]) -> np.ndarray:
@@ -260,13 +292,12 @@ def _extra_edges_as_faces(
 def _mesh_component_labels(
     x: Union["core.Mesh", "tm.Trimesh"],
     connectivity: str = "vertex",
+    keep: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, int]:
     """Label each vertex (or face) with the connected component it belongs to.
 
-    Unlike [`navis.graph.graph_utils._connected_components`][] this returns a
-    plain integer array positionally aligned with the vertices (faces) rather
-    than a list of arrays. That matters whenever you want to index something *by*
-    component - e.g. a `bincount` of component sizes.
+    Unlike [`navis.connected_components`][] the labels here are contiguous but
+    in no particular order - sorting them by size is that function's job.
 
     Note this labels the components of the *graph*: a mesh's extra edges (edges
     that are not part of any face) count as connections.
@@ -288,13 +319,21 @@ def _mesh_component_labels(
                     The latter two also change what the labels are *of*: a pinch
                     vertex belongs to several face components at once, so those
                     can only be reported per face.
+    keep :          (N, ) bool array, optional
+                    Boolean mask over *vertices* - always vertices, whatever the
+                    labels end up being of, because vertices are what a mesh is
+                    subset by. Restricts this to the induced sub-mesh: a face
+                    survives only if all three of its corners do, and an extra
+                    edge only if both its ends do. Elements left out come back
+                    as `-1`.
 
     Returns
     -------
     labels :    (N, ) or (F, ) int array
                 Component label for each vertex (`"vertex"`) or for each face
                 (`"face"`/`"manifold"`), in vertex/face order. Labels are
-                contiguous (`0 .. n_components - 1`) but otherwise arbitrary.
+                contiguous (`0 .. n_components - 1`) but otherwise arbitrary;
+                `-1` marks an element `keep` left out.
     n :         int
                 Number of connected components.
 
@@ -305,8 +344,20 @@ def _mesh_component_labels(
             f'got "{connectivity}"'
         )
 
-    faces = np.asarray(x.faces)
+    # N.B. the dtype: an empty `Mesh` hands back a float64 `(0, 3)`, which would
+    # make the boolean indexing below an IndexError rather than a no-op.
+    faces = np.asarray(x.faces, dtype=np.int64)
     extra_edges = getattr(x, "extra_edges", None)
+
+    # Inducing the sub-mesh is just dropping whatever crosses the mask: no
+    # re-indexing, so the labels below still line up with the original vertices.
+    face_ix = None
+    if keep is not None:
+        face_ix = np.flatnonzero(keep[faces].all(axis=1))
+        faces = faces[face_ix]
+        if extra_edges is not None and len(extra_edges):
+            extra_edges = np.asarray(extra_edges)
+            extra_edges = extra_edges[keep[extra_edges].all(axis=1)]
 
     if connectivity == "vertex":
         n_verts = len(x.vertices)
@@ -318,7 +369,9 @@ def _mesh_component_labels(
         labels = utils.fastcore.mesh_connected_components(faces, n_verts)  # type: ignore
     else:
         if not len(faces):
-            return np.zeros(0, dtype=np.int64), 0
+            # Nothing left to label. Without a mask this is an empty array (the
+            # mesh has no faces); with one it is a face per -1 (all masked out).
+            return np.full(len(x.faces), -1, dtype=np.int64), 0
 
         # Face adjacency does have to group the faces' edges first, which is
         # where all of its (still modest) extra time goes. The two face readings
@@ -333,10 +386,17 @@ def _mesh_component_labels(
     # Edges that are not part of any face (e.g. bridges added by
     # `navis.heal_mesh`) are invisible to the above and have to be merged in
     labels = _merge_labels(labels, extra_edges)
-    # N.B. fastcore labels each component by its smallest member index, so these
-    # need compressing to the contiguous `0 .. n_components - 1` we promise above
-    uniq, labels = np.unique(labels, return_inverse=True)
-    return labels.reshape(-1).astype(np.int64, copy=False), len(uniq)
+
+    if keep is None:
+        return _compress(labels, None, len(labels))
+
+    if connectivity == "vertex":
+        # Masked-out vertices are in no face and so came back as singletons of
+        # their own; they have to go before the labels are compressed
+        return _compress(labels[keep], keep, len(labels))
+
+    # Face labels are over the surviving faces only, so scatter them back
+    return _compress(labels, face_ix, len(x.faces))
 
 
 def skeleton_edges(x: "core.Skeleton"):
@@ -418,7 +478,190 @@ def _resolve_connectivity(
     return connectivity
 
 
-def _connected_components(
+#: Per type of neuron: the elements a component labelling can be *of*, and the
+#: `subset_neuron` axis that a `mask` selects. The first element is the one the
+#: neuron is made of and the one the axis holds - only meshes have a second, and
+#: `faces` is not an axis (a mesh is subset by vertices).
+_ELEMENTS = {
+    "Skeleton": (("node",), "nodes"),
+    "Mesh": (("vertex", "face"), "vertices"),
+    "Dotprops": (("point",), "points"),
+    "Voxels": (("voxel",), "voxels"),
+}
+
+
+def _element_kind(x: Union["core.BaseNeuron", "tm.Trimesh"]) -> str:
+    """The `_ELEMENTS` key for a neuron, i.e. its type modulo Trimesh."""
+    if isinstance(x, (core.Mesh, tm.Trimesh)):
+        return "Mesh"
+    for kind in ("Skeleton", "Dotprops", "Voxels"):
+        if isinstance(x, getattr(core, kind)):
+            return kind
+    raise TypeError(f"Neuron type {type(x).__name__} has no connected components")
+
+
+def _resolve_mask(
+    x: Union["core.BaseNeuron", "tm.Trimesh"], mask, axis_name: str
+) -> Optional[np.ndarray]:
+    """Normalise `mask` into a boolean array over the axis a neuron is subset by.
+
+    `None` means "everything", and is returned as `None` rather than an
+    all-`True` array so callers can skip the induced-subgraph work entirely -
+    and so that an empty neuron, whose elements cannot even be counted, never
+    has to answer.
+    """
+    if mask is None:
+        return None
+
+    # `Voxels` declares no axes (its `.voxels` are derived from a grid half the
+    # time, so there is no attribute for an `Axis` to own) and a bare `Trimesh`
+    # declares nothing at all - but `resolve_selection` only ever reads the axis'
+    # length and its ID column, so a positional stand-in serves them both and
+    # keeps one set of accepted mask forms for every type.
+    axis = (
+        core.schema.get_axis(x, axis_name)
+        if isinstance(x, core.BaseNeuron) and axis_name in core.schema.declared_axes(x)
+        else core.schema.Axis(name=axis_name, data=(axis_name,))
+    )
+
+    return np.asarray(core.schema.resolve_selection(x, axis, mask), dtype=bool)
+
+
+def _sort_labels_by_size(
+    labels: np.ndarray, n: int, masked: bool = True
+) -> np.ndarray:
+    """Relabel components largest-first.
+
+    `labels` must be contiguous `0 .. n - 1`; the `-1` standing for "no
+    component" passes through untouched. Ties are broken by the index of the
+    component's first element, which makes the labelling a function of the
+    neuron rather than of union-find's internals.
+
+    `masked=False` promises there are no `-1`s - the common case, and worth a
+    promise because it lets the counting skip a compaction of the whole array.
+    """
+    if n <= 1:
+        return labels.astype(np.int64, copy=False)
+
+    valid = np.flatnonzero(labels >= 0) if masked else None
+    counts = np.bincount(labels if valid is None else labels[valid], minlength=n)
+
+    # First occurrence of each label: scatter the indices in reverse so that the
+    # earliest one is what remains. Only ties need it, and ties are rare, so the
+    # `n log n` check over the (few) components buys skipping two passes over N.
+    if len(np.unique(counts)) == n:
+        order = np.argsort(-counts, kind="stable")
+    else:
+        first = np.full(n, len(labels), dtype=np.int64)
+        if valid is None:
+            first[labels[::-1]] = np.arange(len(labels) - 1, -1, -1)
+        else:
+            first[labels[valid[::-1]]] = valid[::-1]
+        order = np.lexsort((first, -counts))
+
+    # One entry past the end holds the `-1`s: they index it by wrapping round,
+    # which is what lets this be a single gather rather than a gather plus a
+    # `np.where` over the whole array.
+    remap = np.empty(n + 1, dtype=np.int64)
+    remap[order] = np.arange(n)
+    remap[n] = -1
+
+    return remap[labels]
+
+
+def _voxel_component_labels(voxels: np.ndarray, connectivity: int) -> np.ndarray:
+    """Label a set of sparse voxels, straight through `sparse-cubes`.
+
+    Takes the voxels rather than the neuron so that a masked call can label a
+    subset without building a neuron around it. Labels come back contiguous, so
+    unlike the other types these need no compressing.
+
+    Requires sparse-cubes >= 0.4.0.
+    """
+    _, labels = sparsecubes.measure.connected_components(
+        voxels, connectivity=connectivity
+    )
+    return labels
+
+
+def _natural_component_labels(
+    x, connectivity, epsilon, keep: Optional[np.ndarray]
+) -> Tuple[np.ndarray, int]:
+    """Label a neuron's components over whichever element is natural to it.
+
+    "Natural" means nodes for a skeleton, points for dotprops, voxels for a
+    voxel neuron, and - because that is what `_mesh_component_labels` decides -
+    vertices or faces for a mesh, depending on `connectivity`.
+
+    `keep`, if given, restricts this to the *induced* sub-neuron: elements
+    outside it come back as `-1` and, crucially, do not conduct. Each type gets
+    there by dropping whatever carries connectivity (edges, faces, voxels)
+    rather than by building a subset neuron, so nothing needs re-indexing.
+
+    Returns
+    -------
+    labels :    (N, ) int array
+                Contiguous `0 .. n - 1`, in no particular order, or `-1`.
+    n :         int
+
+    """
+    if isinstance(x, core.Voxels):
+        # `sparse-cubes` labels the components straight off the sparse voxels,
+        # so this never builds a graph (or the dense grid). Its labels are
+        # already contiguous, so they skip `_compress` and its sort.
+        voxels = x.voxels if keep is None else x.voxels[keep]
+        sub = _voxel_component_labels(voxels, connectivity)
+        n = int(sub.max()) + 1 if len(sub) else 0
+
+        if keep is None:
+            return sub, n
+
+        labels = np.full(len(x.voxels), -1, dtype=np.int64)
+        labels[keep] = sub
+        return labels, n
+
+    if isinstance(x, (core.Mesh, tm.Trimesh)):
+        return _mesh_component_labels(x, connectivity=connectivity, keep=keep)
+
+    if isinstance(x, core.Skeleton):
+        node_ids = x.nodes.node_id.values
+
+        if keep is None:
+            # This returns for each node the ID of its root, which is as good a
+            # component label as any - just not a contiguous one
+            roots = utils.fastcore.connected_components(
+                node_ids, x.nodes.parent_id.values
+            )
+            return _compress(roots, None, len(node_ids))
+
+        # Inducing the subgraph is just dropping every edge with an endpoint
+        # outside the mask - no graph object needs building, which is what makes
+        # this ~60x quicker than going via igraph.
+        edges, _ = skeleton_edges(x)
+        n_nodes = len(node_ids)
+    else:
+        # Dotprops: the edges are whatever `epsilon` says they are, so the graph
+        # has to be built before anything can be dropped from it. Read them out
+        # as an array rather than deleting edges on the graph - that would mean a
+        # Python-level pass over every edge of a neighbourhood graph.
+        G: igraph.Graph = graph.neuron2igraph(x, epsilon=epsilon)
+        edges = np.asarray(G.get_edgelist(), dtype=np.int64).reshape(-1, 2)
+        n_nodes = G.vcount()
+
+    if keep is not None and len(edges):
+        edges = edges[keep[edges[:, 0]] & keep[edges[:, 1]]]
+
+    raw = utils.fastcore.connected_components_graph(edges, n_nodes)
+
+    if keep is None:
+        return _compress(raw, None, n_nodes)
+
+    # Masked-out elements are isolated in the induced subgraph but still carry a
+    # label of their own, so they have to go before we compress
+    return _compress(raw[keep], keep, n_nodes)
+
+
+def connected_components(
     x: Union[
         "core.Skeleton",
         "core.Mesh",
@@ -426,112 +669,227 @@ def _connected_components(
         "core.Voxels",
         "tm.Trimesh",
     ],
-    epsilon: Optional[float] = None,
+    *,
     connectivity: Optional[Union[int, str]] = None,
-) -> List[Set[int]]:
-    """Extract the connected components within a neuron.
+    epsilon: Optional[float] = None,
+    element: Optional[str] = None,
+    mask: Optional[Sequence] = None,
+) -> np.ndarray:
+    """Label the connected components of a neuron.
 
-    Will use `navis-fastcore` for skeletons and meshes, and `sparse-cubes` for
-    voxels, if available.
+    Every node/vertex/point/voxel gets the label of the component it belongs to,
+    numbered `0 .. n_components - 1` **largest component first** - so `== 0`
+    always selects the biggest piece, and `np.bincount` of the result gives the
+    component sizes in descending order.
+
+    Uses `navis-fastcore` for skeletons and meshes, and `sparse-cubes` for
+    voxels.
 
     Parameters
     ----------
     x :             Skeleton | Mesh | Dotprops | Voxels | Trimesh
-                    Neuron for which to extract connected components.
-    epsilon :       float, optional
-                    For Dotprops only: distance threshold to consider two points
-                    connected. If not provided, will use 5 x the average distance
-                    between points.
+                    Neuron to label.
     connectivity :  6 | 18 | 26 | "vertex" | "face" | "manifold" , optional
                     What counts as connected - which is a different question for
-                    each type of neuron (see `_resolve_connectivity`).
+                    each type of neuron.
                     For Voxels: which neighbouring voxels count as connected.
                     6 = faces only, 18 = faces + edges, 26 (default) = faces +
                     edges + corners.
                     For Meshes: whether two faces must share a corner
                     (`"vertex"`, default), an edge (`"face"`) or an edge with no
                     third face on it (`"manifold"`).
-                    For Skeletons/Dotprops: ignored.
+                    For Skeletons/Dotprops: nothing - their edges are already
+                    decided, and passing it warns.
+    epsilon :       float, optional
+                    For Dotprops only: distance at which two points count as
+                    connected. Defaults to 5x the average distance between
+                    points (`x.sampling_resolution`).
+    element :       "node" | "vertex" | "face" | "point" | "voxel", optional
+                    What the labels should be *of*. Only meshes have a choice
+                    here, and only there does the default depend on anything:
+                    `"vertex"`, except under a face-based `connectivity`, where
+                    a pinch vertex belongs to several components at once and
+                    only `"face"` is a partition. Asking for `"vertex"` anyway
+                    is allowed - each such vertex then takes the label of the
+                    largest component it touches.
+    mask :          list-like, optional
+                    Restrict to a part of the neuron: components are those of
+                    the *induced* sub-neuron, i.e. anything outside the mask
+                    neither belongs to a component nor connects two. Accepts
+                    what `navis.subset_neuron` accepts (IDs, indices or a
+                    boolean array).
 
     Returns
     -------
-    list
-                List containing sets of node/vertex IDs for each subgraph. For
-                Voxels these are indices into `.voxels`. Mesh components are
-                always given as vertices, but under the face readings they can
-                overlap: a pinch vertex belongs to every face component that
-                meets there.
+    np.ndarray
+                (N, ) array of labels, one per element and aligned with it.
+                `-1` marks an element that is in no component at all: masked
+                out, or - under a face-based `connectivity` with
+                `element="vertex"` - a vertex that no face uses.
+
+    See Also
+    --------
+    [`navis.split_components`][]
+                Turn the components into separate neurons.
+    [`navis.drop_fluff`][]
+                Drop all but the largest component(s).
+    [`navis.heal_skeleton`][], [`navis.heal_mesh`][]
+                Reconnect the components instead of separating them.
 
     Examples
     --------
-    For doctest only
-
     >>> import navis
-    >>> n = navis.example_neurons(1, kind='skeleton')
-    >>> cc = navis.graph_utils._connected_components(n)
+    >>> import numpy as np
     >>> m = navis.example_neurons(1, kind='mesh')
-    >>> cc = navis.graph_utils._connected_components(m)
-    >>> dp = navis.make_dotprops(n, k=5)
-    >>> cc = navis.graph_utils._connected_components(dp)
+    >>> labels = navis.connected_components(m)
+    >>> labels.max() + 1                      # number of components
+    14
+    >>> np.bincount(labels)[:3]               # sizes, largest first
+    array([17058,   240,    12])
+    >>> # Vertices of the largest component
+    >>> np.flatnonzero(labels == 0).shape
+    (17058,)
+
+    Label a skeleton's nodes instead, and only within a mask:
+
+    >>> n = navis.example_neurons(1, kind='skeleton')
+    >>> labels = navis.connected_components(n)
+    >>> labels.max() + 1
+    1
+    >>> twigs = n.nodes.node_id.values[n.nodes.type != 'slab']
+    >>> masked = navis.connected_components(n, mask=twigs)
+    >>> int((masked == -1).sum()) == len(n.nodes) - len(twigs)
+    True
 
     """
-    assert isinstance(
-        x,
-        (
-            core.Skeleton,
-            core.Mesh,
-            core.Dotprops,
-            core.Voxels,
-            tm.Trimesh,
-        ),
-    )
+    if not isinstance(x, (core.BaseNeuron, tm.Trimesh)):
+        raise TypeError(f'Expected neuron or Trimesh, got "{type(x)}"')
 
     connectivity = _resolve_connectivity(x, connectivity)
+    allowed, axis_name = _ELEMENTS[_element_kind(x)]
 
-    if isinstance(x, core.Voxels):
-        # `sparse-cubes` labels the components straight off the sparse voxels,
-        # so this never builds a graph (or the dense grid)
-        ms = x.connected_components(connectivity=connectivity)
-        return _group_by_label(ms)
+    # `allowed[0]` is what the neuron is made of, and so what a `mask` selects -
+    # never faces, which are a mesh's *edges* as far as subsetting is concerned.
+    # The natural labelling follows `connectivity`, because the face readings are
+    # exactly the ones vertices cannot express: a pinch vertex belongs to several
+    # face components at once, so only a labelling of faces is a partition.
+    natural = "face" if connectivity in _FACE_CONNECTIVITIES else allowed[0]
+
+    if element is None:
+        element = natural
+    elif element not in allowed:
+        raise ValueError(
+            f"`element` for a {type(x).__name__} must be one of "
+            f"{', '.join(repr(a) for a in allowed)}, got {element!r}"
+        )
+
+    keep = _resolve_mask(x, mask, axis_name)
+
+    labels, n = _natural_component_labels(x, connectivity, epsilon, keep)
+    labels = _sort_labels_by_size(labels, n, masked=keep is not None)
+
+    if element == natural:
+        return labels
+
+    faces = np.asarray(x.faces, dtype=np.int64)
+    if not len(faces):
+        return np.full(len(x.vertices) if element == "vertex" else 0, -1, np.int64)
+
+    if element == "face":
+        # Every corner of a face is in the same vertex component, so any of them
+        # will do. Faces are what a mesh is made of, so there is no "no face"
+        # case to worry about here.
+        return labels[faces[:, 0]]
+
+    # face -> vertex. A pinch vertex is in several components at once; give it
+    # the largest, which - labels being size-sorted - is simply the smallest
+    # label. Vertices that no (kept) face uses stay at -1.
+    if keep is not None:
+        # Only kept faces have a say. A masked-out one carries -1, which would
+        # otherwise sort below every real label and win the scatter - including
+        # at a kept vertex that a kept face also uses.
+        alive = labels >= 0
+        faces, labels = faces[alive], labels[alive]
+
+    # Ordering the *faces* descending and expanding afterwards is the same
+    # scatter as ordering their corners, over a third as many items: the
+    # smallest label is then the write that lands last and wins. Cheaper than
+    # `np.minimum.at`, which falls back to an unbuffered loop.
+    out = np.full(len(x.vertices), -1, dtype=np.int64)
+    order = np.argsort(labels)[::-1]
+    out[faces[order].reshape(-1)] = np.repeat(labels[order], 3)
+    return out
+
+
+def _n_components(
+    x,
+    connectivity: Optional[Union[int, str]] = None,
+    epsilon: Optional[float] = None,
+    mask: Optional[Sequence] = None,
+) -> int:
+    """How many connected components a neuron has.
+
+    The count the labelling produces anyway, without the size-sort that
+    [`navis.connected_components`][] adds on top - see `BaseNeuron.n_components`.
+    """
+    connectivity = _resolve_connectivity(x, connectivity)
+    keep = _resolve_mask(x, mask, _ELEMENTS[_element_kind(x)][1])
+    return _natural_component_labels(x, connectivity, epsilon, keep)[1]
+
+
+def _component_ids(
+    x,
+    connectivity: Optional[Union[int, str]] = None,
+    epsilon: Optional[float] = None,
+    mask: Optional[Sequence] = None,
+) -> List[np.ndarray]:
+    """Component membership as one array of IDs per component, largest first.
+
+    The list form of [`navis.connected_components`][], for the callers that want
+    to iterate over components rather than index by them. Members are node IDs
+    for a Skeleton and indices otherwise.
+
+    Mesh components are always given as *vertices*, whatever `connectivity`
+    says, because that is the unit sizes are counted in - and under the face
+    readings they can therefore overlap: a pinch vertex belongs to every face
+    component that meets there, which is what lets `drop_fluff` keep the piece
+    it belongs to and still drop the other one.
+    """
+    connectivity = _resolve_connectivity(x, connectivity)
+    keep = _resolve_mask(x, mask, _ELEMENTS[_element_kind(x)][1])
+
+    # Straight off the *unsorted* labels: sorting them costs several passes over
+    # every element, where sorting the handful of groups afterwards is nothing.
+    # The tuple key reproduces `_sort_labels_by_size` - size first, then the
+    # index of the component's first member.
+    labels, _ = _natural_component_labels(x, connectivity, epsilon, keep)
+    groups = _groups_from_labels(labels)
+    groups.sort(key=lambda g: (-len(g), g[0]))
 
     if isinstance(x, core.Skeleton):
-        # This returns for each node the ID of its root
-        ms = utils.fastcore.connected_components(
-            x.nodes.node_id.values, x.nodes.parent_id.values
-        )
-        # Translate into list of arrays of IDs
         node_ids = x.nodes.node_id.values
-        cc = [node_ids[group] for group in _group_by_label(ms)]
-    elif isinstance(x, (core.Mesh, tm.Trimesh)):
-        # Translate the labels into a list of arrays of indices
-        cc = _group_by_label(_mesh_component_labels(x, connectivity=connectivity)[0])
-        if connectivity in _FACE_CONNECTIVITIES:
-            # Those indices are faces, and callers here expect vertices. Note the
-            # components can now share a vertex - which is exactly what lets
-            # `drop_fluff` keep the piece a pinch vertex belongs to and still drop
-            # the other one.
-            faces = np.asarray(x.faces)
-            cc = [np.unique(faces[group]) for group in cc]
-    else:
-        if isinstance(x, core.Dotprops):
-            G: igraph.Graph = graph.neuron2igraph(x, epsilon=epsilon)
-        else:
-            G: igraph.Graph = x.igraph
-        # Get the vertex clustering
-        vc = G.components(mode="WEAK")
-        # Membership maps indices to connected components
-        ms = np.array(vc.membership)
-        if isinstance(x, core.Skeleton):
-            # For skeletons we need node IDs
-            ids = np.array(G.vs["node_id"])
-        else:
-            # For Meshes we can use the indices directly
-            ids = np.array(G.vs.indices)
+        return [node_ids[g] for g in groups]
 
-        # Extract node IDs/vertex indices for each component
-        cc = [ids[ms == i] for i in np.unique(ms)]
+    if isinstance(x, (core.Mesh, tm.Trimesh)) and connectivity in _FACE_CONNECTIVITIES:
+        faces = np.asarray(x.faces, dtype=np.int64)
+        return [np.unique(faces[g]) for g in groups]
 
-    return cc
+    return groups
+
+
+def _groups_from_labels(labels: np.ndarray) -> List[np.ndarray]:
+    """Indices of each component, one array per label.
+
+    The `-1`s are skipped: they are not a component.
+    """
+    valid = np.flatnonzero(labels >= 0)
+    if not len(valid):
+        return []
+
+    order = np.argsort(labels[valid], kind="stable")
+    valid = valid[order]
+    bounds = np.concatenate(([0], np.cumsum(np.bincount(labels[valid]))))
+    return [valid[a:b] for a, b in zip(bounds[:-1], bounds[1:])]
 
 
 def _break_segments(x: "core.NeuronObject") -> list:
@@ -1579,29 +1937,32 @@ def find_main_branchpoint(
 
 
 @utils.meshneuron_skeleton(method="split")
-def split_into_fragments(
+def split_neurites(
     x: "core.NeuronObject",
     n: int = 2,
     min_size: Optional[Union[float, str]] = None,
     reroot_soma: bool = False,
 ) -> "core.NeuronList":
-    """Split neuron into fragments.
+    """Split a neuron into its longest neurites.
 
     Cuts are based on longest neurites: the first cut is made where the second
     largest neurite merges onto the largest neurite, the second cut is made
-    where the third largest neurite merges into either of the first fragments
+    where the third largest neurite merges into either of the first pieces
     and so on.
+
+    Note this cuts a *connected* arbor apart - it has nothing to do with the
+    pieces a neuron is already in. Use [`navis.split_components`][] for those.
 
     Parameters
     ----------
     x :                 Skeleton | Mesh | NeuronList
                         Must be a single neuron.
     n :                 int, optional
-                        Number of fragments to split into. Must be >1.
+                        Number of neurites to split into. Must be >1.
     min_size :          int | str, optional
-                        Minimum size of fragment to be cut off. If too
+                        Minimum size of a neurite to be cut off. If too
                         small, will stop cutting. This takes only the longest
-                        path in each fragment into account! If the neuron(s),
+                        path in each piece into account! If the neuron(s),
                         has its `.units` set, you can also pass this as a string
                         such as "10 microns".
     reroot_soma :        bool, optional
@@ -1611,14 +1972,19 @@ def split_into_fragments(
     -------
     NeuronList
 
+    See Also
+    --------
+    [`navis.split_components`][]
+                        Split a neuron into the pieces it is *already* in.
+
     Examples
     --------
     >>> import navis
     >>> x = navis.example_neurons(1)
-    >>> # Cut into two fragments
-    >>> cut1 = navis.split_into_fragments(x, n=2)
-    >>> # Cut into fragments of >10 um size
-    >>> cut2 = navis.split_into_fragments(x, n=float('inf'), min_size=10e3)
+    >>> # Cut into two neurites
+    >>> cut1 = navis.split_neurites(x, n=2)
+    >>> # Cut into neurites of >10 um size
+    >>> cut2 = navis.split_neurites(x, n=float('inf'), min_size=10e3)
 
     """
     if isinstance(x, core.NeuronList):
@@ -1633,7 +1999,7 @@ def split_into_fragments(
         raise TypeError(f'Expected a single Skeleton, got "{type(x)}"')
 
     if n < 2:
-        raise ValueError("Number of fragments must be at least 2.")
+        raise ValueError("Number of neurites must be at least 2.")
 
     # At this point x is Skeleton
     x: core.Skeleton
@@ -1727,8 +2093,8 @@ def longest_neurite(
 
     See Also
     --------
-    [`navis.split_into_fragments`][]
-            Split neuron into fragments based on longest neurites.
+    [`navis.split_neurites`][]
+            Split neuron into its longest neurites.
 
     Examples
     --------
@@ -1995,7 +2361,7 @@ def cut_skeleton(
     if not isinstance(x, core.Skeleton):
         raise TypeError(f'Expected a single Skeleton, got "{type(x)}"')
 
-    if x.n_trees != 1:
+    if x.n_components != 1:
         raise ValueError(
             f"Unable to cut: neuron {x.id} consists of multiple "
             "disconnected trees. Use navis.heal_skeleton()"
@@ -2255,33 +2621,6 @@ def subset_igraph(x: "core.Skeleton", keep) -> "igraph.Graph":
     return G.subgraph(np.where(np.isin(ids, keep))[0])
 
 
-def connected_components_of(x: "core.Skeleton", keep) -> List[Set[int]]:
-    """Weakly connected components of the sub-graph induced on `keep`.
-
-    Returns sets of node IDs, mirroring `nx.connected_components`.
-    """
-    # Inducing the subgraph is just dropping every edge with an endpoint outside
-    # `keep` - no graph object needs building, which is what makes this ~60x
-    # quicker than going via igraph.
-    edges, node_ids = skeleton_edges(x)
-    # N.B. via `fromiter`, not `asarray`: `keep` is routinely a *set*, which
-    # `np.asarray` turns into a 0-d object array that matches nothing.
-    keep = np.fromiter(keep, dtype=node_ids.dtype, count=len(keep))
-    in_keep = np.isin(node_ids, keep)
-
-    if len(edges):
-        edges = edges[in_keep[edges[:, 0]] & in_keep[edges[:, 1]]]
-
-    labels = utils.fastcore.connected_components_graph(edges, len(node_ids))
-
-    # Nodes outside `keep` are isolated in the induced subgraph but still
-    # carry a label, so drop them before grouping.
-    kept_ix = np.flatnonzero(in_keep)
-    return [
-        set(node_ids[kept_ix[g]].tolist()) for g in _group_by_label(labels[kept_ix])
-    ]
-
-
 def _sparse_adjacency(x: "core.NeuronObject", directed: bool = True) -> csr_matrix:
     """Weighted adjacency matrix of a neuron, in node/vertex table order.
 
@@ -2312,10 +2651,15 @@ def _sparse_adjacency(x: "core.NeuronObject", directed: bool = True) -> csr_matr
     return csr_matrix((data, (rows, cols)), shape=(n, n), dtype=np.float32)
 
 
-def connected_subgraph(
+def connecting_nodes(
     x: Union["core.Skeleton", nx.DiGraph], ss: Sequence[Union[str, int]]
 ) -> Tuple[np.ndarray, Union[int, str]]:
-    """Return set of nodes necessary to connect all nodes in subset `ss`.
+    """Return the nodes needed to connect all nodes in subset `ss`.
+
+    That is `ss` plus whatever has to come along for the ride: for each node,
+    the path back to the point where it meets the rest of the subset. Nothing to
+    do with [`navis.connected_components`][], which asks what already *is*
+    connected rather than what it would take.
 
     Parameters
     ----------
@@ -2327,17 +2671,17 @@ def connected_subgraph(
     Returns
     -------
     np.ndarray
-                Node IDs of connected subgraph.
+                Node IDs of the connecting subgraph.
     root ID
                 ID of the node most proximal to the old root in the
-                connected subgraph.
+                connecting subgraph.
 
     Examples
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
     >>> ends = n.nodes[n.nodes.type.isin(['end', 'root'])].node_id.values
-    >>> sg, root = navis.graph.graph_utils.connected_subgraph(n, ends)
+    >>> sg, root = navis.graph.connecting_nodes(n, ends)
     >>> # Since we asked for a subgraph connecting all terminals + root,
     >>> # we expect to see all nodes in the subgraph
     >>> sg.shape[0] == n.nodes.shape[0]
@@ -2840,14 +3184,14 @@ def rewire_skeleton(
     --------
     >>> import navis
     >>> n = navis.example_neurons(1)
-    >>> n.n_trees
+    >>> n.n_components
     1
     >>> # Drop one edge from graph
     >>> g = n.graph.copy()
     >>> g.remove_edge(310, 309)
     >>> # Rewire neuron
     >>> n2 = navis.rewire_skeleton(n, g, inplace=False)
-    >>> n2.n_trees
+    >>> n2.n_components
     2
 
     """

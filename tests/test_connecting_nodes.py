@@ -1,7 +1,7 @@
-"""Tests for the optimized `navis.graph.graph_utils.connected_subgraph`.
+"""Tests for the optimized `navis.graph.connecting_nodes`.
 
 The optimized implementation is checked against a frozen copy of the original
-implementation (`_connected_subgraph_old`) to prove identical results, except in
+implementation (`_connecting_nodes_old`) to prove identical results, except in
 the documented edge case (subset contains an ancestor of the branch-point LCA)
 where the new implementation returns a connected *superset* with the same root.
 """
@@ -15,7 +15,7 @@ import pytest
 from navis.graph import graph_utils as gu
 
 
-def _connected_subgraph_old(g, ss):
+def _connecting_nodes_old(g, ss):
     """Frozen copy of the original (pre-optimization) implementation.
 
     Operates directly on an nx.DiGraph so we can drive it with arbitrary
@@ -78,7 +78,7 @@ def neuron():
     return navis.example_neurons(1, kind="skeleton")
 
 
-def test_connected_subgraph_matches_old(neuron):
+def test_connecting_nodes_matches_old(neuron):
     """New implementation must match the old one on random subsets."""
     n = neuron
     g = n.graph
@@ -89,8 +89,8 @@ def test_connected_subgraph_matches_old(neuron):
         k = int(rng.integers(2, len(ids)))
         ss = rng.choice(ids, size=k, replace=False)
 
-        new_inc, new_roots = gu.connected_subgraph(g, ss)
-        old_inc, old_roots = _connected_subgraph_old(g, ss)
+        new_inc, new_roots = gu.connecting_nodes(g, ss)
+        old_inc, old_roots = _connecting_nodes_old(g, ss)
 
         # New result is identical to (or a connected superset of) the old result.
         assert set(new_inc) >= set(old_inc)
@@ -103,29 +103,29 @@ def test_connected_subgraph_matches_old(neuron):
         assert nx.number_weakly_connected_components(sub) == len(new_roots)
 
 
-def test_connected_subgraph_treeneuron_input(neuron):
+def test_connecting_nodes_treeneuron_input(neuron):
     """Passing the Skeleton directly must match passing its graph."""
     n = neuron
     rng = np.random.default_rng(1)
     ids = n.nodes.node_id.values
     ss = rng.choice(ids, size=len(ids) // 2, replace=False)
 
-    inc_neuron, roots_neuron = gu.connected_subgraph(n, ss)
-    inc_graph, roots_graph = gu.connected_subgraph(n.graph, ss)
+    inc_neuron, roots_neuron = gu.connecting_nodes(n, ss)
+    inc_graph, roots_graph = gu.connecting_nodes(n.graph, ss)
 
     assert set(inc_neuron) == set(inc_graph)
     assert set(roots_neuron) == set(roots_graph)
 
 
-def test_connected_subgraph_doctest(neuron):
+def test_connecting_nodes_doctest(neuron):
     """Asking for all terminals + root must return the whole neuron."""
     n = neuron
     ends = n.nodes[n.nodes.type.isin(["end", "root"])].node_id.values
-    sg, root = gu.connected_subgraph(n, ends)
+    sg, root = gu.connecting_nodes(n, ends)
     assert sg.shape[0] == n.nodes.shape[0]
 
 
-def test_connected_subgraph_multi_component(neuron):
+def test_connecting_nodes_multi_component(neuron):
     """Subgraph spanning several components -> one root per component."""
     n = neuron
     g = n.graph
@@ -149,17 +149,17 @@ def test_connected_subgraph_multi_component(neuron):
     assert n_comp >= 2  # sanity
 
     ss = list(comp_nodes)
-    inc, roots = gu.connected_subgraph(sub, ss)
+    inc, roots = gu.connecting_nodes(sub, ss)
 
     assert len(roots) == n_comp
     assert nx.number_weakly_connected_components(sub.subgraph(inc)) == len(roots)
     # Compare against old implementation on the same multi-component subgraph.
-    old_inc, old_roots = _connected_subgraph_old(sub, ss)
+    old_inc, old_roots = _connecting_nodes_old(sub, ss)
     assert set(inc) >= set(old_inc)
     assert set(roots) == set(old_roots)
 
 
-def test_connected_subgraph_proximal_ancestor_fix(neuron):
+def test_connecting_nodes_proximal_ancestor_fix(neuron):
     """Edge case: subset = two sibling tips + an ancestor of their branch point.
 
     The new implementation returns a *connected* subtree (the old one left a gap),
@@ -204,7 +204,7 @@ def test_connected_subgraph_proximal_ancestor_fix(neuron):
     ancestor = int(anc2 if anc2 is not None else anc)
 
     ss = [int(tips[0]), int(tips[1]), ancestor]
-    inc, roots = gu.connected_subgraph(g, ss)
+    inc, roots = gu.connecting_nodes(g, ss)
 
     # Result is connected and rooted at the ancestor.
     assert roots == [ancestor]

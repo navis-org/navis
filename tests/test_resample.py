@@ -53,7 +53,7 @@ def test_preserves_topology(neuron):
     """Root, leafs and branch points must survive resampling."""
     res = navis.resample_skeleton(neuron, resample_to=125, inplace=False)
 
-    assert res.n_trees == neuron.n_trees
+    assert res.n_components == neuron.n_components
     assert res.n_branches == neuron.n_branches
     assert res.n_leafs == neuron.n_leafs
     assert set(navis.utils.make_iterable(res.root)) == set(

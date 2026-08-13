@@ -1418,6 +1418,49 @@ class BaseNeuron(UnitObject):
         """Bounding box of neuron."""
         raise NotImplementedError(f"Bounding box not implemented for {type(self)}.")
 
+    def connected_components(self, **kwargs) -> np.ndarray:
+        """Label this neuron's connected components, largest component first.
+
+        Thin wrapper around [`navis.connected_components`][] - see there for
+        `connectivity`, `epsilon`, `element` and `mask`.
+
+        Returns
+        -------
+        np.ndarray
+                    (N, ) array of labels, one per node/vertex/point/voxel.
+
+        Examples
+        --------
+        >>> import navis
+        >>> m = navis.example_neurons(1, kind='mesh')
+        >>> m.connected_components().max() + 1
+        14
+
+        """
+        # Imported here rather than at the top: `navis.graph` reaches back into
+        # `navis.core`, and this module is the one that gets there first.
+        from .. import graph
+
+        return graph.connected_components(self, **kwargs)
+
+    @property
+    def n_components(self) -> int:
+        """Number of connected components in this neuron.
+
+        See Also
+        --------
+        [`navis.connected_components`][]
+                    The labels themselves, plus the options for what counts as
+                    connected.
+
+        """
+        from .. import graph
+
+        # Not off `connected_components`: the count falls out of the labelling
+        # for free, so going that way would pay for a size-sort whose whole
+        # purpose is an ordering this discards.
+        return graph.graph_utils._n_components(self)
+
     def convert_units(
         self, to: Union[pint.Unit, str], inplace: bool = False
     ) -> Optional["BaseNeuron"]:

@@ -18,7 +18,7 @@ from .mmetrics import (strahler_index, bending_flow,
 from .manipulation import (prune_by_strahler, stitch_skeletons,
                            split_axon_dendrite, split_axon_dendrite_prop, average_skeletons,
                            despike_skeleton, guess_radius, smooth_skeleton,
-                           heal_skeleton, break_fragments,
+                           heal_skeleton, split_components,
                            prune_twigs, prune_at_depth, cell_body_fiber,
                            drop_fluff, combine_neurons)
 from .heal import heal_mesh
@@ -37,7 +37,7 @@ __all__ = ['strahler_index', 'bending_flow', 'flow_centrality', 'synapse_flow_ce
            'segregation_index', 'arbor_segregation_index', 'tortuosity',
            'prune_by_strahler', 'stitch_skeletons', 'split_axon_dendrite', 'split_axon_dendrite_prop',
            'average_skeletons', 'despike_skeleton', 'guess_radius', 'smooth_skeleton',
-           'heal_skeleton', 'heal_mesh', 'fill_holes', 'break_fragments', 'prune_twigs',
+           'heal_skeleton', 'heal_mesh', 'fill_holes', 'split_components', 'prune_twigs',
            'find_soma', 'find_soma_mesh', 'SomaEllipsoid',
            'prune_at_depth', 'cell_body_fiber', 'drop_fluff',
            'subset_neuron', 'merge_subset', 'smooth_voxels', 'sholl_analysis',

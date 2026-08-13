@@ -30,6 +30,7 @@ from typing import Union, Callable, List, Sequence, Optional, Dict, overload
 from typing_extensions import Literal
 
 from .. import graph, morpho, utils, config, core, sampling, intersection
+from .. import _deprecated
 from .. import io  # type: ignore # double import
 
 from .base import BaseNeuron
@@ -578,21 +579,18 @@ class Skeleton(BaseNeuron):
         graph.classify_nodes(self)
 
     @property
-    def n_trees(self) -> int:
-        """Count number of connected trees in this neuron."""
-        return len(self.subtrees)
+    def is_acyclic(self) -> bool:
+        """Whether this neuron is free of cycles, i.e. a tree or a forest.
 
-    @property
-    def is_tree(self) -> bool:
-        """Whether neuron is a tree.
-
-        Also returns True if neuron consists of multiple separate trees!
+        Says nothing about whether the neuron is connected - a skeleton in
+        several disconnected pieces is still acyclic. Use
+        [`n_components`][navis.BaseNeuron.n_components] for that.
 
         See also
         --------
         :attr:`Skeleton.cycles`
-                    If your neuron is not a tree, this will help you identify
-                    cycles.
+                    If your neuron is not acyclic, this will help you identify
+                    the cycles.
 
         """
         # Every node in the table names exactly one parent, so the only way this is
@@ -603,11 +601,17 @@ class Skeleton(BaseNeuron):
             self.nodes.node_id.values, self.nodes.parent_id.values
         )
 
-    @property
-    def subtrees(self) -> List[List[int]]:
-        """List of subtrees. Sorted by size as sets of node IDs."""
-        return sorted(graph._connected_components(self),
-                      key=lambda x: -len(x))
+    # Renamed in 2.0, when "component" became the one word for a connected piece
+    # of a neuron. Only `subtrees` needs a body: the others answer exactly what
+    # their new spelling does, and `deprecated_property` forwards by default.
+    # Names and targets live in `navis/_deprecated.py`, which the tests read too.
+    subtrees = _deprecated.deprecated_property(
+        "Skeleton",
+        "subtrees",
+        fget=lambda self: graph._component_ids(self),
+    )
+    n_trees = _deprecated.deprecated_property("Skeleton", "n_trees")
+    is_tree = _deprecated.deprecated_property("Skeleton", "is_tree")
 
     @property
     def connectors(self) -> pd.DataFrame:
@@ -892,10 +896,9 @@ class Skeleton(BaseNeuron):
         else:
             raise ValueError(f'Unknown method: "{how}"')
 
-    @property
-    def n_skeletons(self) -> int:
-        """Number of seperate skeletons in this neuron."""
-        return len(self.root)
+    # `len(self.root)` is what this used to answer, which is the component count
+    # only for an acyclic neuron - a cycle has no root and so went uncounted.
+    n_skeletons = _deprecated.deprecated_property("Skeleton", "n_skeletons")
 
     def _clear_temp_attr(self, exclude: list = []) -> None:
         """Clear temporary attributes."""

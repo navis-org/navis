@@ -1023,32 +1023,6 @@ class Voxels(BaseNeuron):
 
         return sparsecubes.measure.distance_transform(self.voxels, spacing=spacing, workers=workers)
 
-    def connected_components(self, connectivity: int = 26) -> np.ndarray:
-        """Label the neuron's connected components.
-
-        Requires sparse-cubes >= 0.4.0.
-
-        Parameters
-        ----------
-        connectivity :  6 | 18 | 26, optional
-                        Which neighbours count as connected: 6 = faces only,
-                        18 = faces + edges, 26 = faces + edges + corners.
-
-        Returns
-        -------
-        np.ndarray
-                    (N, ) array of component labels (`0 .. n_components - 1`),
-                    aligned row for row with `.voxels`.
-
-        See Also
-        --------
-        [`navis.drop_fluff`][]
-                    Uses this to remove small disconnected fragments.
-
-        """
-        _, labels = sparsecubes.measure.connected_components(self.voxels, connectivity=connectivity)
-        return labels
-
     def dilate(
         self,
         iterations: int = 1,

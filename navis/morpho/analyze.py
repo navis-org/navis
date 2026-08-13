@@ -19,7 +19,7 @@ import numpy as np
 from dataclasses import dataclass
 from scipy.spatial import cKDTree
 
-from .. import config, core, utils
+from .. import config, core, graph, utils
 
 from typing import Optional, Sequence, Union
 
@@ -134,10 +134,9 @@ def find_soma(x: 'core.Skeleton', *, dist_factor: float = 3.0) -> Optional[int]:
     else:
         # Label-only path (no radius to seed a ball): use the largest connected
         # label component and return its most central node.
-        from ..graph.graph_utils import connected_components_of
-
-        comps = connected_components_of(x, set(node_ids[cand_idx].tolist()))
-        comp = np.array(sorted(max(comps, key=len)))
+        # Labels are size-sorted, so the largest component is simply `0`
+        labels = graph.connected_components(x, mask=node_ids[cand_idx])
+        comp = np.sort(node_ids[labels == 0])
         coords = x.nodes.set_index('node_id').loc[comp, ['x', 'y', 'z']].values.astype(float)
         best = comp[int(np.argmin(np.linalg.norm(coords - coords.mean(0), axis=1)))]
 

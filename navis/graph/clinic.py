@@ -51,9 +51,9 @@ def health_check(x: 'core.NeuronObject', verbose: bool = True) -> None:
 
     issues = []
 
-    # Check if neuron is not a tree
-    if not x.is_tree:
-        issues.append('is not a tree (navis_fastcore.has_cycles)')
+    # Check for cycles - the fast answer, before enumerating them below
+    if not x.is_acyclic:
+        issues.append('has cycles (navis_fastcore.has_cycles)')
     # See if there are any cycles
     if x.cycles:
         issues.append(f'has cycles (networkx.find_cycles): {str(x.cycles)}')

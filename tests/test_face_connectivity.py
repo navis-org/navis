@@ -10,7 +10,7 @@ seams: sheets meeting along an edge three faces deep are one piece under
 a piece.
 
 Everything worth testing follows from that - the labels are per-face rather than
-per-vertex, the components `_connected_components` hands back can share a vertex,
+per-vertex, the components `_component_ids` hands back can share a vertex,
 and `drop_fluff` can therefore drop a piece whose pinch vertex survives with the
 piece next to it.
 """
@@ -25,7 +25,7 @@ import trimesh as tm
 from scipy.sparse import coo_matrix, csgraph
 
 from navis.graph.graph_utils import (
-    _connected_components,
+    _component_ids,
     _mesh_component_labels,
     _resolve_connectivity,
 )
@@ -192,7 +192,7 @@ def test_no_faces(faceless, connectivity):
     """A mesh with no faces has no face components - not one per vertex."""
     assert _mesh_component_labels(faceless, connectivity="vertex")[1] == 3
     assert _mesh_component_labels(faceless, connectivity=connectivity)[1] == 0
-    assert _connected_components(faceless, connectivity=connectivity) == []
+    assert _component_ids(faceless, connectivity=connectivity) == []
 
 
 @pytest.mark.parametrize("connectivity", FACE_READINGS)
@@ -200,7 +200,7 @@ def test_empty_mesh(connectivity):
     empty = navis.Mesh(None)
 
     assert _mesh_component_labels(empty, connectivity=connectivity)[1] == 0
-    assert _connected_components(empty, connectivity=connectivity) == []
+    assert _component_ids(empty, connectivity=connectivity) == []
 
 
 def test_bad_connectivity(mesh):
@@ -293,7 +293,7 @@ def test_healed_mesh_counts_its_bridges(mesh, connectivity):
 @pytest.mark.parametrize("connectivity, expected", [("face", 24), ("manifold", 502)])
 def test_components_come_back_as_vertices(mesh, connectivity, expected):
     """Face labels, but vertex indices - like every other neuron type here."""
-    cc = _connected_components(mesh, connectivity=connectivity)
+    cc = _component_ids(mesh, connectivity=connectivity)
     all_vertices = np.concatenate(cc)
 
     assert len(cc) == expected
@@ -306,7 +306,7 @@ def test_components_come_back_as_vertices(mesh, connectivity, expected):
 @pytest.mark.parametrize("connectivity", FACE_READINGS)
 def test_components_are_the_pieces_they_label(pinched, connectivity):
     cc = sorted(
-        (c.tolist() for c in _connected_components(pinched, connectivity=connectivity)),
+        (c.tolist() for c in _component_ids(pinched, connectivity=connectivity)),
         key=min,
     )
 
@@ -354,9 +354,7 @@ def test_drop_fluff_keeps_less_the_finer_the_reading(mesh):
 @pytest.mark.parametrize("n_largest", [1, 2, 5])
 def test_drop_fluff_keeps_the_n_largest_components(mesh, connectivity, n_largest):
     """Shared pinch vertices are kept once, not once per component."""
-    cc = sorted(
-        _connected_components(mesh, connectivity=connectivity), key=len, reverse=True
-    )
+    cc = _component_ids(mesh, connectivity=connectivity)
     expected = np.unique(np.concatenate(cc[:n_largest]))
 
     kept = navis.drop_fluff(mesh, connectivity=connectivity, n_largest=n_largest)
@@ -365,12 +363,12 @@ def test_drop_fluff_keeps_the_n_largest_components(mesh, connectivity, n_largest
 
 
 @pytest.mark.parametrize("connectivity", FACE_READINGS)
-def test_drop_fluff_keep_size(mesh, connectivity):
-    """`keep_size` counts vertices, as it does under vertex connectivity."""
-    cc = _connected_components(mesh, connectivity=connectivity)
+def test_drop_fluff_min_size(mesh, connectivity):
+    """`min_size` counts vertices, as it does under vertex connectivity."""
+    cc = _component_ids(mesh, connectivity=connectivity)
     expected = np.unique(np.concatenate([c for c in cc if len(c) >= 100]))
 
-    kept = navis.drop_fluff(mesh, connectivity=connectivity, keep_size=100)
+    kept = navis.drop_fluff(mesh, connectivity=connectivity, min_size=100)
 
     assert np.array_equal(kept.vertices, mesh.vertices[expected])
 

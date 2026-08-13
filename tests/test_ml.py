@@ -393,7 +393,7 @@ def test_warp_strong_keeps_radius_and_units(skeleton):
 def test_drop_nodes_skeleton_stays_connected(skeleton):
     d = navis.ml.drop_nodes(skeleton, fraction=0.2, random_state=0)
     assert d.n_nodes < skeleton.n_nodes
-    assert d.n_trees == skeleton.n_trees                       # still connected
+    assert d.n_components == skeleton.n_components                       # still connected
     # branch points and root are never dropped -> branching structure preserved
     assert set(skeleton.branch_points.node_id).issubset(set(d.nodes.node_id))
     assert set(np.atleast_1d(skeleton.root)).issubset(set(d.nodes.node_id))

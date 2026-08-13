@@ -73,10 +73,8 @@ def _component_counts(
     if len(x.root) <= 1:
         return pd.Series(len(counted), index=index)
 
-    frags = graph._connected_components(x)
     comp = pd.Series(
-        np.concatenate([np.full(len(f), i) for i, f in enumerate(frags)]),
-        index=np.concatenate([np.asarray(list(f)) for f in frags]),
+        graph.connected_components(x), index=x.nodes.node_id.values
     )
     per_frag = comp.loc[counted].value_counts()
 

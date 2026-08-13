@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 import trimesh as tm
 
-from navis.graph.graph_utils import _connected_components
+from navis.graph.graph_utils import _component_ids
 from navis.utils.subclasses import TrimeshPlus, validate_extra_edges
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def mesh():
 @pytest.fixture
 def fragments(mesh):
     """Connected components of the example mesh, largest first."""
-    return sorted(_connected_components(mesh), key=len, reverse=True)
+    return _component_ids(mesh)
 
 
 @pytest.fixture
@@ -230,14 +230,14 @@ def test_trimesh_cache_stays_faces_only(bridged):
 
 
 def test_connected_components(mesh, fragments, bridged):
-    merged = sorted(_connected_components(bridged), key=len, reverse=True)
+    merged = _component_ids(bridged)
 
     assert len(merged) == len(fragments) - 1
     assert set(merged[0]) == set(fragments[0]) | set(fragments[1])
 
 
-def test_break_fragments(mesh, bridged):
-    assert len(navis.break_fragments(bridged)) == len(navis.break_fragments(mesh)) - 1
+def test_split_components(mesh, bridged):
+    assert len(navis.split_components(bridged)) == len(navis.split_components(mesh)) - 1
 
 
 def test_drop_fluff(mesh, fragments, bridged):
@@ -303,7 +303,7 @@ def test_subset_remaps(bridged, fragments):
     assert np.allclose(
         bridged.vertices[bridged.extra_edges[0]], sub.vertices[sub.extra_edges[0]]
     )
-    assert len(_connected_components(sub)) == 1
+    assert len(_component_ids(sub)) == 1
 
 
 def test_subset_drops_dangling(bridged, fragments):

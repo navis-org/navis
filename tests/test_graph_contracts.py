@@ -580,7 +580,7 @@ def test_longest_neurite_is_a_growing_subset(n, k):
     got = navis.longest_neurite(n, n=k, from_root=False, inplace=False)
 
     assert set(got.nodes.node_id) <= set(n.nodes.node_id)
-    assert got.n_trees == 1
+    assert got.n_components == 1
     assert got.cable_length <= n.cable_length
 
     if k > 1:
@@ -611,7 +611,7 @@ def test_collapse_nodes_preserves_structure(n):
     # Exactly the non-representative members are gone
     assert got.n_nodes == n.n_nodes - (len(which) - 1)
     assert set(got.nodes.node_id) == set(n.nodes.node_id) - set(which[1:])
-    assert got.is_tree
+    assert got.is_acyclic
     # Collapsing does not re-root the neuron
     assert list(got.root) == list(n.root)
 
@@ -635,5 +635,5 @@ def test_collapse_nodes_with_large_node_ids():
     got = navis.collapse_nodes(x, which, inplace=False)
 
     assert got.n_nodes == x.n_nodes - 2
-    assert got.is_tree
+    assert got.is_acyclic
     assert set(got.nodes.node_id) == set(x.nodes.node_id) - set(which[1:])

@@ -86,7 +86,7 @@ def test_precomputed_skeleton_edge_order(flip):
 
     sk = navis.read_precomputed(buf, datatype="skeleton")
 
-    assert sk.n_trees == 1
+    assert sk.n_components == 1
     assert len(sk.root) == 1
     # Rooted at the free end of the stick, whichever way the file is written
     assert sk.root[0] == 0
@@ -770,7 +770,7 @@ def test_parquet_read_foreign_neurarrow():
         assert np.array_equal(n.nodes.node_id.values, [1, 2, 3, 4])
         # Null parents become navis' -1 roots
         assert np.array_equal(n.nodes.parent_id.values, [-1, 1, 2, 2])
-        assert n.n_trees == 1
+        assert n.n_components == 1
         # The file-level unit applies to every neuron
         assert str(n.units) == "1 micrometer"
         assert np.array_equal(n.nodes.label.values, [1, 3, 3, 3])

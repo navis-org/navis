@@ -373,7 +373,7 @@ def _icdm_geodesic(x: Skeleton, n_points: int, feature_cols=None):
     -------
     (np.ndarray (n_points, n_points), np.ndarray (n_points, n_feats) or None)
     """
-    if not x.is_tree:
+    if not x.is_acyclic:
         raise ValueError(
             f"Neuron {x.id} is not a single connected tree. "
             "Use metric='euclidean' or repair/reroot the neuron first."

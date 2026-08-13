@@ -221,11 +221,11 @@ def test_mask_wrong_length(mesh):
         navis.heal_mesh(mesh, mask=np.ones(5, dtype=bool))
 
 
-def test_drop_disc(mesh):
+def test_keep_largest(mesh):
     """Whatever is left fragmented after healing gets dropped."""
     sizes = sorted(frag_sizes(mesh))
 
-    healed = navis.heal_mesh(mesh, min_size=sizes[-2], drop_disc=True)
+    healed = navis.heal_mesh(mesh, min_size=sizes[-2], keep_largest=True)
 
     assert n_fragments(healed) == 1
     assert healed.n_vertices == sizes[-1] + sizes[-2]
@@ -233,8 +233,8 @@ def test_drop_disc(mesh):
     assert healed.n_extra_edges == 1
 
 
-def test_drop_disc_noop_when_connected(mesh):
-    healed = navis.heal_mesh(mesh, drop_disc=True)
+def test_keep_largest_noop_when_connected(mesh):
+    healed = navis.heal_mesh(mesh, keep_largest=True)
     assert healed.n_vertices == mesh.n_vertices
 
 

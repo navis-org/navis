@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 import navis
-from navis.graph.graph_utils import connected_components_of, skeleton_edges
+from navis.graph.graph_utils import _component_ids, skeleton_edges
 
 
 @pytest.fixture(scope="module")
@@ -39,7 +39,7 @@ def _components_by_walking(x, keep):
     """Ground truth: union-find over the induced edges, in plain Python.
 
     Deliberately shares no machinery with the implementation - no numpy, no
-    fastcore, no igraph - so it can only agree with `connected_components_of`
+    fastcore, no igraph - so it can only agree with `connected_components(mask=)`
     by both being right. Comparing the whole partition against this also settles
     connectivity and maximality of each component, so neither needs its own test.
     """
@@ -71,25 +71,25 @@ def _partition(components):
     return sorted(sorted(int(i) for i in c) for c in components)
 
 
-# ------------------------------------------------------- connected_components_of
+# --------------------------------------------- connected_components(mask=...)
 
 
 @pytest.mark.parametrize("step", [1, 2, 3])
-def test_connected_components_of_matches_ground_truth(neuron, step):
+def test_masked_components_matches_ground_truth(neuron, step):
     keep = neuron.nodes.node_id.values[::step]
-    assert _partition(connected_components_of(neuron, keep)) == _components_by_walking(
+    assert _partition(_component_ids(neuron, mask=keep)) == _components_by_walking(
         neuron, keep
     )
 
 
-def test_connected_components_of_ground_truth_when_fragmented(fragmented):
+def test_masked_components_ground_truth_when_fragmented(fragmented):
     keep = fragmented.nodes.node_id.values[::3]
     assert _partition(
-        connected_components_of(fragmented, keep)
+        _component_ids(fragmented, mask=keep)
     ) == _components_by_walking(fragmented, keep)
 
 
-def test_connected_components_of_accepts_a_set(neuron):
+def test_masked_components_accepts_a_set(neuron):
     """Regression: `keep` is routinely a set.
 
     `np.asarray(a_set)` produces a 0-d *object* array which `np.isin` matches
@@ -98,24 +98,24 @@ def test_connected_components_of_accepts_a_set(neuron):
     anything pointing here.
     """
     keep = set(neuron.nodes.node_id.values[::2].tolist())
-    comps = connected_components_of(neuron, keep)
+    comps = _component_ids(neuron, mask=keep)
 
     assert len(comps) > 0
     assert _partition(comps) == _components_by_walking(neuron, keep)
 
 
-def test_connected_components_of_covers_exactly_keep(neuron):
+def test_masked_components_covers_exactly_keep(neuron):
     """Every kept node lands in exactly one component; nothing else does."""
     keep = set(neuron.nodes.node_id.values[::2].tolist())
-    comps = connected_components_of(neuron, keep)
+    comps = _component_ids(neuron, mask=keep)
 
     flat = [n for c in comps for n in c]
     assert len(flat) == len(set(flat)), "a node appeared in two components"
     assert set(flat) == keep
 
 
-def test_connected_components_of_empty_keep(neuron):
-    assert connected_components_of(neuron, []) == []
+def test_masked_components_empty_keep(neuron):
+    assert _component_ids(neuron, mask=[]) == []
 
 
 # ---------------------------------------------------------------- edge helper
@@ -157,15 +157,15 @@ def test_skeleton_edges_reproduce_the_node_table(neuron):
 
 def test_heal_skeleton_reconnects_every_fragment(fragmented):
     """Healing must end with one tree and may only *add* cable."""
-    assert fragmented.n_trees > 1
+    assert fragmented.n_components > 1
 
     healed = navis.heal_skeleton(fragmented, inplace=False)
 
-    assert healed.n_trees == 1
+    assert healed.n_components == 1
     assert healed.n_nodes == fragmented.n_nodes
     assert healed.cable_length >= fragmented.cable_length
 
 
 # N.B. the label-only soma path is the other consumer of
-# `connected_components_of` and is covered end-to-end by `tests/test_soma.py` -
+# `_component_ids` and is covered end-to-end by `tests/test_soma.py` -
 # which is what caught the set-input bug above.

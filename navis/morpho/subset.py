@@ -361,7 +361,7 @@ def _subset_meshneuron(x, subset, keep_disc_cn, prevent_fragments, cap_holes=Fal
         # Convert vertex IDs to node IDs
         subset_nodes = np.unique(sk.vertex_map[subset])
         # Find connected subgraph
-        subset, _ = graph.connected_subgraph(sk, subset_nodes)
+        subset, _ = graph.connecting_nodes(sk, subset_nodes)
         # Convert node IDs back to vertex IDs
         subset = np.flatnonzero(np.isin(sk.vertex_map, subset))
 
@@ -446,8 +446,8 @@ def _subset_treeneuron(x, subset, keep_disc_cn, prevent_fragments):
     keep = schema.resolve_selection(x, axis, subset)
 
     if prevent_fragments:
-        # `connected_subgraph` speaks node IDs, so resolve, expand, re-resolve
-        subset, new_root = graph.connected_subgraph(
+        # `connecting_nodes` speaks node IDs, so resolve, expand, re-resolve
+        subset, new_root = graph.connecting_nodes(
             x, schema.axis_ids(x, axis)[keep]
         )
         keep = schema.resolve_selection(x, axis, subset)

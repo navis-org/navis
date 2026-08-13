@@ -1109,7 +1109,7 @@ def test_connected_components_method(solid):
 
 
 # ---------------------------------------------------------------------------
-# _connected_components / drop_fluff on voxels
+# connected_components / drop_fluff on voxels
 # ---------------------------------------------------------------------------
 
 
@@ -1128,10 +1128,10 @@ def fluffy():
 
 
 def test_connected_components_on_voxels(fluffy):
-    """Components come back as indices into `.voxels`, biggest-first agnostic."""
-    cc = navis.graph.graph_utils._connected_components(fluffy)
+    """Components come back as indices into `.voxels`, largest first."""
+    cc = navis.graph.graph_utils._component_ids(fluffy)
 
-    assert sorted(len(c) for c in cc) == [1, 8, 64]
+    assert [len(c) for c in cc] == [64, 8, 1]
     # every voxel is accounted for exactly once
     assert sorted(np.concatenate(cc).tolist()) == list(range(fluffy.voxels.shape[0]))
 
@@ -1141,7 +1141,7 @@ def test_connected_components_connectivity(fluffy):
     # Two voxels touching only at a corner: one component at 26, two at 6
     diag = navis.Voxels(np.array([[0, 0, 0], [1, 1, 1]]), units=UNITS)
 
-    cc = navis.graph.graph_utils._connected_components
+    cc = navis.graph.graph_utils._component_ids
     assert len(cc(diag, connectivity=26)) == 1
     assert len(cc(diag, connectivity=6)) == 2
 
@@ -1150,10 +1150,10 @@ def test_connected_components_connectivity(fluffy):
     "kwargs,expected",
     [
         ({}, 64),  # default: largest component only
-        (dict(keep_size=5), 72),  # 64 + 8, speck dropped
+        (dict(min_size=5), 72),  # 64 + 8, speck dropped
         (dict(n_largest=2), 72),
-        (dict(keep_size=5, n_largest=1), 64),
-        (dict(keep_size=0.5), 64),  # fraction of 73 voxels
+        (dict(min_size=5, n_largest=1), 64),
+        (dict(min_size=0.5), 64),  # fraction of 73 voxels
         (dict(n_largest=3), 73),  # everything
     ],
 )
@@ -1162,7 +1162,7 @@ def test_drop_fluff_on_voxels(fluffy, kwargs, expected):
 
 
 def test_drop_fluff_carries_values(fluffy):
-    out = navis.drop_fluff(fluffy, keep_size=5)
+    out = navis.drop_fluff(fluffy, min_size=5)
 
     before = {tuple(v): x for v, x in zip(fluffy.voxels.tolist(), fluffy.values)}
     for v, val in zip(out.voxels.tolist(), out.values):

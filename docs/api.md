@@ -62,6 +62,7 @@ class [`BaseNeurons`][navis.BaseNeuron].
 | Method | Description |
 |--------|-------------|
 | [`Neuron.copy()`][navis.BaseNeuron.copy] | {{ autosummary("navis.BaseNeuron.copy") }} |
+| [`Neuron.connected_components()`][navis.BaseNeuron.connected_components] | {{ autosummary("navis.BaseNeuron.connected_components") }} |
 | [`Neuron.plot3d()`][navis.BaseNeuron.plot3d] | {{ autosummary("navis.BaseNeuron.plot3d") }} |
 | [`Neuron.plot2d()`][navis.BaseNeuron.plot2d] | {{ autosummary("navis.BaseNeuron.plot2d") }} |
 | [`Neuron.summary()`][navis.BaseNeuron.summary] | {{ autosummary("navis.BaseNeuron.summary") }} |
@@ -96,6 +97,7 @@ to all neurons:
 | `Neuron.type` | {{ autosummary("navis.BaseNeuron.type") }} |
 | `Neuron.soma` | {{ autosummary("navis.BaseNeuron.soma") }} |
 | `Neuron.bbox` | {{ autosummary("navis.BaseNeuron.bbox") }} |
+| `Neuron.n_components` | {{ autosummary("navis.BaseNeuron.n_components") }} |
 
 !!! note
 
@@ -138,18 +140,15 @@ In addition, a [`navis.Skeleton`][] has a range of different properties:
 | [`Skeleton.edges`][navis.Skeleton.edges] | {{ autosummary("navis.Skeleton.edges") }} |
 | [`Skeleton.edge_coords`][navis.Skeleton.edge_coords] | {{ autosummary("navis.Skeleton.edge_coords") }} |
 | [`Skeleton.igraph`][navis.Skeleton.igraph] | {{ autosummary("navis.Skeleton.igraph") }} |
-| [`Skeleton.is_tree`][navis.Skeleton.is_tree] | {{ autosummary("navis.Skeleton.is_tree") }} |
+| [`Skeleton.is_acyclic`][navis.Skeleton.is_acyclic] | {{ autosummary("navis.Skeleton.is_acyclic") }} |
 | [`Skeleton.n_branches`][navis.Skeleton.n_branches] | {{ autosummary("navis.Skeleton.n_branches") }} |
 | [`Skeleton.n_leafs`][navis.Skeleton.n_leafs] | {{ autosummary("navis.Skeleton.n_leafs") }} |
-| [`Skeleton.n_skeletons`][navis.Skeleton.n_skeletons] | {{ autosummary("navis.Skeleton.n_skeletons") }} |
-| [`Skeleton.n_trees`][navis.Skeleton.n_trees] | {{ autosummary("navis.Skeleton.n_trees") }} |
 | [`Skeleton.nodes`][navis.Skeleton.nodes] | {{ autosummary("navis.Skeleton.nodes") }} |
 | [`Skeleton.root`][navis.Skeleton.root] | {{ autosummary("navis.Skeleton.root") }} |
 | [`Skeleton.sampling_resolution`][navis.Skeleton.sampling_resolution] | {{ autosummary("navis.Skeleton.sampling_resolution") }} |
 | [`Skeleton.segments`][navis.Skeleton.segments] | {{ autosummary("navis.Skeleton.segments") }} |
 | [`Skeleton.simple`][navis.Skeleton.simple] | {{ autosummary("navis.Skeleton.simple") }} |
 | [`Skeleton.soma_pos`][navis.Skeleton.soma_pos] | {{ autosummary("navis.Skeleton.soma_pos") }} |
-| [`Skeleton.subtrees`][navis.Skeleton.subtrees] | {{ autosummary("navis.Skeleton.subtrees") }} |
 | [`Skeleton.vertices`][navis.Skeleton.vertices] | {{ autosummary("navis.Skeleton.vertices") }} |
 | [`Skeleton.volume`][navis.Skeleton.volume] | {{ autosummary("navis.Skeleton.volume") }} |
 
@@ -199,7 +198,6 @@ These are methods and properties specific to [Voxels][navis.Voxels]:
 |------|------|
 | [`Voxels.centroid`][navis.Voxels.centroid] | {{ autosummary("navis.Voxels.centroid") }} |
 | [`Voxels.closing()`][navis.Voxels.closing] | {{ autosummary("navis.Voxels.closing") }} |
-| [`Voxels.connected_components()`][navis.Voxels.connected_components] | {{ autosummary("navis.Voxels.connected_components") }} |
 | [`Voxels.densify()`][navis.Voxels.densify] | {{ autosummary("navis.Voxels.densify") }} |
 | [`Voxels.density`][navis.Voxels.density] | {{ autosummary("navis.Voxels.density") }} |
 | [`Voxels.dice()`][navis.Voxels.dice] | {{ autosummary("navis.Voxels.dice") }} |
@@ -366,6 +364,7 @@ Functions to analyze morphology.
 
 | Function | Description |
 |----------|-------------|
+| [`navis.connected_components()`][navis.connected_components] | {{ autosummary("navis.connected_components") }} |
 | [`navis.find_main_branchpoint()`][navis.find_main_branchpoint] | {{ autosummary("navis.find_main_branchpoint") }} |
 | [`navis.find_soma()`][navis.find_soma] | {{ autosummary("navis.find_soma") }} |
 | [`navis.find_soma_mesh()`][navis.find_soma_mesh] | {{ autosummary("navis.find_soma_mesh") }} |
@@ -392,7 +391,7 @@ Functions to edit morphology:
 | Function | Description |
 |----------|-------------|
 | [`navis.average_skeletons()`][navis.average_skeletons] | {{ autosummary("navis.average_skeletons") }} |
-| [`navis.break_fragments()`][navis.break_fragments] | {{ autosummary("navis.break_fragments") }} |
+| [`navis.split_components()`][navis.split_components] | {{ autosummary("navis.split_components") }} |
 | [`navis.despike_skeleton()`][navis.despike_skeleton] | {{ autosummary("navis.despike_skeleton") }} |
 | [`navis.drop_fluff()`][navis.drop_fluff] | {{ autosummary("navis.drop_fluff") }} |
 | [`navis.drop_internals()`][navis.drop_internals] | {{ autosummary("navis.drop_internals") }} |
@@ -410,7 +409,7 @@ Functions to edit morphology:
 | [`navis.reroot_skeleton()`][navis.reroot_skeleton] | {{ autosummary("navis.reroot_skeleton") }} |
 | [`navis.split_axon_dendrite()`][navis.split_axon_dendrite] | {{ autosummary("navis.split_axon_dendrite") }} |
 | [`navis.split_axon_dendrite_prop()`][navis.split_axon_dendrite_prop] | {{ autosummary("navis.split_axon_dendrite_prop") }} |
-| [`navis.split_into_fragments()`][navis.split_into_fragments] | {{ autosummary("navis.split_into_fragments") }} |
+| [`navis.split_neurites()`][navis.split_neurites] | {{ autosummary("navis.split_neurites") }} |
 | [`navis.stitch_skeletons()`][navis.stitch_skeletons] | {{ autosummary("navis.stitch_skeletons") }} |
 | [`navis.subset_neuron()`][navis.subset_neuron] | {{ autosummary("navis.subset_neuron") }} |
 | [`navis.merge_subset()`][navis.merge_subset] | {{ autosummary("navis.merge_subset") }} |
@@ -1047,6 +1046,7 @@ Below table has an overview for which functions work with which neuron types:
 | [`navis.mesh`][]               | yes        | no         | yes         | no       |
 | [`navis.voxelize`][]           | yes        | yes        | no          | yes      |
 | [`navis.drop_fluff`][]         | yes        | yes        | yes         | yes      |
-| [`navis.break_fragments`][]    | yes        | yes        | no          | no       |
+| [`navis.split_components`][]   | yes        | yes        | no          | no       |
+| [`navis.connected_components`][] | yes      | yes        | yes         | yes      |
 
 [^1]: Use [`navis.make_dotprops`][] to turn these neurons into [`navis.Dotprops`][].

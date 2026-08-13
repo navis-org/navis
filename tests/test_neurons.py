@@ -157,7 +157,7 @@ def test_empty_skeleton_graph_functions():
     assert not bool(n.igraph)
 
     assert len(n.segments) == 0
-    assert len(navis.graph.graph_utils._connected_components(n)) == 0
+    assert len(navis.graph.graph_utils._component_ids(n)) == 0
     assert len(navis.graph.graph_utils._break_segments(n)) == 0
     assert navis.geodesic_matrix(n).empty
     assert len(n.root) == 0
@@ -175,7 +175,7 @@ def test_edges2neuron(validate):
 
     assert isinstance(n, navis.Skeleton)
     assert n.n_nodes == 4
-    assert n.is_tree
+    assert n.is_acyclic
     # Same tree either way, regardless of how it ends up rooted
     edge_set = {
         frozenset((c, p))
@@ -195,7 +195,7 @@ def test_edges2neuron_cycle():
     n = navis.edges2neuron(edges, vertices=verts)
 
     assert n.n_nodes == 4
-    assert n.is_tree  # cycle was broken
+    assert n.is_acyclic  # cycle was broken
 
 
 # --------------------------------------------------------------------------- #

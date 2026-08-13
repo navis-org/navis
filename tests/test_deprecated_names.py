@@ -20,11 +20,16 @@ import navis.core.voxel
 import pytest
 
 from navis._deprecated import (
+    DEPRECATED_FUNCTIONS,
     DEPRECATED_NEURON_CLASSES,
+    DEPRECATED_TOP_LEVEL,
     reset_deprecation_warnings,
 )
 
-RENAMES = sorted(DEPRECATED_NEURON_CLASSES.items())
+#: Everything `navis.<old>` serves - classes and renamed functions alike.
+RENAMES = sorted(DEPRECATED_TOP_LEVEL.items())
+#: Only the classes are *also* aliased inside `navis.core` (see the last test).
+CLASS_RENAMES = sorted(DEPRECATED_NEURON_CLASSES.items())
 
 
 @contextlib.contextmanager
@@ -41,16 +46,20 @@ def fresh_warnings():
     reset_deprecation_warnings()
 
 
-def test_rename_table():
+def test_rename_tables():
     assert DEPRECATED_NEURON_CLASSES == {
         "TreeNeuron": "Skeleton",
         "MeshNeuron": "Mesh",
         "VoxelNeuron": "Voxels",
     }
+    assert DEPRECATED_FUNCTIONS == {
+        "break_fragments": "split_components",
+        "split_into_fragments": "split_neurites",
+    }
 
 
 @pytest.mark.parametrize("old,new", RENAMES)
-def test_old_name_is_the_new_class(old, new):
+def test_old_name_is_the_new_object(old, new):
     # The match asserts the warning names *both* spellings - `match=new` alone
     # would be satisfied by "MeshNeuron" containing "Mesh".
     pattern = rf"`navis\.{old}`.*`navis\.{new}`"
@@ -107,7 +116,7 @@ def test_isinstance_and_subclassing():
     assert issubclass(CustomNeuron, navis.Skeleton)
 
 
-@pytest.mark.parametrize("old,new", RENAMES)
+@pytest.mark.parametrize("old,new", CLASS_RENAMES)
 def test_navis_core_resolves_quietly(old, new):
     """`navis.core` is on the hot path for navis' own `core.X` lookups.
 

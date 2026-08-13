@@ -56,7 +56,7 @@ __all__ = sorted(
         "smooth_skeleton",
         "heal_skeleton",
         "cell_body_fiber",
-        "break_fragments",
+        "split_components",
         "prune_twigs",
         "prune_at_depth",
         "drop_fluff",
@@ -153,7 +153,7 @@ def cell_body_fiber(
     if not inplace:
         x = x.copy()
 
-    if x.n_trees > 1 and heal:
+    if x.n_components > 1 and heal:
         _ = heal_skeleton(x, method="LEAFS", inplace=True)
 
     # If no branches, just return the neuron
@@ -778,8 +778,9 @@ def split_axon_dendrite(
     # everything we do with it.
     keep = x.nodes.node_id.values[~x.nodes.node_id.isin(linker).values]
 
-    # Break into connected components
-    cc = graph.connected_components_of(x, keep)
+    # Break into connected components. As sets, because everything below works
+    # by unioning and subtracting them.
+    cc = [set(c.tolist()) for c in graph._component_ids(x, mask=keep)]
 
     # Figure out which one is which
     axon = set()
@@ -841,13 +842,13 @@ def split_axon_dendrite(
     # First: it is quite likely that the axon(s) and/or the dendrites fragmented
     # and we need to stitch them back together using linker but not dendrites!
     g = graph.subset_igraph(x, np.append(list(axon), list(linker)))
-    axon = set(graph.connected_subgraph(g, axon)[0])
+    axon = set(graph.connecting_nodes(g, axon)[0])
 
     # Remove nodes that were re-assigned to axon from linker
     linker = linker - axon
 
     g = graph.subset_igraph(x, np.append(list(dendrite), list(linker)))
-    dendrite = set(graph.connected_subgraph(g, dendrite)[0])
+    dendrite = set(graph.connecting_nodes(g, dendrite)[0])
 
     # Remove nodes that were re-assigned to axon from linker
     linker = linker - set(dendrite)
@@ -861,14 +862,16 @@ def split_axon_dendrite(
         # no/hardly any flow and find the part that contains the soma
         no_flow = x.nodes[x.nodes[metric] <= x.nodes[metric].max() * 0.05]
 
-        # Find the connected component containing the soma
-        for c in graph.connected_components_of(x, no_flow.node_id.values):
-            if x.root[0] in c:
-                cbf = set(c)
+        # Find the connected component containing the soma. As sets, matching
+        # `cc` above - everything here is set arithmetic on node IDs.
+        for c in graph._component_ids(x, mask=no_flow.node_id.values):
+            cbf = set(c.tolist())
+            if x.root[0] in cbf:
                 dendrite = dendrite - cbf
                 axon = axon - cbf
                 linker = linker - cbf
                 break
+            cbf = set()
 
     # See if we lost any nodes on the way
     miss = set(original.nodes.node_id.values) - linker - axon - dendrite - cbf
@@ -1995,38 +1998,46 @@ def smooth_skeleton(
     return x
 
 
-def break_fragments(
+def split_components(
     x: Union["core.Skeleton", "core.Mesh"],
-    labels_only: bool = False,
     min_size: Optional[int] = None,
+    connectivity: Optional[Union[int, str]] = None,
+    epsilon: Optional[float] = None,
 ) -> "core.NeuronList":
-    """Break neuron into its connected components.
+    """Split a neuron into its connected components.
 
-    Neurons can consists of several disconnected fragments. This function
-    turns these fragments into separate neurons.
+    Neurons often consist of several disconnected pieces - e.g. because a
+    reconstruction is incomplete. This function turns each of them into a
+    separate neuron, largest first.
 
     Parameters
     ----------
     x :             Skeleton | Mesh
                     Fragmented neuron.
-    labels_only :   bool
-                    If True, will only label each node/vertex by which
-                    fragment it belongs to. For Skeletons, this adds a
-                    `"fragment"` column and for Meshes, it adds a
-                    `.fragments` property.
     min_size :      int, optional
-                    Fragments smaller than this (# of nodes/vertices) will be
-                    dropped. Ignored if `labels_only=True`.
+                    Components smaller than this (# of nodes/vertices) will be
+                    dropped.
+    connectivity :  6 | 18 | 26 | "vertex" | "face" | "manifold" , optional
+                    What counts as connected; see
+                    [`navis.connected_components`][].
+    epsilon :       float, optional
+                    For Dotprops only: distance at which two points count as
+                    connected.
 
     Returns
     -------
     NeuronList
+                    One neuron per component, largest first.
 
     See Also
     --------
-    [`navis.heal_skeleton`][]
-                Use to heal fragmentation instead of breaking it up.
-
+    [`navis.connected_components`][]
+                Label the components in place instead of separating them - what
+                the old `labels_only=True` did.
+    [`navis.heal_skeleton`][], [`navis.heal_mesh`][]
+                Heal the fragmentation instead of breaking it up.
+    [`navis.drop_fluff`][]
+                Keep only the largest component(s).
 
     Examples
     --------
@@ -2034,8 +2045,8 @@ def break_fragments(
     >>> n = navis.example_neurons(1)
     >>> # Artifically disconnect parts of the neuron
     >>> n.nodes.loc[100, 'parent_id'] = -1
-    >>> # Break into fragments
-    >>> frags = navis.break_fragments(n)
+    >>> # Split into components
+    >>> frags = navis.split_components(n)
     >>> len(frags)
     2
 
@@ -2046,18 +2057,10 @@ def break_fragments(
     if not isinstance(x, (core.Skeleton, core.Mesh)):
         raise TypeError(f'Expected Skeleton or Mesh, got "{type(x)}"')
 
-    # Get connected components
-    comp = graph._connected_components(x)
-    # Sort so that the first component is the largest
-    comp = sorted(comp, key=len, reverse=True)
-
-    if labels_only:
-        cc_id = {n: i for i, cc in enumerate(comp) for n in cc}
-        if isinstance(x, core.Skeleton):
-            x.nodes["fragment"] = x.nodes.node_id.map(cc_id).astype(str)
-        elif isinstance(x, core.Mesh):
-            x.fragments = np.array([cc_id[i] for i in range(x.n_vertices)]).astype(str)
-        return x
+    # Already sorted largest-first
+    comp = graph._component_ids(
+        x, connectivity=connectivity, epsilon=epsilon
+    )
 
     if min_size:
         comp = [cc for cc in comp if len(cc) >= min_size]
@@ -2066,7 +2069,10 @@ def break_fragments(
         [
             subset.subset_neuron(x, list(ss), inplace=False)
             for ss in config.tqdm(
-                comp, desc="Breaking", disable=config.pbar_hide, leave=config.pbar_leave
+                comp,
+                desc="Splitting",
+                disable=config.pbar_hide,
+                leave=config.pbar_leave,
             )
         ]
     )
@@ -2079,7 +2085,7 @@ def heal_skeleton(
     max_dist: Optional[float] = None,
     min_size: Optional[float] = None,
     use_radius: Union[bool, float] = False,
-    drop_disc: float = False,
+    keep_largest: bool = False,
     mask: Optional[Sequence] = None,
     inplace: bool = False,
 ) -> Optional[NeuronObject]:
@@ -2112,7 +2118,7 @@ def heal_skeleton(
                 between them. This effectively prioritizes connecting nodes with
                 similar radii. If float, will use that value as weight for radius:
                 higher values = more importance for radius.
-    drop_disc : bool
+    keep_largest : bool
                 If True and the neuron remains fragmented after healing (i.e.
                 `max_dist` or `min_size` prevented a full connect), we will
                 keep only the largest (by number of nodes) connected component
@@ -2134,7 +2140,7 @@ def heal_skeleton(
                 The equivalent for meshes.
     [`navis.stitch_skeletons`][]
                 Use to stitch multiple skeletons together.
-    [`navis.break_fragments`][]
+    [`navis.split_components`][]
                 Use to produce individual neurons from disconnected fragments.
 
 
@@ -2186,13 +2192,12 @@ def heal_skeleton(
         inplace=True,
     )
 
-    # See if we need to drop remaining disconnected fragments
-    if drop_disc:
-        # Compute this property only once
-        trees = x.subtrees
-        if len(trees) > 1:
-            # Tree is sorted such that the largest component is the first
-            _ = subset.subset_neuron(x, subset=trees[0], inplace=True)
+    # See if we need to drop remaining disconnected components
+    if keep_largest:
+        labels = graph.connected_components(x)
+        if labels.max() > 0:
+            # Labels are size-sorted, so the largest component is simply `0`
+            _ = subset.subset_neuron(x, subset=labels == 0, inplace=True)
 
     return x
 
@@ -2372,7 +2377,7 @@ def prune_at_depth(
     return x
 
 
-def _drop_fluff_voxels(x, keep_size, n_largest, connectivity, inplace):
+def _drop_fluff_voxels(x, min_size, n_largest, connectivity, inplace):
     """Remove small disconnected fragments from a Voxels neuron.
 
     Kept separate from the generic path because voxels have no graph and are
@@ -2382,24 +2387,20 @@ def _drop_fluff_voxels(x, keep_size, n_largest, connectivity, inplace):
     voxels, values = x.voxels, x.values
 
     # Fractions are relative to the total number of voxels
-    if keep_size and keep_size < 1:
-        keep_size = len(voxels) * keep_size
+    if min_size and min_size < 1:
+        min_size = len(voxels) * min_size
 
-    if keep_size and not n_largest:
+    if min_size and not n_largest:
         # `remove_small_objects` is exactly this operation and skips building
         # and sorting the full component list
         kept = sparsecubes.measure.remove_small_objects(
-            voxels, int(np.ceil(keep_size)), connectivity=connectivity
+            voxels, int(np.ceil(min_size)), connectivity=connectivity
         )
         mask = sparsecubes.binary.index_of(voxels, kept) >= 0
     else:
-        cc = sorted(
-            graph.graph_utils._connected_components(x, connectivity=connectivity),
-            key=len,
-            reverse=True,
-        )
-        if keep_size:
-            cc = [c for c in cc if len(c) >= keep_size]
+        cc = graph._component_ids(x, connectivity=connectivity)
+        if min_size:
+            cc = [c for c in cc if len(c) >= min_size]
         # Without `n_largest` we keep just the biggest component
         cc = cc[:n_largest] if n_largest else cc[:1]
 
@@ -2416,30 +2417,30 @@ def _drop_fluff_voxels(x, keep_size, n_largest, connectivity, inplace):
 @utils.map_neuronlist(desc="Removing fluff", allow_parallel=True)
 def drop_fluff(
     x: Union["core.Skeleton", "core.Mesh", "core.NeuronList"],
-    keep_size: Optional[float] = None,
+    min_size: Optional[float] = None,
     n_largest: Optional[int] = None,
     epsilon: Optional[float] = None,
     connectivity: Optional[Union[int, str]] = None,
     inplace: bool = False,
 ):
-    """Remove small disconnected pieces of "fluff".
+    """Keep only the largest connected component(s), dropping the rest.
 
     By default, this function will remove all but the largest connected
     component from the neuron. You can change that behavior using the
-    `keep_size` and `n_largest` parameters. Connectors (if present) will
+    `min_size` and `n_largest` parameters. Connectors (if present) will
     be remapped to the closest surviving vertex/node.
 
     Parameters
     ----------
     x :         Skeleton | Mesh | Dotprops | Voxels | NeuronList
                 The neuron(s) to remove fluff from.
-    keep_size : float, optional
+    min_size : float, optional
                 Use this to set a size (in number of nodes/vertices/voxels) for
-                small bits to keep. If `keep_size` < 1 it will be intepreted as
+                small bits to keep. If `min_size` < 1 it will be intepreted as
                 fraction of total nodes/vertices/points/voxels.
     n_largest : int, optional
                 If set, will keep the `n_largest` connected components. Note:
-                if provided, `keep_size` will be applied first!
+                if provided, `min_size` will be applied first!
     epsilon :   float, optional
                 For Dotprops: distance at which to consider two points to be
                 connected. If `None`, will use the default value of 5 times
@@ -2465,7 +2466,7 @@ def drop_fluff(
     Returns
     -------
     Neuron/List
-                Neuron(s) without fluff.
+                Neuron(s) reduced to the surviving component(s).
 
     Examples
     --------
@@ -2482,12 +2483,12 @@ def drop_fluff(
     >>> two.n_vertices
     17354
     >>> # Keep all fragments with at least 100 vertices
-    >>> clean = navis.drop_fluff(m, keep_size=100)
+    >>> clean = navis.drop_fluff(m, min_size=100)
     >>> clean.n_vertices
     17298
     >>> # Keep the two largest fragments with at least 10 vertices each
     >>> # (three fragments are that big, so `n_largest` caps it at two)
-    >>> clean2 = navis.drop_fluff(m, keep_size=10, n_largest=2)
+    >>> clean2 = navis.drop_fluff(m, min_size=10, n_largest=2)
     >>> clean2.n_vertices
     17298
     >>> # Pieces that only touch the main component at a single vertex count as
@@ -2502,12 +2503,23 @@ def drop_fluff(
 
     See Also
     --------
+    [`navis.connected_components`][]
+                Label the pieces without dropping any - use this to see what
+                would go before it goes.
+    [`navis.split_components`][]
+                The same pieces, as separate neurons.
     [`navis.drop_internals`][]
-                For meshes, the complementary cleanup: fluff is what a neuron
-                has too much of on the *outside*, internals what it has too much
-                of on the inside. A free-floating organelle is both - but an
-                invagination is part of the main component, so no size or
-                connectivity criterion can reach it.
+                For meshes, the cleanup that asks *where* a piece is rather than
+                how big it is. The two overlap rather than complement each
+                other: a free-floating organelle is small **and** inside, so
+                either function will take it. Reach for `drop_internals` when
+                you want the inside cleared regardless of size - it also reaches
+                an invagination, which is part of the main component and so
+                invisible to any connectivity criterion - and for this one when
+                you want the neuron reduced to its main piece(s) whatever they
+                contain.
+    [`navis.heal_skeleton`][], [`navis.heal_mesh`][]
+                Reconnect the pieces instead of dropping them.
 
     """
     utils.eval_param(
@@ -2529,27 +2541,23 @@ def drop_fluff(
     if isinstance(x, core.Voxels):
         return _drop_fluff_voxels(
             x,
-            keep_size=keep_size,
+            min_size=min_size,
             n_largest=n_largest,
             connectivity=connectivity,
             inplace=inplace,
         )
 
-    # This function runs on navis_fastcore
-    cc = sorted(
-        graph.graph_utils._connected_components(
-            x, epsilon=epsilon, connectivity=connectivity
-        ),
-        key=len,
-        reverse=True,
+    # This function runs on navis_fastcore. Components come back largest-first.
+    cc = graph._component_ids(
+        x, epsilon=epsilon, connectivity=connectivity
     )
 
-    # Translate keep_size to number of nodes
-    if keep_size and keep_size < 1:
-        keep_size = sum(len(c) for c in cc) * keep_size
+    # Translate min_size to number of nodes
+    if min_size and min_size < 1:
+        min_size = sum(len(c) for c in cc) * min_size
 
-    if keep_size:
-        cc = [c for c in cc if len(c) >= keep_size]
+    if min_size:
+        cc = [c for c in cc if len(c) >= min_size]
     elif not n_largest:
         # With neither criterion we keep just the largest component
         n_largest = 1

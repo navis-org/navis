@@ -50,7 +50,7 @@ def test_zero_radius_puts_every_node_in_its_own_cluster(neuron):
 
 def test_huge_radius_gives_one_cluster_per_component(neuron):
     labels = geodesic_clusters(neuron, 1e9)
-    assert labels.max() + 1 == neuron.n_trees
+    assert labels.max() + 1 == neuron.n_components
 
 
 # ---------------------------------------------------------------- invariants
@@ -64,7 +64,7 @@ def test_clusters_are_connected_by_default(neuron, max_dist):
 
     for c in range(labels.max() + 1):
         members = set(ids[labels == c].tolist())
-        comps = navis.graph.connected_components_of(neuron, members)
+        comps = navis.graph.graph_utils._component_ids(neuron, mask=members)
         assert len(comps) == 1, f"cluster {c} is not connected ({len(comps)} parts)"
 
 
@@ -81,7 +81,7 @@ def test_raw_clusters_are_frequently_disconnected(neuron, max_dist):
     ids = neuron.nodes.node_id.values
 
     n_disconnected = sum(
-        len(navis.graph.connected_components_of(neuron, set(ids[labels == c].tolist())))
+        len(navis.graph.graph_utils._component_ids(neuron, mask=ids[labels == c]))
         > 1
         for c in range(labels.max() + 1)
     )

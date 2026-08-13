@@ -89,7 +89,7 @@ def test_propagate_labels_unvisited_is_nan():
         }
     )
     n = navis.Skeleton(nodes)
-    assert n.n_trees == 2  # sanity
+    assert n.n_components == 2  # sanity
 
     # Only label the first component.
     labels = {1: "pre", 2: "pre"}

@@ -44,7 +44,7 @@ def heal_mesh(
     x: "core.Mesh",
     max_dist: Optional[float] = None,
     min_size: Optional[int] = None,
-    drop_disc: bool = False,
+    keep_largest: bool = False,
     mask: Optional[Sequence] = None,
     inplace: bool = False,
 ) -> "core.Mesh":
@@ -60,7 +60,7 @@ def heal_mesh(
     the neuron's [`extra_edges`][navis.Mesh.extra_edges] and no vertices
     or faces are touched. Vertices, faces, surface area and volume are all
     unchanged - only anything reading the mesh's *connectivity* (e.g.
-    [`navis.geodesic_matrix`][], [`navis.break_fragments`][],
+    [`navis.geodesic_matrix`][], [`navis.split_components`][],
     [`navis.drop_fluff`][], `.igraph`) will see the difference.
 
     Parameters
@@ -76,7 +76,7 @@ def heal_mesh(
                 Minimum size in vertices for fragments to be reattached.
                 Fragments smaller than `min_size` will be ignored during
                 healing and hence remain disconnected.
-    drop_disc : bool
+    keep_largest : bool
                 If True and the mesh remains fragmented after healing (i.e.
                 `max_dist` or `min_size` prevented a full connect), we will keep
                 only the largest (by number of vertices) connected component
@@ -97,7 +97,7 @@ def heal_mesh(
     --------
     [`navis.heal_skeleton`][]
                 The equivalent for skeletons.
-    [`navis.break_fragments`][]
+    [`navis.split_components`][]
                 Use to produce individual neurons from disconnected fragments.
     [`navis.drop_fluff`][]
                 Use to drop small disconnected fragments instead of connecting
@@ -108,10 +108,10 @@ def heal_mesh(
     >>> import navis
     >>> m = navis.example_neurons(1, kind='mesh')
     >>> # This mesh consists of a main body plus a bunch of small fragments
-    >>> len(navis.break_fragments(m))
+    >>> len(navis.split_components(m))
     14
     >>> healed = navis.heal_mesh(m)
-    >>> len(navis.break_fragments(healed))
+    >>> len(navis.split_components(healed))
     1
     >>> # Healing is topological only - the surface is untouched
     >>> healed.volume == m.volume
@@ -120,7 +120,7 @@ def heal_mesh(
     Only connect fragments that are close to one another:
 
     >>> partial = navis.heal_mesh(m, max_dist='500 nm')
-    >>> len(navis.break_fragments(partial))
+    >>> len(navis.split_components(partial))
     4
 
     """
@@ -166,10 +166,11 @@ def heal_mesh(
             x.extra_edges = bridges
 
     # See if we need to drop remaining disconnected fragments
-    if drop_disc and not connected:
-        labels, n_frags = graph.graph_utils._mesh_component_labels(x)
-        sizes = np.bincount(labels, minlength=n_frags)
-        _ = subset.subset_neuron(x, labels == np.argmax(sizes), inplace=True)
+    if keep_largest and not connected:
+        # Labels are size-sorted, so the largest component is simply `0` - the
+        # same two lines `heal_skeleton` uses for this
+        labels = graph.connected_components(x)
+        _ = subset.subset_neuron(x, labels == 0, inplace=True)
 
     return x
 
