@@ -241,7 +241,19 @@ def renamed_kwargs(**renames):
                 "resolves the mapped wrapper by, and parallel dispatch fails."
             )
 
-        DEPRECATED_KWARGS[name] = dict(renames)
+        # Register only the shims navis itself defines, so that the table stays
+        # a faithful list of them - the docs and the tests are derived from it.
+        # A doctest (this function has one) and a caller's own `def` both wrap a
+        # function whose `__globals__` is *not* the module's namespace: doctest
+        # runs against a copy of it, and a caller is not in navis at all. Either
+        # would otherwise leave a phantom entry behind for the rest of the
+        # session, which is a test failure somewhere else entirely.
+        module = sys.modules.get(func.__module__, None)
+        if (
+            func.__module__.partition(".")[0] == _ROOT_PACKAGE
+            and func.__globals__ is getattr(module, "__dict__", None)
+        ):
+            DEPRECATED_KWARGS[name] = dict(renames)
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
