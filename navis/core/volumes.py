@@ -93,6 +93,10 @@ class Volume(UnitObject, trimesh.Trimesh):
                 continue
             setattr(self, f, _force_volume(getattr(self, f)))
 
+    #: Trimesh's vertex merge without the sort - see `navis.utils.TrimeshPlus`,
+    #: which installs the same function for the same reason.
+    merge_vertices = utils.meshproc.merge_vertices
+
     @property
     def name(self):
         """Name of this volume."""

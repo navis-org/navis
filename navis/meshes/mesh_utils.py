@@ -131,7 +131,9 @@ def fix_mesh(
         m.update_vertices(sizes[labels] > remove_fragments)
 
     m.remove_infinite_values()
-    m.merge_vertices()
+    # Not `m.merge_vertices()`: `m` may be a bare `trimesh.Trimesh` handed to us
+    # by the caller, which would take trimesh's sort rather than our packing.
+    utils.meshproc.merge_vertices(m)
 
     if TRIMESH_HAS_FACE_FILTERS:
         # This is exactly what the (now removed) `remove_duplicate_faces` and
@@ -334,7 +336,11 @@ def _points_to_mesh_skimage(voxels, res, denoise=True):
     # Somehow we seem to have introduced an offset equal to our resolution
     verts -= res
 
-    mesh = tm.Trimesh(vertices=verts, faces=faces, normals=normals)
+    # `TrimeshPlus` rather than `tm.Trimesh` so the duplicate-vertex merge is
+    # ours here and stays ours for whatever is done to this mesh later - see
+    # `navis.utils.meshproc`. N.B. trimesh has never had a `normals` argument:
+    # it went into `**kwargs` and was dropped on the floor, so it is gone.
+    mesh = utils.TrimeshPlus(vertices=verts, faces=faces)
 
     # Need to fix normals
     mesh.fix_normals()
@@ -609,8 +615,8 @@ def pointlabels_to_meshes(
         if method == "kde":
             verts[:, 1] -= 0.5 * res
 
-        # Make a trimesh
-        new_mesh = tm.Trimesh(vertices=verts, faces=faces, normals=normals)
+        # Make a trimesh - see `_points_to_mesh_skimage` on why `TrimeshPlus`
+        new_mesh = utils.TrimeshPlus(vertices=verts, faces=faces)
 
         if drop_fluff:
             # Drop small stuff (anything that makes up less than 10% of the faces)

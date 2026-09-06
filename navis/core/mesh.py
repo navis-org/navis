@@ -215,12 +215,24 @@ class Mesh(BaseNeuron):
                 raise AttributeError(f"Unable to set neuron's `{k}` attribute.")
 
         if process and self.vertices.shape[0]:
-            # For some reason we can't do self._trimesh at this stage
-            _trimesh = tm.Trimesh(self.vertices, self.faces,
-                                  process=process,
-                                  validate=validate)
-            self.vertices = _trimesh.vertices
-            self.faces = _trimesh.faces
+            if validate:
+                # `validate` adds a face-level clean-up (degenerate faces,
+                # duplicate faces, winding) that runs *before* the vertex merge
+                # and can change what there is to merge. `self.validate()` below
+                # does its own clean-up, so this pass only matters for meshes
+                # broken enough that the two disagree - and for those, going
+                # through trimesh is what keeps the result what it always was.
+                # `TrimeshPlus` for the faster merge; nothing else about it is
+                # used here. N.B. we can't do self._trimesh at this stage.
+                _trimesh = TrimeshPlus(self.vertices, self.faces,
+                                       process=True,
+                                       validate=True)
+                self.vertices = np.asarray(_trimesh.vertices)
+                self.faces = np.asarray(_trimesh.faces)
+            else:
+                self.vertices, self.faces = utils.meshproc.process(
+                    self.vertices, self.faces
+                )
 
         self._lock = 0
 

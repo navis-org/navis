@@ -192,7 +192,9 @@ def combine_meshes(meshes, max_dist='auto', progress=True):
     # Sort meshes by size
     meshes = sorted(meshes, key=lambda x: len(x.vertices), reverse=True)
 
-    comb = tm.Trimesh(meshes[0].vertices.copy(), meshes[0].faces.copy())
+    # `TrimeshPlus` for the faster duplicate-vertex merge, here and on every
+    # later one - see `navis.utils.meshproc`.
+    comb = utils.TrimeshPlus(meshes[0].vertices.copy(), meshes[0].faces.copy())
     comb.remove_unreferenced_vertices()
 
     if max_dist == 'auto':

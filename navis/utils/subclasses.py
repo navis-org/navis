@@ -15,6 +15,8 @@
 import trimesh as tm
 import numpy as np
 
+from . import meshproc
+
 
 __all__ = ["TrimeshPlus", "validate_extra_edges"]
 
@@ -113,6 +115,12 @@ class TrimeshPlus(tm.Trimesh):
     explicitly (`navis.utils.mesh_unique_edges` does this for you).
 
     """
+
+    #: Trimesh's vertex merge without the sort - see `navis.utils.meshproc`. It
+    #: is installed rather than wrapped because its signature is already
+    #: trimesh's with `self` spelled `mesh`; a mixin cannot do this job, as the
+    #: extra base would change the object layout `copy` below relies on.
+    merge_vertices = meshproc.merge_vertices
 
     def __repr__(self):
         s = super().__repr__()
