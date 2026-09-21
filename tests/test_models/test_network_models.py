@@ -70,3 +70,29 @@ def test_bayesian_matches_montecarlo_diamond():
     for node in ts.index.intersection(bs.index):
         assert bs.loc[node, 'layer_mean'] == pytest.approx(
             ts.loc[node, 'layer_mean'], abs=0.05)
+
+
+def test_bayesian_layer_median_never_crosses_half():
+    """A node whose CMF never reaches .5 must report a layer_median of 0.
+
+    ``argmax`` on an all-False row returns 0, which is indistinguishable from
+    "crossed the threshold at the very first step". Such nodes are flagged with
+    a -1 sentinel instead (0 after the +1 offset applied to the summary).
+    """
+    # Single edge 0->1; linear_activation_p maps weight 0.03 -> p = 0.1, so
+    # within max_steps=4 node 1's CMF only reaches 1 - 0.9 ** 3 = 0.271.
+    edges = pd.DataFrame({'source': [0], 'target': [1], 'weight': [0.03]})
+
+    model = BayesianTraversalModel(edges, seeds=[0], max_steps=4)
+    res = model.run()
+
+    cmf = np.asarray(dict(zip(res['node'], res['cmf']))[1])
+    assert cmf.max() < .5
+
+    s = model.summary
+    if s.index.name != 'node':
+        s.set_index('node', inplace=True)
+
+    # Node 1 never crosses .5 -> sentinel; the seed crosses at step 0 -> 1.
+    assert s.loc[1, 'layer_median'] == 0
+    assert s.loc[0, 'layer_median'] == 1

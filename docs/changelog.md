@@ -92,6 +92,7 @@ pip install git+https://github.com/navis-org/navis@master
 - [`fix_mesh`][navis.fix_mesh] raised an `AttributeError` on `trimesh >= 4.10`, and `Mesh(..., validate=True)` silently did nothing with `process=False`
 - plotting: [`plot3d`][navis.plot3d] raised for any skeleton plotted with `connectors=True` on plotly, `color_by=<neuron property>` worked only in matplotlib, `radius="auto"` was decided once for the whole [`NeuronList`][navis.NeuronList], `cn_colors` was broken in two of its three documented forms, several documented defaults were wrong, plus fixes to [`plot_flat`][navis.plot_flat] and [`plot2d`][navis.plot2d]
 - {{ navis }}' logger could be left silenced for the rest of the session, and `pip install navis[all]` pulled in `cloud-volume`
+- `models.BayesianTraversalModel`: a node whose traversal-time distribution never reaches 50% within `max_steps` was reported with a `layer_median` of the very first step (`argmax` returns 0 for an all-`False` row). Such nodes now get a `layer_median` of `0`, which no real layer can take
 
 ## Version `1.12.0` { data-toc-label="1.12.0" }
 _Date: 13/06/26_
