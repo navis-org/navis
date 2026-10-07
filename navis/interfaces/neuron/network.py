@@ -13,7 +13,6 @@
 """Module containing functions and classes to build `NEURON` network models."""
 
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcl
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -25,6 +24,7 @@ from matplotlib.collections import LineCollection
 from numpy.lib.stride_tricks import sliding_window_view
 
 from ... import config, utils
+from ...plotting.colors import eval_color
 
 # We will belay any import error
 try:
@@ -43,9 +43,17 @@ logger = config.get_logger(__name__)
 
 __all__ = []
 
-# It looks like there can only ever be one reference to the time
-# If we have multiple models, we will each reference them to this variable
-main_t = None
+# Stop time [ms] used for background noise - i.e. "never stop"
+NOISE_STOP = 9_999_999_999
+
+# Default weights for connecting stimuli to neurons. These were chosen such
+# that each stimulus spike elicits (ideally) exactly one spike in the target:
+# - IntFire1 only fires if `m > 1`, i.e. a weight of exactly 1 leaves `m` at
+#   threshold and only every other input elicits a spike
+# - IntFire4 follows the stimulus 1:1 at a weight of 1 (up to ~50Hz)
+# - IntFire2 integrates input as a current, so no weight reproduces the
+#   stimulus frequency - we keep 1 and leave it to the user to tune
+STIM_WEIGHTS = {'IntFire1': 1.01, 'IntFire2': 1, 'IntFire4': 1}
 
 Stimulus = namedtuple('Stimulus', ['start', 'stop', 'frequency', 'randomness',
                                    'neurons', 'netstim', 'netcon', 'label'])
@@ -68,12 +76,9 @@ class PointNetwork:
     """
 
     def __init__(self):
-        self._neurons = []
         self._neurons_dict = {}
         self._edges = []
         self._stimuli = []
-        self._ids = []
-        self._labels = []
         self.idx = NetworkIdIndexer(self)
 
     def __str__(self):
@@ -83,14 +88,14 @@ class PointNetwork:
         return self.__str__()
 
     def __contains__(self, id):
-        return id in self._ids
+        return id in self._neurons_dict
 
     def __getitem__(self, ix):
         """Get point process with given ID."""
         return np.asarray(self.neurons)[ix]
 
     def __len__(self):
-        return len(self._neurons)
+        return len(self._neurons_dict)
 
     @property
     def edges(self):
@@ -98,9 +103,9 @@ class PointNetwork:
 
         Returns
         -------
-        list of tuples
+        list of lists
 
-                `[(source_ix, target_ix, weight, NetCon object), ...]`
+                `[[source_id, target_id, weight, NetCon object], ...]`
 
         """
         return self._edges
@@ -115,17 +120,22 @@ class PointNetwork:
                 List of `PointNeurons`.
 
         """
-        return self._neurons
+        return list(self._neurons_dict.values())
 
     @property
     def ids(self):
         """IDs of neurons in the network."""
-        return self._ids
+        return list(self._neurons_dict)
 
     @property
     def labels(self):
         """Labels of neurons in the network."""
-        return self._labels
+        return [n.label for n in self._neurons_dict.values()]
+
+    @property
+    def _id2label(self):
+        """Map of neuron ID -> label."""
+        return {i: n.label for i, n in self._neurons_dict.items()}
 
     @classmethod
     def from_edge_list(cls, edges, model='IntFire1', source_col='source',
@@ -144,10 +154,15 @@ class PointNetwork:
         target_col :    str
                         Name of the column with the target IDs.
         weight_col :    str
-                        Name of the column with the weights. The important thing
-                        to note here is that weight is expected to be in the 0-1
-                        range with 1 effectively guaranteeing that a presynaptic
-                        spike triggers a postsynaptic spike.
+                        Name of the column with the weights. The important thing to note here is that
+                        the weight scales how much a presynaptic spike
+                        depolarizes the target: `IntFire1` and `IntFire4` fire
+                        once their state variable `m` exceeds 1. For `IntFire1`
+                        a weight just above 1 (e.g. 1.01) guarantees that a
+                        presynaptic spike triggers a postsynaptic spike; a
+                        weight of exactly 1 does not. `IntFire2` integrates
+                        input as a current instead, so its response to a given
+                        weight depends on the input frequency.
         **props
                         Keyword arguments are passed through to `add_neurons`.
                         Use to set e.g. labels, threshold or additional
@@ -167,7 +182,9 @@ class PointNetwork:
         net.add_neurons(ids, model=model, **props)
 
         # Connect neurons
-        for (s, t, w) in edges[[source_col, target_col, weight_col]].values:
+        # Note: we must not use `.values` across all three columns here because
+        # with float weights that would upcast (large) integer IDs to float
+        for s, t, w in zip(edges[source_col], edges[target_col], edges[weight_col]):
             net.connect(s, t, w)
 
         return net
@@ -201,7 +218,9 @@ class PointNetwork:
 
         if isinstance(labels, dict):
             labels = [labels.get(i, 'NA') for i in ids]
-        elif labels:
+        elif labels is not None and not utils.is_iterable(labels):
+            labels = [labels] * len(ids)
+        elif labels is not None:
             labels = utils.make_iterable(labels)
         else:
             labels = ids
@@ -220,13 +239,10 @@ class PointNetwork:
             # Create neuron
             n = PointNeuron(id=i, model=model, label=l, **props)
 
-            self._neurons.append(n)
-            self._ids.append(i)
-            self._labels.append(l)
             self._neurons_dict[i] = n
 
     def add_background_noise(self, ids, frequency, randomness=.5,
-                             independent=True):
+                             independent=True, weight=None):
         """Add background noise to given neurons.
 
         Parameters
@@ -241,14 +257,18 @@ class PointNetwork:
         independent :   bool
                         If True (default), each neuron will get its own
                         independent noise stimulus.
+        weight :        float, optional
+                        Weight for the connection between the noise and the
+                        neuron. See [`add_stimulus`][navis.interfaces.neuron.PointNetwork.add_stimulus]
+                        for details on the default.
 
         """
-        self.add_stimulus(ids=ids, start=0, stop=9999999999,
+        self.add_stimulus(ids=ids, start=0, stop=NOISE_STOP,
                           frequency=frequency, randomness=randomness,
-                          independent=independent)
+                          independent=independent, weight=weight)
 
     def add_stimulus(self, ids, start, frequency, stop=None, duration=None,
-                     randomness=.5, independent=True, label=None, weight=1):
+                     randomness=.5, independent=True, label=None, weight=None):
         """Add stimulus to given neurons.
 
         Important
@@ -283,10 +303,31 @@ class PointNetwork:
                         independent stimulus.
         label :         str, optional
                         A label to identify the stimulus.
-        weight :        float
+        weight :        float, optional
                         Weight for the connection between the stimulator and
-                        the neuron. This really should be 1 to make sure each
-                        spike in the stimulus elicits a spike in the target.
+                        the neuron. If not provided, will use a default that
+                        depends on the neuron's model such that each spike in
+                        the stimulus elicits a spike in the target:
+
+                          - `IntFire1`: 1.01 - this model only fires if its
+                            state `m` exceeds 1, so a weight of exactly 1 would
+                            only elicit a spike for every other input
+                          - `IntFire4`: 1 - follows the stimulus up to ~50Hz;
+                            at higher frequencies it will fire more often
+                          - `IntFire2`: 1 - note that this model integrates
+                            inputs as a current and will not reproduce the
+                            stimulus frequency for any weight: it stays silent
+                            at low frequencies and overshoots at high ones
+
+        Examples
+        --------
+        >>> import navis.interfaces.neuron as nrn
+        >>> N = nrn.PointNetwork()
+        >>> N.add_neurons([1, 2], model='IntFire1')
+        >>> # 50Hz for 100ms - with the default weight each stimulus spike
+        >>> # triggers a spike in the neurons
+        >>> N.add_stimulus([1, 2], start=10, duration=100, frequency=50,
+        ...                randomness=0)
 
         """
         ids = utils.make_iterable(ids)
@@ -309,32 +350,25 @@ class PointNetwork:
             stop = start + duration
 
         if duration <= 0:
-            raise ValueError(f'Duration must be greater than zero.')
+            raise ValueError('Duration must be greater than zero.')
 
-        if not independent:
-            ns = neuron.h.NetStim()
-            ns.interval = 1000 / frequency[0]
-            ns.noise = randomness
-            ns.number = int(duration / 1000 * frequency[0])
-            ns.start = start
-
+        ns = None
         for i, f in zip(ids, frequency):
             # Skip frequencies lower than 0
             if f <= 0:
                 continue
 
-            interval = 1000 / f
-            proc = self.idx[i].process
-
-            if independent:
+            # Unless independent, all neurons share the same NetStim
+            if independent or ns is None:
                 ns = neuron.h.NetStim()
-                ns.interval = interval
+                ns.interval = 1000 / f
                 ns.noise = randomness
                 ns.number = int(duration / 1000 * f)
                 ns.start = start
 
-            nc = neuron.h.NetCon(ns, proc)
-            nc.weight[0] = weight
+            pn = self.idx[i]
+            nc = neuron.h.NetCon(ns, pn.process)
+            nc.weight[0] = STIM_WEIGHTS[pn.model] if weight is None else weight
             nc.delay = 0
 
             self._stimuli.append(Stimulus(start, stop, f, randomness, i, ns, nc, label))
@@ -354,9 +388,14 @@ class PointNetwork:
                     ID of the target
         weight :    float
                     Weight of the edge. The important thing to note here is that
-                    the weight is expected to be in the 0-1 range with 1
-                    effectively guaranteeing that a presynaptic spike triggers
-                    a postsynaptic spike.
+                    the weight scales how much a presynaptic spike
+                    depolarizes the target: `IntFire1` and `IntFire4` fire
+                    once their state variable `m` exceeds 1. For `IntFire1`
+                    a weight just above 1 (e.g. 1.01) guarantees that a
+                    presynaptic spike triggers a postsynaptic spike; a
+                    weight of exactly 1 does not. `IntFire2` integrates
+                    input as a current instead, so its response to a given
+                    weight depends on the input frequency.
         delay :     int
                     Delay in ms between a pre- and a postsynaptic spike.
 
@@ -391,43 +430,27 @@ class PointNetwork:
                         Jupyter environments and matplotlib elsewhere.
 
         """
-        if not isinstance(subset, type(None)):
-            ids = utils.make_iterable(subset)
-            if not len(ids):
-                raise ValueError('`ids` must not be empty')
-        else:
-            ids = self._ids
+        ids = self._subset_ids(subset)
 
         # Collect spike timings
+        pps = self.idx[ids]
         x = []
         y = []
-        i = 0
-        for id in ids:
-            pp = self.idx[id]
+        for i, pp in enumerate(pps):
             x += list(pp.spk_timings)
             y += [i] * len(pp.spk_timings)
-            i += 1
 
         if not x:
             raise ValueError('No spikes detected.')
 
-        if label:
-            ld = dict(zip(self._ids, self._labels))
-            labels = [ld[i] for i in ids]
-        else:
-            labels = None
+        labels = [n.label for n in pps] if label else None
 
         # Turn into lines
         x = np.vstack((x, x, [None] * len(x))).T.flatten()
         y = np.array(y)
         y = np.vstack((y, y + .9, [None] * len(y))).T.flatten()
 
-        if backend == 'auto':
-            if utils.is_jupyter():
-                backend = 'plotly'
-            else:
-                backend = 'matplotlib'
-
+        backend = _resolve_backend(backend)
         if backend == 'plotly':
             return _plot_raster_plotly(x, y, ids, fig=ax, labels=labels, **kwargs)
         elif backend == 'matplotlib':
@@ -467,33 +490,21 @@ class PointNetwork:
                             Jupyter environments and matplotlib elsewhere.
 
         """
-        if not isinstance(subset, type(None)):
-            ids = utils.make_iterable(subset)
-            if not len(ids):
-                raise ValueError('`ids` must not be empty')
-        else:
-            ids = self._ids
+        ids = self._subset_ids(subset)
 
         # Collect spike frequencies
-        spks = self.get_spike_counts(bin_size=bin_size, subset=subset,
+        spks = self.get_spike_counts(bin_size=bin_size, subset=ids,
                                      rolling_window=rolling_window)
-        freq = spks * 1000 / bin_size
+        # Columns are the right bin edges
+        freq = spks * 1000 / np.diff(spks.columns.values, prepend=0)
 
-        if self.labels:
-            ld = dict(zip(self._ids, self._labels))
-            labels = [f'{i} ({ld[i]})' for i in ids]
-        else:
-            labels = None
+        labels = [f'{n.id} ({n.label})' for n in self.idx[ids]]
 
-        if backend == 'auto':
-            if utils.is_jupyter():
-                backend = 'plotly'
-            else:
-                backend = 'matplotlib'
+        backend = _resolve_backend(backend)
 
         if isinstance(group, bool) and group:
-            sem = freq.groupby(dict(zip(self._ids, self._labels))).sem()
-            freq = freq.groupby(dict(zip(self._ids, self._labels))).mean()
+            sem = freq.groupby(self._id2label).sem()
+            freq = freq.groupby(self._id2label).mean()
             labels = freq.index.values.tolist()
         elif not isinstance(group, bool):
             sem = freq.groupby(group).sem()
@@ -523,13 +534,13 @@ class PointNetwork:
 
         """
         if isinstance(labels, dict):
-            for i, n in enumerate(self.neurons):
-                n.label = self._labels[i] = labels.get(n.id, n.id)
+            for n in self.neurons:
+                n.label = labels.get(n.id, n.id)
         elif utils.is_iterable(labels):
-            if len(labels) != len(self.neurons):
+            if len(labels) != len(self):
                 raise ValueError(f'Got {len(labels)} labels for {len(self)} neurons.')
-            for i, n in enumerate(self.neurons):
-                n.label = self._labels[i] = labels[i]
+            for n, label in zip(self.neurons, labels):
+                n.label = label
         else:
             raise TypeError(f'`labels` must be dict or list-like, got "{type(labels)}"')
 
@@ -560,10 +571,7 @@ class PointNetwork:
         pd.DataFrame
 
         """
-        if not isinstance(subset, type(None)):
-            ids = utils.make_iterable(subset)
-        else:
-            ids = self._ids
+        ids = self._subset_ids(subset)
 
         end_time = neuron.h.t
 
@@ -576,8 +584,7 @@ class PointNetwork:
         bins = np.arange(0, end_time + bin_size, bin_size)
         counts = np.zeros((len(ids), len(bins) - 1))
         # Collect spike counts
-        for i, id in enumerate(ids):
-            pp = self.idx[id]
+        for i, pp in enumerate(self.idx[ids]):
             timings = list(pp.spk_timings)
             if timings:
                 hist, _ = np.histogram(timings, bins)
@@ -586,15 +593,22 @@ class PointNetwork:
         counts = pd.DataFrame(counts, index=ids, columns=bins[1:])
 
         if group:
-            if not self._labels:
-                raise ValueError('Unable to group: Network has no labels.')
-            counts = counts.groupby(counts.index.map(dict(zip(self.ids, self._labels)))).sum()
+            counts = counts.groupby(counts.index.map(self._id2label)).sum()
 
         if rolling_window:
             avg = sliding_window_view(counts, rolling_window, axis=1).mean(axis=2)
-            counts.iloc[:, :-(rolling_window - 1)] = avg
+            counts.iloc[:, :avg.shape[1]] = avg
 
         return counts
+
+    def _subset_ids(self, subset):
+        """Return IDs in `subset` or all IDs if `subset` is None."""
+        if subset is None:
+            return self.ids
+        ids = utils.make_iterable(subset)
+        if not len(ids):
+            raise ValueError('`subset` must not be empty')
+        return ids
 
 
 class PointNeuron:
@@ -609,6 +623,11 @@ class PointNeuron:
 
     def __str__(self):
         return f'{type(self).__name__}<id={self.id},label={self.label}>'
+
+    @property
+    def model(self):
+        """Name of the model of the point process (e.g. "IntFire1")."""
+        return self.process.hname().split('[')[0]
 
     def __repr__(self):
         return self.__str__()
@@ -637,9 +656,17 @@ class NetworkIdIndexer:
             return neurons[id]
 
 
+def _resolve_backend(backend):
+    """Resolve "auto" to plotly in Jupyter and matplotlib elsewhere."""
+    if backend == 'auto':
+        return 'plotly' if utils.is_jupyter() else 'matplotlib'
+    return backend
+
+
 def _plot_raster_mpl(x, y, ids, ax=None, labels=None, stimuli=None, **kwargs):
+    figsize = kwargs.pop('figsize', (12, min(20, len(ids))))
     if not ax:
-        fig, ax = plt.subplots(figsize=kwargs.pop('figsize', (12, min(20, len(ids)))))
+        fig, ax = plt.subplots(figsize=figsize)
 
     DEFAULTS = dict(alpha=.9, rasterized=False, lw=1)
     DEFAULTS.update(kwargs)
@@ -660,7 +687,7 @@ def _plot_raster_mpl(x, y, ids, ax=None, labels=None, stimuli=None, **kwargs):
         stimuli = np.unique([(s.start, s.stop) for s in stimuli], axis=0)
         for st in stimuli:
             # Skip background noise
-            if st[1] >= 999_999_999:
+            if st[1] >= NOISE_STOP:
                 continue
             ax.plot([st[0], st[1]], [y, y], lw=4,
                     color=kwargs.get('color', (.5, .5, .5)))
@@ -671,22 +698,11 @@ def _plot_raster_mpl(x, y, ids, ax=None, labels=None, stimuli=None, **kwargs):
 
 
 def _plot_traces_mpl(freq, ax=None, show=True, env=None, stimuli=None, **kwargs):
+    figsize = kwargs.pop('figsize', (12, 7))
     if not ax:
-        fig, ax = plt.subplots(figsize=kwargs.pop('figsize', (12, 7)))
+        fig, ax = plt.subplots(figsize=figsize)
 
-    if 'color' in kwargs:
-        c = kwargs.pop('color')
-        if utils.is_iterable(c) and len(c) == freq.shape[0]:
-            colors = np.array([mcl.to_rgb(c) for c in c])
-            if colors.max() > 1:
-                colors /= 255
-        else:
-            c = mcl.to_rgb(c)
-            if max(c) > 1:
-                c = (np.array(c) / 255).astype(int)
-            colors = [c] * freq.shape[0]
-    else:
-        colors = sns.color_palette('tab20', freq.shape[0])
+    colors = _get_colors(kwargs.pop('color', None), freq.shape[0])
 
     segs = np.zeros((freq.shape[0], freq.shape[1], 2))
     segs[:, :, 0] = freq.columns.values
@@ -715,7 +731,7 @@ def _plot_traces_mpl(freq, ax=None, show=True, env=None, stimuli=None, **kwargs)
         stimuli = np.unique([(s.start, s.stop) for s in stimuli], axis=0)
         for st in stimuli:
             # Skip background noise
-            if st[1] >= 999_999_999:
+            if st[1] >= NOISE_STOP:
                 continue
             ax.plot([st[0], st[1]], [y, y], lw=4,
                     color=kwargs.get('color', (.5, .5, .5)))
@@ -726,6 +742,18 @@ def _plot_traces_mpl(freq, ax=None, show=True, env=None, stimuli=None, **kwargs)
     ax.autoscale()
 
     return ax
+
+
+def _get_colors(color, n):
+    """Return (n, 3) array of RGB colors in the 0-1 range."""
+    if color is None:
+        return np.array(sns.color_palette('tab20', n))
+    colors = np.asarray(eval_color(color, color_range=1), dtype=float)
+    if colors.ndim == 1:
+        colors = np.tile(colors, (n, 1))
+    elif len(colors) != n:
+        raise ValueError(f'Got {len(colors)} colors for {n} traces.')
+    return colors[:, :3]
 
 
 def _plot_raster_plotly(x, y, ids, fig=None, labels=None, show=True, **kwargs):
@@ -763,20 +791,7 @@ def _plot_traces_plotly(freq, fig=None, labels=None, show=True, stimuli=None,
     if not fig:
         fig = go.Figure()
 
-    if 'color' in kwargs:
-        c = kwargs['color']
-        if utils.is_iterable(c) and len(c) == freq.shape[0]:
-            colors = np.array([mcl.to_rgb(c) for c in c])
-            if colors.max() <= 1 and colors.max() != 0:
-                colors *= 255
-        else:
-            c = mcl.to_rgb(c)
-            if max(c) <= 1 and max(c) != 0:
-                c = (np.array(c) * 255).astype(int)
-            colors = [c] * freq.shape[0]
-    else:
-        colors = sns.color_palette('tab20', freq.shape[0])
-        colors = np.array(colors) * 255
+    colors = _get_colors(kwargs.get('color'), freq.shape[0]) * 255
 
     alpha = kwargs.get('alpha', .5)
 
@@ -819,7 +834,7 @@ def _plot_traces_plotly(freq, fig=None, labels=None, show=True, stimuli=None,
         for i, ix in enumerate(to_plot):
             st = stimuli[ix]
             # Skip background noise
-            if st.stop >= 999_999_999:
+            if st.stop >= NOISE_STOP:
                 continue
             fig.add_trace(go.Scattergl(x=[st.start, st.stop], y=[y+i, y+i],
                                        mode='lines',
