@@ -54,7 +54,9 @@ Initialize and run a simple model. For debugging/testing only
 >>> cmp = nrn.DrosophilaPN(n, res=10)
 
 >>> # Simulate some synaptic inputs on the first 10 input synapse
->>> cmp.add_synaptic_current(post.node_id.unique()[0:10], max_syn_cond=.1,
+>>> # Note: we deliberately do not de-duplicate the node IDs - each connector
+>>> # gets its own synapse, even if several connect to the same node
+>>> cmp.add_synaptic_current(post.node_id.values[0:10], max_syn_cond=.1,
                              rev_pot=-10)
 
 >>> # Add voltage recording at the soma and some of the synapses
@@ -77,7 +79,7 @@ Simulate some presynaptic spikes
 >>> cmp = nrn.DrosophilaPN(n, res=1)
 >>> cmp.add_voltage_record(n.soma, label='soma')
 >>> cmp.add_voltage_record(post.node_id.unique()[0:10])
->>> cmp.add_synaptic_input(post.node_id.unique()[0:10], spike_no=5,
+>>> cmp.add_synaptic_input(post.node_id.values[0:10], spike_no=5,
                            spike_int=50, spike_noise=1, syn_tau2=1.1,
                            syn_rev_pot=-10, cn_weight=0.04)
 >>> cmp.run_simulation(200, v_init=-60)
@@ -147,6 +149,7 @@ class CompartmentModel:
         self._stimuli = {}
         self._records = {}
         self._synapses = {}
+        self._spike_det = []
 
         # Generate the actual model
         self._validate_skeleton()
@@ -243,7 +246,6 @@ class CompartmentModel:
         self._sections = []
         nodes = self.skeleton.nodes.set_index('node_id')
         roots = self.skeleton.root
-        bp = self.skeleton.branch_points.node_id.values
         G = self.skeleton.graph
         node2sec = {}
         node2pos = {}
@@ -274,10 +276,11 @@ class CompartmentModel:
             dvec = neuron.h.Vector(radii * 2)
             neuron.h.pt3dadd(xvec, yvec, zvec, dvec, sec=sec)
 
-            # Set number of segments for this section
-            # We also will make sure that each section has an odd
-            # number of segments
-            sec.nseg = 1 + 2 * int(sec.L / (self.res * 2))
+            # Set number of segments for this section such that no segment
+            # is longer than `res`. We also make sure that each section has
+            # an odd number of segments
+            nseg = max(int(np.ceil(sec.L / self.res)), 1)
+            sec.nseg = nseg if nseg % 2 else nseg + 1
             # Keep track of section
             self.sections.append(sec)
 
@@ -285,7 +288,11 @@ class CompartmentModel:
             # section) find the relative position within the section
 
             # Get normalized positions within this segment
-            norm_pos = dists.cumsum() / dists.sum()
+            if dists.sum() > 0:
+                norm_pos = dists.cumsum() / dists.sum()
+            else:
+                # Zero-length section (e.g. nodes with identical coordinates)
+                norm_pos = np.linspace(0, 1, len(dists) + 1)[1:]
 
             # Update positional dictionaries (required for connecting the
             # segments in the next step)
@@ -307,21 +314,19 @@ class CompartmentModel:
 
         # Connect segments
         for i, seg in enumerate(self.skeleton.small_segments):
-            # Root is special in that it only needs to be connected if it's also
-            # a branch point
-            if seg[-1] in roots:
-                # Skip if root is not a branch point
-                if seg[-1] not in bp:
-                    continue
-                # If root is also a branch point, it will be part of more than
-                # one section but in the positional dicts we will have kept track
-                # of only one of them. That's the one we pick as base segment
-                if node2sec[seg[-1]] == i:
-                    continue
+            # A section's parent node only maps back to that same section if
+            # it is the root: a root with more than one child is part of more
+            # than one section but in the positional dicts we will have kept
+            # track of only one of them. That's the one we pick as base section
+            # and connect the others to.
+            if node2sec[seg[-1]] == i:
+                continue
 
+            # Note that this is position 1 for all nodes except for the root
+            # which sits at position 0 of its section
             parent = nodes.loc[seg[-1]]
             parent_sec = self.sections[parent.sec_ix]
-            self.sections[i].connect(parent_sec(1))
+            self.sections[i].connect(parent_sec(parent.sec_pos))
 
     def _validate_skeleton(self):
         """Validate skeleton."""
@@ -474,7 +479,10 @@ class CompartmentModel:
     def add_current_record(self, where, label=None):
         """Add current recording to model.
 
-        This only works if nodes map to sections that have point processes.
+        This only works for nodes that have point processes (synapses or
+        current injections) attached. If a node has more than one point
+        process (e.g. multiple synapses), the current through each of them is
+        recorded separately.
 
         Parameters
         ----------
@@ -482,26 +490,31 @@ class CompartmentModel:
                     Node ID(s) at which to record.
         label :     str, optional
                     If label is given, this recording will be added as
-                    `self.records['i'][label]` else  `self.records['i'][node_id]`.
+                    `self.records['i'][label]` else
+                    `self.records['i'][(node_id, ix)]` where `ix` is the index
+                    of the point process at that node. If there are multiple
+                    recordings, a running index is appended to the label (e.g.
+                    `label_0`, `label_1`).
 
         """
         nodes = utils.make_iterable(where)
 
-        # Map nodes to point processes
-        secs = self.get_node_segment(nodes)
-        where = []
-        for n, sec in zip(nodes, secs):
-            pp = sec.point_processes()
-            if not pp:
-                raise TypeError(f'Section for node {n} has no point process '
-                                '- unable to add current record')
-            elif len(pp) > 1:
-                logger.warning(f'Section for node {n} has more than on point '
-                               'process. Recording current at first.')
-                pp = pp[:1]
-            where += pp
+        # Map nodes to the point processes we attached to them. Note that we
+        # can't just ask the segment for its point processes because a segment
+        # typically spans multiple nodes and we would pick up point processes
+        # attached to other nodes.
+        pps, keys = [], []
+        for n in np.unique(nodes):
+            node_pp = self.synapses.get(n, []) + [
+                s for s in self.stimuli.get(n, []) if hasattr(s, '_ref_i')
+            ]
+            if not node_pp:
+                raise TypeError(f'Node {n} has no point process - unable to '
+                                'add current record')
+            pps += node_pp
+            keys += [(n, i) for i in range(len(node_pp))]
 
-        self._add_record(where, what='i', label=label)
+        self._add_record(pps, what='i', label=label, keys=keys)
 
     def add_spike_detector(self, where, threshold=20, label=None):
         """Add a spike detector at given node(s).
@@ -514,16 +527,19 @@ class CompartmentModel:
                     Threshold in mV for a spike to be counted.
         label :     str, optional
                     If label is given, this recording will be added as
-                    `self.records[label]` else  `self.records[node_id]`.
+                    `self.records['spikes'][label]` else
+                    `self.records['spikes'][node_id]`. If `where` contains
+                    multiple nodes, a running index is appended to the label
+                    (e.g. `label_0`, `label_1`).
 
         """
         where = utils.make_iterable(where)
+        keys = self._make_labels(label, len(where), default=where)
 
         self.records['spikes'] = self.records.get('spikes', {})
-        self._spike_det = getattr(self, '_spike_det', [])
         segments = self.get_node_segment(where)
         sections = self.get_node_section(where)
-        for n, sec, seg in zip(where, sections, segments):
+        for k, sec, seg in zip(keys, sections, segments):
             # Generate a NetCon object that has no target
             sp_det = neuron.h.NetCon(seg._ref_v, None, sec=sec)
 
@@ -539,12 +555,18 @@ class CompartmentModel:
             # Tell the NetCon object to record into that vector
             sp_det.record(vec)
 
-            if label:
-                self.records['spikes'][label] = vec
-            else:
-                self.records['spikes'][n] = vec
+            self.records['spikes'][k] = vec
 
-    def _add_record(self, where, what, label=None):
+    @staticmethod
+    def _make_labels(label, n, default):
+        """Turn a single label into `n` unique labels or return `default`."""
+        if not label:
+            return list(default)
+        if n == 1:
+            return [label]
+        return [f'{label}_{i}' for i in range(n)]
+
+    def _add_record(self, where, what, label=None, keys=None):
         """Add a recording to given node.
 
         Parameters
@@ -555,7 +577,12 @@ class CompartmentModel:
                     What to record. Can be e.g. `v` or `_ref_v` for Voltage.
         label :     str, optional
                     If label is given, this recording will be added as
-                    `self.records[label]` else  `self.records[node_id]`.
+                    `self.records[label]` else  `self.records[node_id]`. If
+                    `where` has multiple entries, a running index is appended
+                    to the label (e.g. `label_0`, `label_1`).
+        keys :      list, optional
+                    Explicit keys for each entry in `where`. Ignored if
+                    `label` is given.
 
         """
         where = utils.make_iterable(where)
@@ -570,25 +597,20 @@ class CompartmentModel:
         if rec_type not in self.records:
             self.records[rec_type] = {}
 
-        # # Get node segments only for nodes
-        is_node = ~np.array([is_NEURON_object(w) for w in where])
-        node_segs = np.zeros(len(where), dtype=object)
-        node_segs[is_node] = self.get_node_segment(where[is_node])
+        keys = self._make_labels(label, len(where),
+                                 default=where if keys is None else keys)
 
-        for i, w in enumerate(where):
-            # If this is a neuron object (e.g. segment, section or point
-            # process) we assume this does not need mapping
-            if is_NEURON_object(w):
-                seg = w
-            else:
-                seg = node_segs[i]
+        # Map node IDs to segments in one go. NEURON objects (e.g. segment,
+        # section or point process) are assumed to not need mapping
+        is_node = [not is_NEURON_object(w) for w in where]
+        node_segs = iter(self.get_node_segment([w for w, n in zip(where, is_node) if n])
+                         if any(is_node) else [])
+        segs = [next(node_segs) if n else w for w, n in zip(where, is_node)]
 
+        for seg, k in zip(segs, keys):
             rec = neuron.h.Vector().record(getattr(seg, what))
 
-            if label:
-                self.records[rec_type][label] = rec
-            else:
-                self.records[rec_type][w] = rec
+            self.records[rec_type][k] = rec
 
     def connect(self, pre, where, syn_tau1=.1 * ms, syn_tau2=10 * ms,
                 syn_rev_pot=0, cn_thresh=10, cn_delay=1 * ms, cn_weight=0):
@@ -663,6 +685,7 @@ class CompartmentModel:
     def clear_records(self):
         """Clear records."""
         self._records = {}
+        self._spike_det = []
 
     def clear_stimuli(self):
         """Clear stimuli."""
@@ -794,7 +817,7 @@ class CompartmentModel:
                                 'a list of section indices')
 
         for sec in np.unique(sections):
-            if hasattr(sec, mechanism):
+            if sec.has_membrane(mechanism):
                 _ = sec.uninsert(mechanism)
 
     def plot_structure(self):
@@ -832,7 +855,7 @@ class CompartmentModel:
             logger.warning('Nothing to plot: no recordings found.')
             return
 
-        if not axes:
+        if axes is None:
             fig, axes = plt.subplots(len(self.records), sharex=True)
 
         # Make sure that even a single ax is a list
@@ -870,8 +893,8 @@ class DrosophilaPN(CompartmentModel):
     This is a `CompartmentModel` that uses passive membrane properties
     from Tobin et al. (2017) as presets:
 
-    - specific axial resistivity (`Ra`) of 266.1 Ohm / cm
-    - specific membrane capacitance (`cm`) of 0.8 mF / cm**2
+    - specific axial resistivity (`Ra`) of 266.1 Ohm * cm
+    - specific membrane capacitance (`cm`) of 0.8 uF / cm**2
     - specific leakage conductance (`g`) of 1/Rm
     - Rm = specific membran resistance of 20800 Ohm cm**2
     - leakage reverse potential of -60 mV
@@ -892,7 +915,7 @@ class DrosophilaPN(CompartmentModel):
         super().__init__(x, res=res)
 
         self.Ra = 266.1  # specific axial resistivity in Ohm cm
-        self.cm = 0.8    # specific membrane capacitance in mF / cm**2
+        self.cm = 0.8    # specific membrane capacitance in uF / cm**2
 
         # Add passive membran properties
         self.insert('pas',
