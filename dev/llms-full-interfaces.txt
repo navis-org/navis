@@ -30,8 +30,8 @@ Compartment model of an olfactory projection neuron in Drosophila.
 This is a `CompartmentModel` that uses passive membrane properties
 from Tobin et al. (2017) as presets:
 
-- specific axial resistivity (`Ra`) of 266.1 Ohm / cm
-- specific membrane capacitance (`cm`) of 0.8 mF / cm**2
+- specific axial resistivity (`Ra`) of 266.1 Ohm * cm
+- specific membrane capacitance (`cm`) of 0.8 uF / cm**2
 - specific leakage conductance (`g`) of 1/Rm
 - Rm = specific membran resistance of 20800 Ohm cm**2
 - leakage reverse potential of -60 mV
@@ -52,7 +52,10 @@ res :       int
 
 Add current recording to model.
 
-This only works if nodes map to sections that have point processes.
+This only works for nodes that have point processes (synapses or
+current injections) attached. If a node has more than one point
+process (e.g. multiple synapses), the current through each of them is
+recorded separately.
 
 Parameters
 ----------
@@ -60,7 +63,11 @@ where :     int | list of int
             Node ID(s) at which to record.
 label :     str, optional
             If label is given, this recording will be added as
-            `self.recordslabel` else  `self.recordsnode_id`.
+            `self.recordslabel` else
+            `self.records(node_id, ix)` where `ix` is the index
+            of the point process at that node. If there are multiple
+            recordings, a running index is appended to the label (e.g.
+            `label_0`, `label_1`).
 
 ### navis.interfaces.neuron.comp.CompartmentModel.add_spike_detector(where, threshold=20, label=None)
 
@@ -76,7 +83,10 @@ threshold : float
             Threshold in mV for a spike to be counted.
 label :     str, optional
             If label is given, this recording will be added as
-            `self.records[label]` else  `self.records[node_id]`.
+            `self.recordslabel` else
+            `self.recordsnode_id`. If `where` contains
+            multiple nodes, a running index is appended to the label
+            (e.g. `label_0`, `label_1`).
 
 ### navis.interfaces.neuron.comp.CompartmentModel.add_synaptic_current(where, start=5, tau=0.1, rev_pot=0, max_syn_cond=0.1)
 
