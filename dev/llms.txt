@@ -645,9 +645,9 @@ Full docstrings: https://navis-org.github.io/navis/llms-full-interfaces.txt
 - `navis.interfaces.neuron.comp.CompartmentModel.synapses` - Return mapping of node ID(s) to synapses.
 - `navis.interfaces.neuron.comp.CompartmentModel.t` - The global time. Should be the same for all neurons.
 - `navis.interfaces.neuron.network.PointNetwork()` - A Network of Leaky-Integrate-and-Fire (LIF) point processes.
-- `navis.interfaces.neuron.network.PointNetwork.add_background_noise(ids, frequency, randomness=0.5, independent=True)` - Add background noise to given neurons.
+- `navis.interfaces.neuron.network.PointNetwork.add_background_noise(ids, frequency, randomness=0.5, independent=True, weight=None)` - Add background noise to given neurons.
 - `navis.interfaces.neuron.network.PointNetwork.add_neurons(ids, model='IntFire1', labels=None, skip_existing=False, **props)` - Add neurons to network.
-- `navis.interfaces.neuron.network.PointNetwork.add_stimulus(ids, start, frequency, stop=None, duration=None, randomness=0.5, independent=True, label=None, weight=1)` - Add stimulus to given neurons.
+- `navis.interfaces.neuron.network.PointNetwork.add_stimulus(ids, start, frequency, stop=None, duration=None, randomness=0.5, independent=True, label=None, weight=None)` - Add stimulus to given neurons.
 - `navis.interfaces.neuron.network.PointNetwork.connect(source, target, weight, delay=5)` - Connect two neurons.
 - `navis.interfaces.neuron.network.PointNetwork.from_edge_list(edges, model='IntFire1', source_col='source', target_col='target', weight_col='weight', **props)` - Generate network from edge list.
 - `navis.interfaces.neuron.network.PointNetwork.get_spike_counts(bin_size=50, subset=None, rolling_window=None, group=False)` - Get matrix of spike counts.

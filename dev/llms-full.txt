@@ -16153,7 +16153,7 @@ Examples
 >>> N = nrn.PointNetwork()
 >>>
 
-### navis.interfaces.neuron.network.PointNetwork.add_background_noise(ids, frequency, randomness=0.5, independent=True)
+### navis.interfaces.neuron.network.PointNetwork.add_background_noise(ids, frequency, randomness=0.5, independent=True, weight=None)
 
 *function*
 
@@ -16171,6 +16171,10 @@ randomness :    float [0-1]
 independent :   bool
                 If True (default), each neuron will get its own
                 independent noise stimulus.
+weight :        float, optional
+                Weight for the connection between the noise and the
+                neuron. See navis.interfaces.neuron.PointNetwork.add_stimulus
+                for details on the default.
 
 ### navis.interfaces.neuron.network.PointNetwork.add_neurons(ids, model='IntFire1', labels=None, skip_existing=False, **props)
 
@@ -16195,7 +16199,7 @@ skip_existing : bool
                 processes. Depends on which model type you are using:
                 e.g. `refrac` and `tau` for "IntFire1".
 
-### navis.interfaces.neuron.network.PointNetwork.add_stimulus(ids, start, frequency, stop=None, duration=None, randomness=0.5, independent=True, label=None, weight=1)
+### navis.interfaces.neuron.network.PointNetwork.add_stimulus(ids, start, frequency, stop=None, duration=None, randomness=0.5, independent=True, label=None, weight=None)
 
 *function*
 
@@ -16233,10 +16237,31 @@ independent :   bool
                 independent stimulus.
 label :         str, optional
                 A label to identify the stimulus.
-weight :        float
+weight :        float, optional
                 Weight for the connection between the stimulator and
-                the neuron. This really should be 1 to make sure each
-                spike in the stimulus elicits a spike in the target.
+                the neuron. If not provided, will use a default that
+                depends on the neuron's model such that each spike in
+                the stimulus elicits a spike in the target:
+
+                  - `IntFire1`: 1.01 - this model only fires if its
+                    state `m` exceeds 1, so a weight of exactly 1 would
+                    only elicit a spike for every other input
+                  - `IntFire4`: 1 - follows the stimulus up to ~50Hz;
+                    at higher frequencies it will fire more often
+                  - `IntFire2`: 1 - note that this model integrates
+                    inputs as a current and will not reproduce the
+                    stimulus frequency for any weight: it stays silent
+                    at low frequencies and overshoots at high ones
+
+Examples
+--------
+>>> import navis.interfaces.neuron as nrn
+>>> N = nrn.PointNetwork()
+>>> N.add_neurons([1, 2], model='IntFire1')
+>>> # 50Hz for 100ms - with the default weight each stimulus spike
+>>> # triggers a spike in the neurons
+>>> N.add_stimulus([1, 2], start=10, duration=100, frequency=50,
+...                randomness=0)
 
 ### navis.interfaces.neuron.network.PointNetwork.connect(source, target, weight, delay=5)
 
@@ -16252,9 +16277,14 @@ target :    int | str
             ID of the target
 weight :    float
             Weight of the edge. The important thing to note here is that
-            the weight is expected to be in the 0-1 range with 1
-            effectively guaranteeing that a presynaptic spike triggers
-            a postsynaptic spike.
+            the weight scales how much a presynaptic spike
+            depolarizes the target: `IntFire1` and `IntFire4` fire
+            once their state variable `m` exceeds 1. For `IntFire1`
+            a weight just above 1 (e.g. 1.01) guarantees that a
+            presynaptic spike triggers a postsynaptic spike; a
+            weight of exactly 1 does not. `IntFire2` integrates
+            input as a current instead, so its response to a given
+            weight depends on the input frequency.
 delay :     int
             Delay in ms between a pre- and a postsynaptic spike.
 
@@ -16276,10 +16306,15 @@ source_col :    str
 target_col :    str
                 Name of the column with the target IDs.
 weight_col :    str
-                Name of the column with the weights. The important thing
-                to note here is that weight is expected to be in the 0-1
-                range with 1 effectively guaranteeing that a presynaptic
-                spike triggers a postsynaptic spike.
+                Name of the column with the weights. The important thing to note here is that
+                the weight scales how much a presynaptic spike
+                depolarizes the target: `IntFire1` and `IntFire4` fire
+                once their state variable `m` exceeds 1. For `IntFire1`
+                a weight just above 1 (e.g. 1.01) guarantees that a
+                presynaptic spike triggers a postsynaptic spike; a
+                weight of exactly 1 does not. `IntFire2` integrates
+                input as a current instead, so its response to a given
+                weight depends on the input frequency.
 **props
                 Keyword arguments are passed through to `add_neurons`.
                 Use to set e.g. labels, threshold or additional
@@ -16379,9 +16414,9 @@ Edges between nodes of the network.
 
 Returns
 -------
-list of tuples
+list of lists
 
-        `[(source_ix, target_ix, weight, NetCon object), ...]`
+        `[[source_id, target_id, weight, NetCon object], ...]`
 
 ### navis.interfaces.neuron.network.PointNetwork.ids
 
