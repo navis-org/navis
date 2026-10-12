@@ -703,7 +703,9 @@ Functions to convert between data types.
 
 {{ navis }} comes with a simple network traversal model (used in [Schlegel, Bates et al., 2021](https://elifesciences.org/articles/66018)).
 
-`BayesianTraversalModel` is a fast, deterministic approximation of the Monte-Carlo `TraversalModel`. It is exact for tree-like graphs and single points of reconvergence (e.g. diamonds) but still assumes a node's parents are traversed independently; use `TraversalModel` as ground truth when a node's parents share correlated upstream ancestry.
+`BayesianTraversalModel` is a fast, deterministic approximation of the Monte-Carlo `TraversalModel`. It assumes an edge fires independently at each step, which makes nodes downstream of a randomly-timed parent appear traversed slightly too early.
+
+`ConditionedBayesianTraversalModel` drops that assumption: it is exact for tree-like graphs and single points of reconvergence (e.g. diamonds), at the cost of being considerably slower. It still assumes a node's parents are traversed independently, so use `TraversalModel` as ground truth when a node's parents share correlated upstream ancestry.
 
 _Not imported at top level! Must be imported explicitly:_
 
@@ -715,6 +717,7 @@ from navis import models
 |----------|-------------|
 | [`navis.models.TraversalModel`][] | {{ autosummary("navis.models.TraversalModel") }} |
 | [`navis.models.BayesianTraversalModel`][] | {{ autosummary("navis.models.BayesianTraversalModel") }} |
+| [`navis.models.ConditionedBayesianTraversalModel`][] | {{ autosummary("navis.models.ConditionedBayesianTraversalModel") }} |
 
 
 ## Interfaces
