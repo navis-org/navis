@@ -512,6 +512,11 @@ def fetch_mesh_neuron(
     somalocs = meta.set_index("bodyId").somaLocation.to_dict()
     radii = meta.set_index("bodyId").somaRadius.to_dict()
 
+    # Meshes come out in nanometers but synapses, soma locations, etc. come out
+    # in voxels - we will therefore scale meshes to voxels
+    voxel_size, _ = _coordinate_resolution(client, "synapse")
+    units = _voxel_size_to_units(client, "synapse")
+
     for n in nl:
         n.name = instances[n.id]
         n.status = status[n.id]
@@ -519,10 +524,8 @@ def fetch_mesh_neuron(
         n.n_voxels = sizes[n.id]
         n.somaLocation = somalocs[n.id]
 
-        # Meshes come out in units (e.g. nanometers) but most other data (synapses,
-        # skeletons, etc) come out in voxels, we will therefore scale meshes to voxels
-        n.vertices /= np.array(client.meta["voxelSize"]).reshape(1, 3)
-        n.units = _voxel_size_to_units(client)
+        n.vertices /= voxel_size
+        n.units = units
 
         if n.somaLocation:
             if radii[n.id]:
@@ -734,8 +737,12 @@ def __fetch_skeleton(
 
     # Generate neuron
     n = Skeleton(
-        data, units=_voxel_size_to_units(client)
+        data, units=_voxel_size_to_units(client, "skeleton")
     )
+
+    # Synapses and soma locations may be in a different space than the
+    # skeleton (e.g. fish2) - this brings them into skeleton space
+    scale = _skeleton_scale(client)
 
     # Reduce precision
     n._nodes = n._nodes.astype(
@@ -764,9 +771,9 @@ def __fetch_skeleton(
 
     # Set soma
     if r.somaLocation:
-        d, i = tree.query([r.somaLocation])
+        d, i = tree.query([np.asarray(r.somaLocation) * scale])
         n.soma = int(n.nodes.iloc[i[0]].node_id)
-        n.soma_radius = r.somaRadius if r.somaRadius else "radius"
+        n.soma_radius = r.somaRadius * scale.mean() if r.somaRadius else "radius"
     else:
         n.soma = None
 
@@ -783,6 +790,9 @@ def __fetch_skeleton(
             # Process synapses
             syn["connector_id"] = syn.index.values
             locs = syn[["x", "y", "z"]].values
+            # Only scale if necessary to keep integer coordinates
+            if not np.all(scale == 1):
+                locs = locs * scale
             d, i = tree.query(locs)
 
             syn["node_id"] = n.nodes.iloc[i].node_id.values
@@ -948,10 +958,44 @@ def _fix_meta(meta):
     return meta
 
 
-def _voxel_size_to_units(client):
-    """Extract voxel size from client and convert to pint units."""
-    units = client.meta["voxelUnits"]
-    voxel_size = np.asarray(client.meta["voxelSize"])
+def _coordinate_resolution(client, kind):
+    """Get resolution of the coordinates neuPrint returns for given data.
+
+    Newer datasets declare `skeletonCoordinateResolutionNm` and
+    `synapseCoordinateResolutionNm` in their meta data because skeletons and
+    synapses need not share a coordinate space (e.g. fish2: skeletons in nm,
+    synapses in voxels). We fall back to `voxelSize` and `voxelUnits`.
+
+    Parameters
+    ----------
+    client :    neuprint.Client
+    kind :      "synapse" | "skeleton"
+                Synapse resolution also applies to other point data such as
+                soma locations.
+
+    Returns
+    -------
+    resolution :    (3, ) numpy array
+    units :         str
+
+    """
+    assert kind in ("synapse", "skeleton")
+    res = client.meta.get(f"{kind}CoordinateResolutionNm")
+    if res is not None:
+        return np.asarray(res), "nanometers"
+    return np.asarray(client.meta["voxelSize"]), client.meta["voxelUnits"]
+
+
+def _skeleton_scale(client):
+    """Factor to bring synapse coordinates into skeleton space."""
+    syn_res, syn_units = _coordinate_resolution(client, "synapse")
+    skel_res, skel_units = _coordinate_resolution(client, "skeleton")
+    return config.ureg.Quantity(syn_res, syn_units).to(skel_units).magnitude / skel_res
+
+
+def _voxel_size_to_units(client, kind):
+    """Extract coordinate resolution from client and convert to pint units."""
+    voxel_size, units = _coordinate_resolution(client, kind)
 
     if (voxel_size == voxel_size[0]).all():
         return f"{voxel_size[0]} {units}"
