@@ -288,7 +288,10 @@ pip3 install cloud-volume
 <span class="normal">552</span>
 <span class="normal">553</span>
 <span class="normal">554</span>
-<span class="normal">555</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@inject_client</span>
+<span class="normal">555</span>
+<span class="normal">556</span>
+<span class="normal">557</span>
+<span class="normal">558</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@inject_client</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">fetch_mesh_neuron</span><span class="p">(</span>
     <span class="n">x</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -497,6 +500,11 @@ pip3 install cloud-volume
     <span class="n">somalocs</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">"bodyId"</span><span class="p">)</span><span class="o">.</span><span class="n">somaLocation</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
     <span class="n">radii</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">"bodyId"</span><span class="p">)</span><span class="o">.</span><span class="n">somaRadius</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
 
+    <span class="c1"># Meshes come out in nanometers but synapses, soma locations, etc. come out</span>
+    <span class="c1"># in voxels - we will therefore scale meshes to voxels</span>
+    <span class="n">voxel_size</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_coordinate_resolution</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"synapse"</span><span class="p">)</span>
+    <span class="n">units</span> <span class="o">=</span> <span class="n">_voxel_size_to_units</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"synapse"</span><span class="p">)</span>
+
     <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nl</span><span class="p">:</span>
         <span class="n">n</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">instances</span><span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
         <span class="n">n</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">status</span><span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
@@ -504,10 +512,8 @@ pip3 install cloud-volume
         <span class="n">n</span><span class="o">.</span><span class="n">n_voxels</span> <span class="o">=</span> <span class="n">sizes</span><span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
         <span class="n">n</span><span class="o">.</span><span class="n">somaLocation</span> <span class="o">=</span> <span class="n">somalocs</span><span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
 
-        <span class="c1"># Meshes come out in units (e.g. nanometers) but most other data (synapses,</span>
-        <span class="c1"># skeletons, etc) come out in voxels, we will therefore scale meshes to voxels</span>
-        <span class="n">n</span><span class="o">.</span><span class="n">vertices</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s2">"voxelSize"</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-        <span class="n">n</span><span class="o">.</span><span class="n">units</span> <span class="o">=</span> <span class="n">_voxel_size_to_units</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+        <span class="n">n</span><span class="o">.</span><span class="n">vertices</span> <span class="o">/=</span> <span class="n">voxel_size</span>
+        <span class="n">n</span><span class="o">.</span><span class="n">units</span> <span class="o">=</span> <span class="n">units</span>
 
         <span class="k">if</span> <span class="n">n</span><span class="o">.</span><span class="n">somaLocation</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">radii</span><span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">id</span><span class="p">]:</span>
@@ -621,10 +627,7 @@ pip3 install cloud-volume
         this governs *failures*; a body that simply has no SWC is
         governed by `missing_swc`.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> "raise" | "log" | "ignore"</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>client</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>        If `None` will try using global client.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> neuprint.Client</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="navis">navis</span>.<span title="navis.Neuronlist">Neuronlist</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/neuprint.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> neuprint.Client</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><span title="navis">navis</span>.<span title="navis.Neuronlist">Neuronlist</span></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/neuprint.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">593</span>
 <span class="normal">594</span>
 <span class="normal">595</span>
 <span class="normal">596</span>
@@ -741,7 +744,10 @@ pip3 install cloud-volume
 <span class="normal">707</span>
 <span class="normal">708</span>
 <span class="normal">709</span>
-<span class="normal">710</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@inject_client</span>
+<span class="normal">710</span>
+<span class="normal">711</span>
+<span class="normal">712</span>
+<span class="normal">713</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@inject_client</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">fetch_skeletons</span><span class="p">(</span>
     <span class="n">x</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -1084,17 +1090,7 @@ pip3 install cloud-volume
         <span class="s2">"confidence"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">"float32"</span><span class="p">),</span>
     <span class="p">}</span>
     <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([],</span> <span class="n">columns</span><span class="o">=</span><span class="n">dtypes</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtypes</span><span class="p">)</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.neuprint.get_seg_source" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">neuprint</span><span class="o">.</span><span class="n">get_seg_source</span></code> <a href="#navis.interfaces.neuprint.get_seg_source" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Get segmentation source for given client+dataset.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/neuprint.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">860</span>
-<span class="normal">861</span>
-<span class="normal">862</span>
-<span class="normal">863</span>
-<span class="normal">864</span>
-<span class="normal">865</span>
-<span class="normal">866</span>
-<span class="normal">867</span>
-<span class="normal">868</span>
-<span class="normal">869</span>
-<span class="normal">870</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.neuprint.get_seg_source" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">neuprint</span><span class="o">.</span><span class="n">get_seg_source</span></code> <a href="#navis.interfaces.neuprint.get_seg_source" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Get segmentation source for given client+dataset.</p> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/neuprint.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">870</span>
 <span class="normal">871</span>
 <span class="normal">872</span>
 <span class="normal">873</span>
@@ -1137,7 +1133,17 @@ pip3 install cloud-volume
 <span class="normal">910</span>
 <span class="normal">911</span>
 <span class="normal">912</span>
-<span class="normal">913</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@inject_client</span>
+<span class="normal">913</span>
+<span class="normal">914</span>
+<span class="normal">915</span>
+<span class="normal">916</span>
+<span class="normal">917</span>
+<span class="normal">918</span>
+<span class="normal">919</span>
+<span class="normal">920</span>
+<span class="normal">921</span>
+<span class="normal">922</span>
+<span class="normal">923</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@inject_client</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_seg_source</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Get segmentation source for given client+dataset."""</span>
     <span class="c1"># First try to fetch the scene for the neuroglancer</span>
@@ -1192,17 +1198,7 @@ pip3 install cloud-volume
 
     <span class="k">return</span> <span class="n">seg_source</span>
 </code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.interfaces.neuprint.remove_soma_hairball" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">neuprint</span><span class="o">.</span><span class="n">remove_soma_hairball</span></code> <a href="#navis.interfaces.neuprint.remove_soma_hairball" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Remove hairball around soma.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> core.Skeleton</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>radius</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Radius around the soma to check for hairball
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> float</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>500</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><a class="autorefs autorefs-internal" title="&lt;code&gt;navis.Skeleton&lt;/code&gt; (&lt;code&gt;navis.core.Skeleton&lt;/code&gt;)" href="../../#navis.Skeleton">Skeleton</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>If inplace=False.</p> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/neuprint.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">807</span>
-<span class="normal">808</span>
-<span class="normal">809</span>
-<span class="normal">810</span>
-<span class="normal">811</span>
-<span class="normal">812</span>
-<span class="normal">813</span>
-<span class="normal">814</span>
-<span class="normal">815</span>
-<span class="normal">816</span>
-<span class="normal">817</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> float</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>500</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <span class="doc-returns-annotation"> <code><a class="autorefs autorefs-internal" title="&lt;code&gt;navis.Skeleton&lt;/code&gt; (&lt;code&gt;navis.core.Skeleton&lt;/code&gt;)" href="../../#navis.Skeleton">Skeleton</a></code> </span> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>If inplace=False.</p> </div> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/interfaces/neuprint.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">817</span>
 <span class="normal">818</span>
 <span class="normal">819</span>
 <span class="normal">820</span>
@@ -1242,7 +1238,17 @@ pip3 install cloud-volume
 <span class="normal">854</span>
 <span class="normal">855</span>
 <span class="normal">856</span>
-<span class="normal">857</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">remove_soma_hairball</span><span class="p">(</span>
+<span class="normal">857</span>
+<span class="normal">858</span>
+<span class="normal">859</span>
+<span class="normal">860</span>
+<span class="normal">861</span>
+<span class="normal">862</span>
+<span class="normal">863</span>
+<span class="normal">864</span>
+<span class="normal">865</span>
+<span class="normal">866</span>
+<span class="normal">867</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">remove_soma_hairball</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="s2">"core.Skeleton"</span><span class="p">,</span> <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span> <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Remove hairball around soma.</span>
