@@ -73,10 +73,14 @@ def _empty_scores(query_ids, target_ids, dtype, scores='forward'):
                                            names=['query', 'score'])
     else:
         index = pd.Index(query_ids, name='query')
-
+    # N.B. the default behavior of pandas >=3 is to copy the data when creating a DataFrame
+    # from an ndarray, which is unnecessary here and can be expensive for large matrices.
+    # We set `copy=False` to avoid this. On pandas <3 the default is to not copy anyway.
     return pd.DataFrame(np.empty((len(index), len(target_ids)), dtype=dtype),
                         index=index,
-                        columns=pd.Index(target_ids, name='target'))
+                        columns=pd.Index(target_ids, name='target'),
+                        copy=False
+    )
 
 
 def _row_positions(queries_ix, scores):
