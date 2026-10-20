@@ -11,16 +11,14 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import io
-
-import networkx as nx
+import numpy as np
 import pandas as pd
 import xml.etree.ElementTree as ET
 
 from typing import Union, Dict, Optional, Any, IO, Iterable
 from zipfile import ZipFile
 
-from .. import config, core
+from .. import config, core, utils
 from . import base
 
 
@@ -64,73 +62,126 @@ class NMLReader(base.BaseReader):
     @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.Skeleton":
-        """Read .nml buffer into a Skeleton.
-
-        NML files are XML-encoded files containing data for a single neuron.
-
-        Parameters
-        ----------
-        f :         IO
-                    Readable buffer (must be bytes).
-        attrs :     dict | None
-                    Arbitrary attributes to include in the Skeleton.
-
-        Returns
-        -------
-        core.Skeleton
-        """
+    ) -> "core.NeuronObject":
+        """Read .nml buffer into Skeleton(s). See `read_nml`."""
         return self.read_nml(f.read(), attrs=attrs)
 
     def read_nml(
-        self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.Skeleton":
-        """Read .nml buffer into a Skeleton.
+        self, f: Union[str, bytes], attrs: Optional[Dict[str, Any]] = None
+    ) -> "core.NeuronObject":
+        """Read .nml data into Skeleton(s).
 
-        NML files are XML files containing a single neuron.
+        NML files are XML-encoded files containing one or more trees
+        (`<thing>` elements). Each tree becomes a separate Skeleton.
 
         Parameters
         ----------
-        f :         IO
-                    Readable buffer.
+        f :         str | bytes
+                    NML data.
         attrs :     dict | None
                     Arbitrary attributes to include in the Skeleton.
 
         Returns
         -------
-        core.Skeleton
+        core.Skeleton | core.NeuronList
+                    A single Skeleton if the file contains one tree, else a
+                    NeuronList with one Skeleton per tree.
         """
-        if isinstance(f, bytes):
-            f = f.decode()
+        root = ET.fromstring(f)
 
-        f = io.StringIO(f)
-        root = ET.parse(f).getroot()
+        things = root.findall("thing")
+        if not things:
+            raise ValueError("NML file does not contain any trees (<thing> elements)")
 
-        # Copy the attributes dict
-        for element in root:
-            if element.tag == "thing":
-                nodes = pd.DataFrame.from_records([n.attrib for n in element[0]])
-                edges = pd.DataFrame.from_records([n.attrib for n in element[1]])
-                edges = edges.astype(self._dtypes["node_id"])
+        # Comments are stored globally and reference nodes by ID
+        comments = {
+            int(c.get("node")): c.get("content", "")
+            for c in root.iterfind("comments/comment")
+        }
 
-                nodes.rename({"id": "node_id"}, axis=1, inplace=True)
-                nodes = nodes.astype(
-                    {k: v for k, v in self._dtypes.items() if k in nodes.columns}
+        base_props = {"name": "NML", "origin": "nml"}
+        units = self._parse_units(root)
+        if units is not None:
+            base_props["units"] = units
+
+        neurons = []
+        for thing in things:
+            nodes = self._parse_nodes(thing)
+
+            # The tree's own name/id are defaults that the filename or user
+            # can override - unless there are multiple trees in the file in
+            # which case they are the only thing telling the trees apart
+            tree_props = {}
+            if thing.get("name"):
+                tree_props["name"] = thing.get("name")
+            if thing.get("id") is not None:
+                tree_props["id"] = int(thing.get("id"))
+            props = {**base_props, **tree_props}
+            if thing.get("groupId"):
+                props["group_id"] = thing.get("groupId")
+
+            override = tree_props if len(things) > 1 else {}
+
+            tags = {}
+            for i in nodes.node_id.tolist():
+                if i in comments:
+                    tags.setdefault(comments[i], []).append(i)
+            if tags:
+                override = {**override, "tags": tags}
+
+            neurons.append(
+                core.Skeleton(
+                    nodes, **(self._make_attributes(props, attrs, override))
                 )
+            )
 
-        G = nx.Graph()
-        G.add_edges_from(edges.values)
-        tree = nx.bfs_tree(G, list(G.nodes)[0])
-        edges = pd.DataFrame(list(tree.edges), columns=["source", "target"])
-        nodes["parent_id"] = (
-            edges.set_index("target").reindex(nodes.node_id.values).source.values
+        if len(neurons) == 1:
+            return neurons[0]
+        return core.NeuronList(neurons)
+
+    def _parse_units(self, root: ET.Element) -> Optional[list]:
+        """Extract voxel size from the <parameters><scale> element."""
+        scale = root.find("parameters/scale")
+        if scale is None:
+            return None
+        unit = scale.get("unit", "nanometer")
+        return [f"{float(scale.get(d))} {unit}" for d in ("x", "y", "z")]
+
+    def _parse_nodes(self, thing: ET.Element) -> pd.DataFrame:
+        """Parse a single <thing> into a node table with parent IDs."""
+        records = [n.attrib for n in thing.iterfind("nodes/node")]
+        if records:
+            nodes = pd.DataFrame.from_records(records)
+        else:
+            nodes = pd.DataFrame(columns=["id", "x", "y", "z", "radius"])
+        nodes.rename({"id": "node_id"}, axis=1, inplace=True)
+        nodes = nodes.astype(
+            {k: v for k, v in self._dtypes.items() if k in nodes.columns}
         )
-        nodes["parent_id"] = nodes.parent_id.fillna(-1).astype(self._dtypes["node_id"])
         nodes.sort_values("node_id", inplace=True)
+        nodes.reset_index(drop=True, inplace=True)
 
-        return core.Skeleton(
-            nodes, **(self._make_attributes({"name": "NML", "origin": "nml"}, attrs))
+        # Translate edges into index space, dropping any that reference nodes
+        # not in this tree
+        ids = nodes.node_id.values
+        edges = np.array(
+            [
+                (int(e.get("source")), int(e.get("target")))
+                for e in thing.iterfind("edges/edge")
+            ],
+            dtype=np.int64,
+        ).reshape(-1, 2)
+        edges = edges[np.isin(edges, ids).all(axis=1)]
+        edges = np.searchsorted(ids, edges).astype(np.int32)
+
+        # Root each connected component at its lowest node ID (typically the
+        # first node placed) and orient edges away from it
+        parents = utils.fastcore.parents_from_edges(edges, len(ids))[0]
+        nodes["parent_id"] = np.where(parents >= 0, ids[parents], -1).astype(
+            self._dtypes["parent_id"]
         )
+
+        return nodes
 
 
 class NMXReader(NMLReader):
@@ -152,11 +203,10 @@ class NMXReader(NMLReader):
     @base.handle_errors
     def read_buffer(
         self, f: IO, attrs: Optional[Dict[str, Any]] = None
-    ) -> "core.Skeleton":
-        """Read .nmx buffer into a Skeleton.
+    ) -> "core.NeuronObject":
+        """Read .nmx buffer into Skeleton(s).
 
-        NMX files are zip files containing XML-encoded .nml files containing
-        data for a single neuron.
+        NMX files are zip files containing XML-encoded .nml files.
 
         Parameters
         ----------
@@ -167,7 +217,7 @@ class NMXReader(NMLReader):
 
         Returns
         -------
-        core.Skeleton
+        core.Skeleton | core.NeuronList
         """
         if not isinstance(f.read(0), bytes):
             raise ValueError(f'Expected bytes, got "{type(f.read(0))}"')
