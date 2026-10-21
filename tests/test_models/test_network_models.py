@@ -70,3 +70,4 @@ def test_bayesian_matches_montecarlo_diamond():
     for node in ts.index.intersection(bs.index):
         assert bs.loc[node, 'layer_mean'] == pytest.approx(
             ts.loc[node, 'layer_mean'], abs=0.05)
+

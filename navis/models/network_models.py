@@ -465,7 +465,13 @@ class BayesianTraversalModel(TraversalModel):
         valid = np.any(cmfs != 0, axis=1)
         layer_max = (cmfs == 1.).argmax(axis=1)
         layer_max[~np.any(cmfs == 1., axis=1)] = cmfs.shape[1]
-        layer_median = (cmfs >= .5).argmax(axis=1).astype(float)
+        # ``argmax`` returns 0 for an all-False row, which is indistinguishable
+        # from crossing the threshold at the very first step. Flag nodes whose
+        # CMF never reaches .5 with -1 instead (0 after the +1 offset below).
+        above_median = cmfs >= .5
+        layer_median = np.where(above_median.any(axis=1),
+                                above_median.argmax(axis=1),
+                                -1).astype(float)
         pmfs = np.diff(cmfs, axis=1, prepend=0.)
         layer_pmfs = pmfs * np.arange(pmfs.shape[1])
         layer_mean = np.sum(layer_pmfs, axis=1)
