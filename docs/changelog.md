@@ -35,6 +35,7 @@ pip install git+https://github.com/navis-org/navis@master
 - transforms: bridging edge weights now mean one thing and lower always wins, which changes ~29% of the paths in `navis-flybrains`; the CMTK/elastix `"binary"` and the `"python"` landmark backends are deprecated
 - [`ivscc_features`][navis.ivscc_features] returns neurons as *rows* (add a `.T` for the old layout) and several features changed meaning
 - note that a number of changes **change outputs**: NBLAST (now float32 coordinates), [`smooth_skeleton`][navis.smooth_skeleton] (centred window), [`smooth_mesh`][navis.smooth_mesh] (Taubin by default), [`smooth_voxels`][navis.smooth_voxels], [`downsample_neuron`][navis.downsample_neuron], [`collapse_nodes`][navis.collapse_nodes], [`fix_mesh`][navis.fix_mesh]`(fill_holes=True)` (which now closes openings of any size, so volumes and watertightness move), `betweenness_centrality(from_=)` and `node_label_sorting`
+- `models.BayesianTraversalModel` is once more the fast, approximate model it was before 1.12.0: it assumes an edge fires independently at each step, so nodes downstream of a randomly-timed parent are reported slightly early (#194). The locally-exact behaviour 1.12.0 gave it now lives in the new `models.ConditionedBayesianTraversalModel` - switch to that class if you need it. Both models' assumptions, and the size of the resulting bias, are now spelled out in their docstrings
 
 ##### Additions
 - new [`masked`][navis.masked]: work on part of a neuron, then put it back - inside the block the neuron *is* the masked region, and edits are folded back in on the way out (see new tutorial)
@@ -54,6 +55,7 @@ pip install git+https://github.com/navis-org/navis@master
 - new [`Pipeline`][navis.Pipeline]: a reusable, composable chain of operations that is sent to a worker *once* instead of once per function - `navis.Pipeline().heal_skeleton().prune_twigs(5000)`, or `nl.pipeline.heal_skeleton().run()` (see the multiprocessing tutorial)
 - `parallel=True` runs on a backend you can choose - `joblib` (the new default), `pathos`, `processes`, `threads`, `serial` or one you register - via the new [`set_parallel_backend`][navis.set_parallel_backend]; `dask` and `submitit` (SLURM) put it on a cluster (`pip install navis[cluster]`). NBLAST dispatches through the same layer
 - [`ivscc_features`][navis.ivscc_features] gained the features it was missing (radius-derived size, tip/branch point counts, bifurcation angles, `extent_z`, ...) plus two new tutorials
+- new `models.ConditionedBayesianTraversalModel`: a Bayesian traversal model that conditions on each parent's activation time instead of assuming an edge fires independently at each step. Exact for tree-like graphs and single points of reconvergence (e.g. diamonds), at the cost of being considerably slower than `models.BayesianTraversalModel`
 
 ##### Improvements
 - the graph internals now run on navis-fastcore instead of igraph/networkx - [`betweenness_centrality`][navis.betweenness_centrality] 217ms :octicons-arrow-right-24: 0.5ms, [`reroot_skeleton`][navis.reroot_skeleton] 3x, [`cut_skeleton`][navis.cut_skeleton] 2x, [`collapse_nodes`][navis.collapse_nodes] 6x, and more (values unchanged)
@@ -73,6 +75,7 @@ pip install git+https://github.com/navis-org/navis@master
 - new `navis.config.strict` (or `NAVIS_STRICT=1`) for server and pipeline contexts: nothing prompts for input and remote fetches raise rather than return a partial result
 - new `navis.interfaces.clear_cache()`, and one pooled, retrying HTTP session for the whole library
 - two dependencies are gone (`six`, `pypng`) and `morphops`/`molesq` are imported lazily (~280 ms off `import navis`)
+- `models.BayesianTraversalModel.run` updates the whole frontier in one vectorised step per iteration (CSR adjacency + `np.multiply.reduceat`) instead of visiting nodes one at a time and rescanning the full edge array for each
 
 ##### Fixes
 - [`subset_neuron`][navis.subset_neuron] has been rewritten onto a declarative per-type schema, which fixed four silent bugs - among them a `Mesh`'s connectors being mis-mapped and a `Dotprops`' soma pointing at whatever point had moved into that slot
