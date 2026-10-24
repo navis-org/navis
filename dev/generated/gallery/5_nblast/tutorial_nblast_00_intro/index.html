@@ -118,27 +118,6 @@
 
 <span class="c1"># Set a client</span>
 <span class="n">client</span> <span class="o">=</span> <span class="n">neu</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="s2">"https://neuprint.janelia.org"</span><span class="p">,</span> <span class="n">dataset</span><span class="o">=</span><span class="s2">"hemibrain:v1.2.1"</span><span class="p">)</span>
-</code></pre></div> <div class="mkd-glr-script-err-disp highlight"><pre><span></span><code><span class="gt">Traceback (most recent call last):</span>
-  File <span class="nb">"/home/runner/work/navis/navis/docs/examples/5_nblast/tutorial_nblast_00_intro.py"</span>, line <span class="m">242</span>, in <span class="n">&lt;module&gt;</span>
-<span class="w">    </span><span class="n">client</span> <span class="o">=</span> <span class="n">neu</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="s2">"https://neuprint.janelia.org"</span><span class="p">,</span> <span class="n">dataset</span><span class="o">=</span><span class="s2">"hemibrain:v1.2.1"</span><span class="p">)</span>
-<span class="w">             </span><span class="pm">^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>
-  File <span class="nb">"/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/neuprint/client.py"</span>, line <span class="m">483</span>, in <span class="n">__init__</span>
-<span class="w">    </span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_dataset</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">reload_cache</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="w">                   </span><span class="pm">^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>
-  File <span class="nb">"/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/neuprint/client.py"</span>, line <span class="m">491</span>, in <span class="n">_select_dataset</span>
-<span class="w">    </span><span class="n">all_datasets</span> <span class="o">=</span> <span class="p">[</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">fetch_datasets</span><span class="p">(</span><span class="n">reload_cache</span><span class="p">)</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
-<span class="w">                     </span><span class="pm">^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>
-  File <span class="nb">"/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/neuprint/client.py"</span>, line <span class="m">802</span>, in <span class="n">fetch_datasets</span>
-<span class="w">    </span><span class="n">datasets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_json</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">server</span><span class="si">}</span><span class="s2">/api/dbmeta/datasets"</span><span class="p">)</span>
-<span class="w">               </span><span class="pm">^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>
-  File <span class="nb">"/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/neuprint/client.py"</span>, line <span class="m">542</span>, in <span class="n">_fetch_json</span>
-<span class="w">    </span><span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">json</span><span class="p">,</span> <span class="n">ispost</span><span class="o">=</span><span class="n">ispost</span><span class="p">)</span>
-<span class="w">        </span><span class="pm">^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>
-  File <span class="nb">"/opt/hostedtoolcache/Python/3.11.17/x64/lib/python3.11/site-packages/neuprint/client.py"</span>, line <span class="m">400</span>, in <span class="n">wrapper</span>
-<span class="w">    </span><span class="k">raise</span> <span class="n">new_ex</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
-<span class="gr">requests.exceptions.HTTPError</span>: <span class="n">Error accessing GET https://neuprint.janelia.org/api/dbmeta/datasets</span>
-
-<span class="x">Returned Error (401)</span>
 </code></pre></div> <p>Next we will fetch all olfactory projection neurons of the lateral lineage using a regex pattern.</p> <div class="highlight"><pre><span></span><code><span class="n">pns</span> <span class="o">=</span> <span class="n">neu</span><span class="o">.</span><span class="n">fetch_skeletons</span><span class="p">(</span>
     <span class="n">neu</span><span class="o">.</span><span class="n">NeuronCriteria</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">".*lPN.*"</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">with_synapses</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">client</span>
 <span class="p">)</span>
@@ -147,11 +126,477 @@
 <span class="n">pns</span> <span class="o">=</span> <span class="n">pns</span><span class="p">[[</span><span class="ow">not</span> <span class="n">n</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"_L"</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">pns</span><span class="p">]]</span>
 
 <span class="n">pns</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
-</code></pre></div> <p>Generate dotprops</p> <div class="highlight"><pre><span></span><code><span class="c1"># These neurons are in 8x8x8nm (voxel) resolution</span>
+</code></pre></div> <p class="mkd-glr-script-out">Out:</p> <div class="mkd-glr-script-out-disp highlight"><pre><span></span><code><span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  8.37it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  8.36it/s]</span>
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  7.31it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  7.31it/s]</span>
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.14it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.14it/s]</span>
+
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.53it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.53it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 14.21it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 13.92it/s]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  4.55it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  4.55it/s]</span>
+
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.45it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.45it/s]</span>
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  3.28it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  3.28it/s]</span>
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  4.49it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  4.49it/s]</span>
+
+
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  1.53it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  1.53it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 19.16it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 26.43it/s]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 14.53it/s]</span>
+
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  7.11it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  7.11it/s]</span>
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  5.98it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  5.98it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 13.54it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 11.24it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 26.32it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 11.73it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 14.43it/s]</span>
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  5.89it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  5.89it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  4.78it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  4.78it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 13.72it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 10.08it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  9.46it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  9.45it/s]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 10.25it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 16.67it/s]</span>
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  7.98it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  7.97it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 11.95it/s]</span>
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.83it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.82it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 19.46it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 19.25it/s]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 14.06it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 11.38it/s]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 23.09it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 14.57it/s]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.28it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.27it/s]</span>
+
+
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.68it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.68it/s]</span>
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  3.87it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  3.87it/s]</span>
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  9.94it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  9.94it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 14.83it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 11.21it/s]</span>
+
+
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  9.00it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  8.99it/s]</span>
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  5.63it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  5.63it/s]</span>
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  5.02it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  5.02it/s]</span>
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.01it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.00it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 20.40it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 20.84it/s]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 20.92it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  8.89it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  8.88it/s]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  9.23it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  9.23it/s]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  8.84it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  8.83it/s]</span>
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  8.48it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  8.47it/s]</span>
+
+
+
+<span class="w">  </span><span class="m">0</span>%<span class="p">|</span><span class="w">          </span><span class="p">|</span><span class="w"> </span><span class="m">0</span>/1<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00&lt;?,<span class="w"> </span>?it/s<span class="o">]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00, 15.90it/s]</span>
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.61it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  6.60it/s]</span>
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  4.67it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  4.67it/s]</span>
+
+
+
+
+
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  3.44it/s]</span>
+<span class="m">100</span>%<span class="p">|</span><span class="c1">##########| 1/1 [00:00&lt;00:00,  3.44it/s]</span>
+</code></pre></div> <div class="output_subarea output_html rendered_html output_result"> <div> <style scoped="">
+        .dataframe tbody tr th:only-of-type {
+            vertical-align: middle;
+        }
+
+        .dataframe tbody tr th {
+            vertical-align: top;
+        }
+
+        .dataframe thead th {
+            text-align: right;
+        }
+    </style> <table border="1" class="dataframe"> <thead> <tr style="text-align: right;"> <th></th> <th>type</th> <th>name</th> <th>id</th> <th>n_nodes</th> <th>n_connectors</th> <th>n_branches</th> <th>n_leafs</th> <th>cable_length</th> <th>soma</th> <th>units</th> </tr> </thead> <tbody> <tr> <th>0</th> <td>navis.Skeleton</td> <td>DM1_lPN_R</td> <td>542634818</td> <td>16273</td> <td>15317</td> <td>3216</td> <td>3369</td> <td>1.167166e+06</td> <td>15873.0</td> <td>8 nanometer</td> </tr> <tr> <th>1</th> <td>navis.Skeleton</td> <td>VA5_lPN_R</td> <td>574032862</td> <td>4509</td> <td>2849</td> <td>739</td> <td>763</td> <td>3.023454e+05</td> <td>9.0</td> <td>8 nanometer</td> </tr> <tr> <th>2</th> <td>navis.Skeleton</td> <td>VA5_lPN_R</td> <td>574037281</td> <td>4365</td> <td>2891</td> <td>719</td> <td>756</td> <td>2.994139e+05</td> <td>19.0</td> <td>8 nanometer</td> </tr> <tr> <th>3</th> <td>navis.Skeleton</td> <td>VA5_lPN_R</td> <td>574374051</td> <td>4480</td> <td>3000</td> <td>751</td> <td>786</td> <td>3.098901e+05</td> <td>6.0</td> <td>8 nanometer</td> </tr> <tr> <th>4</th> <td>navis.Skeleton</td> <td>VP1l+VP3_ilPN</td> <td>603785283</td> <td>8920</td> <td>2345</td> <td>887</td> <td>915</td> <td>3.963694e+05</td> <td>NaN</td> <td>8 nanometer</td> </tr> </tbody> </table> </div> </div> <p>Generate dotprops</p> <div class="highlight"><pre><span></span><code><span class="c1"># These neurons are in 8x8x8nm (voxel) resolution</span>
 <span class="n">pns_um</span> <span class="o">=</span> <span class="n">pns</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1000</span> <span class="o">/</span> <span class="mi">8</span><span class="p">)</span>  <span class="c1"># convert to microns</span>
 <span class="n">pns_dps</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">make_dotprops</span><span class="p">(</span><span class="n">pns_um</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 <span class="n">pns_dps</span>
-</code></pre></div> <p>Run an all-by-all NBLAST and synNBLAST</p> <div class="highlight"><pre><span></span><code><span class="n">pns_nbl</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">nblast_allbyall</span><span class="p">(</span><span class="n">pns_dps</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</code></pre></div> <div class="output_subarea output_html rendered_html output_result"> &lt;class 'navis.core.neuronlist.NeuronList'&gt; containing 54 neurons (11.9MiB)<div> <style scoped="">
+        .dataframe tbody tr th:only-of-type {
+            vertical-align: middle;
+        }
+
+        .dataframe tbody tr th {
+            vertical-align: top;
+        }
+
+        .dataframe thead th {
+            text-align: right;
+        }
+    </style> <table border="1" class="dataframe"> <thead> <tr style="text-align: right;"> <th></th> <th>type</th> <th>name</th> <th>id</th> <th>k</th> <th>units</th> <th>n_points</th> </tr> </thead> <tbody> <tr> <th>0</th> <td>navis.Dotprops</td> <td>DM1_lPN_R</td> <td>542634818</td> <td>5</td> <td>1.0 micrometer</td> <td>16273</td> </tr> <tr> <th>1</th> <td>navis.Dotprops</td> <td>VA5_lPN_R</td> <td>574032862</td> <td>5</td> <td>1.0 micrometer</td> <td>4509</td> </tr> <tr> <th>...</th> <td>...</td> <td>...</td> <td>...</td> <td>...</td> <td>...</td> <td>...</td> </tr> <tr> <th>52</th> <td>navis.Dotprops</td> <td>VA7m_lPN_R</td> <td>5813055180</td> <td>5</td> <td>1.0 micrometer</td> <td>3739</td> </tr> <tr> <th>53</th> <td>navis.Dotprops</td> <td>DM2_lPN_R</td> <td>5901222910</td> <td>5</td> <td>1.0 micrometer</td> <td>6484</td> </tr> </tbody> </table> </div> </div> <p>Run an all-by-all NBLAST and synNBLAST</p> <div class="highlight"><pre><span></span><code><span class="n">pns_nbl</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">nblast_allbyall</span><span class="p">(</span><span class="n">pns_dps</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <span class="n">pns_synbl</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">synblast</span><span class="p">(</span><span class="n">pns_um</span><span class="p">,</span> <span class="n">pns_um</span><span class="p">,</span> <span class="n">by_type</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
 <span class="c1"># Generate the linear vectors</span>
@@ -172,10 +617,14 @@
 <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"synNBLAST"</span><span class="p">)</span>
 
 <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">(</span><span class="n">trim</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bottom</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</code></pre></div> <p>While we don't know which leaf is which, the structure in both dendrograms looks similar. If we wanted to take it further than that, we could use <a href="https://github.com/schlegelp/tanglegram">tanglegram</a> to line up the two clusterings and compare them.</p> <p>But let's save that for another day and instead do some plotting:</p> <p>Generate clusters</p> <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.cluster.hierarchy</span><span class="w"> </span><span class="kn">import</span> <span class="n">fcluster</span>
+</code></pre></div> <p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" data-desc-position="bottom"><img alt="NBLAST, synNBLAST" class="mkd-glr-single-img" src="../images/mkd_glr_tutorial_nblast_00_intro_003.png" srcset="../images/mkd_glr_tutorial_nblast_00_intro_003.png, ../images/mkd_glr_tutorial_nblast_00_intro_003_2_0x.png 2.0x"></a></p> <p>While we don't know which leaf is which, the structure in both dendrograms looks similar. If we wanted to take it further than that, we could use <a href="https://github.com/schlegelp/tanglegram">tanglegram</a> to line up the two clusterings and compare them.</p> <p>But let's save that for another day and instead do some plotting:</p> <p>Generate clusters</p> <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.cluster.hierarchy</span><span class="w"> </span><span class="kn">import</span> <span class="n">fcluster</span>
 
 <span class="n">cl</span> <span class="o">=</span> <span class="n">fcluster</span><span class="p">(</span><span class="n">Z_synbl</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">criterion</span><span class="o">=</span><span class="s2">"distance"</span><span class="p">)</span>
 <span class="n">cl</span>
+</code></pre></div> <p class="mkd-glr-script-out">Out:</p> <div class="mkd-glr-script-out-disp highlight"><pre><span></span><code>array<span class="o">([</span><span class="w"> </span><span class="m">8</span>,<span class="w">  </span><span class="m">6</span>,<span class="w">  </span><span class="m">6</span>,<span class="w">  </span><span class="m">6</span>,<span class="w"> </span><span class="m">14</span>,<span class="w">  </span><span class="m">3</span>,<span class="w">  </span><span class="m">8</span>,<span class="w">  </span><span class="m">8</span>,<span class="w">  </span><span class="m">8</span>,<span class="w"> </span><span class="m">15</span>,<span class="w">  </span><span class="m">2</span>,<span class="w">  </span><span class="m">2</span>,<span class="w">  </span><span class="m">2</span>,<span class="w">  </span><span class="m">7</span>,<span class="w"> </span><span class="m">13</span>,<span class="w"> </span><span class="m">10</span>,<span class="w"> </span><span class="m">10</span>,
+<span class="w">       </span><span class="m">14</span>,<span class="w">  </span><span class="m">1</span>,<span class="w">  </span><span class="m">1</span>,<span class="w">  </span><span class="m">3</span>,<span class="w"> </span><span class="m">13</span>,<span class="w">  </span><span class="m">1</span>,<span class="w"> </span><span class="m">10</span>,<span class="w"> </span><span class="m">11</span>,<span class="w"> </span><span class="m">10</span>,<span class="w">  </span><span class="m">2</span>,<span class="w">  </span><span class="m">2</span>,<span class="w">  </span><span class="m">2</span>,<span class="w">  </span><span class="m">7</span>,<span class="w">  </span><span class="m">7</span>,<span class="w">  </span><span class="m">7</span>,<span class="w">  </span><span class="m">9</span>,<span class="w">  </span><span class="m">7</span>,
+<span class="w">        </span><span class="m">9</span>,<span class="w">  </span><span class="m">3</span>,<span class="w">  </span><span class="m">4</span>,<span class="w"> </span><span class="m">11</span>,<span class="w">  </span><span class="m">9</span>,<span class="w">  </span><span class="m">5</span>,<span class="w">  </span><span class="m">9</span>,<span class="w"> </span><span class="m">12</span>,<span class="w">  </span><span class="m">9</span>,<span class="w"> </span><span class="m">14</span>,<span class="w"> </span><span class="m">15</span>,<span class="w"> </span><span class="m">14</span>,<span class="w"> </span><span class="m">12</span>,<span class="w"> </span><span class="m">11</span>,<span class="w"> </span><span class="m">11</span>,<span class="w">  </span><span class="m">2</span>,<span class="w"> </span><span class="m">13</span>,
+<span class="w">        </span><span class="m">5</span>,<span class="w">  </span><span class="m">5</span>,<span class="w">  </span><span class="m">8</span><span class="o">]</span>,<span class="w"> </span><span class="nv">dtype</span><span class="o">=</span>int32<span class="o">)</span>
 </code></pre></div> <p>Now plot each cluster. For simplicity we are plotting in 2D here:</p> <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 
 <span class="n">n_clusters</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">cl</span><span class="p">)</span>
@@ -208,7 +657,7 @@
     <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">bbox</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
 
 <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
-</code></pre></div> <p>Note how clusters 3 and 8 look a bit odd? That's because these likely still contain more than one type of neuron. We should probably have gone with a slightly finer clustering. But this little demo should be enough to get you started!</p> <h2 id="scaling-up">Scaling up<a class="headerlink" href="#scaling-up" title="Permanent link">#</a></h2> <p>The examples above are small enough that none of this mattered. An NBLAST is <code>N x M</code> comparisons and the cost grows with the <em>product</em>, so at real sizes the parameters we have been ignoring start to matter.</p> <h3 id="more-cores">More cores<a class="headerlink" href="#more-cores" title="Permanent link">#</a></h3> <p>Every NBLAST function takes <code>n_cores</code>, and it defaults to half of them. <span style="color:rgb(250,175,3)">NAVis</span> cuts the query <span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"></path></svg></span> target matrix into blocks and runs those side by side:</p> <div class="highlight"><pre><span></span><code><span class="n">aba</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">nblast_allbyall</span><span class="p">(</span><span class="n">dps</span><span class="p">,</span> <span class="n">n_cores</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+</code></pre></div> <p><a class="glightbox" data-type="image" data-width="auto" data-height="auto" data-desc-position="bottom"><img alt="cluster 1, cluster 2, cluster 3, cluster 4, cluster 5, cluster 6, cluster 7, cluster 8, cluster 9, cluster 10, cluster 11, cluster 12, cluster 13, cluster 14, cluster 15" class="mkd-glr-single-img" src="../images/mkd_glr_tutorial_nblast_00_intro_004.png" srcset="../images/mkd_glr_tutorial_nblast_00_intro_004.png, ../images/mkd_glr_tutorial_nblast_00_intro_004_2_0x.png 2.0x"></a></p> <p>Note how clusters 3 and 8 look a bit odd? That's because these likely still contain more than one type of neuron. We should probably have gone with a slightly finer clustering. But this little demo should be enough to get you started!</p> <h2 id="scaling-up">Scaling up<a class="headerlink" href="#scaling-up" title="Permanent link">#</a></h2> <p>The examples above are small enough that none of this mattered. An NBLAST is <code>N x M</code> comparisons and the cost grows with the <em>product</em>, so at real sizes the parameters we have been ignoring start to matter.</p> <h3 id="more-cores">More cores<a class="headerlink" href="#more-cores" title="Permanent link">#</a></h3> <p>Every NBLAST function takes <code>n_cores</code>, and it defaults to half of them. <span style="color:rgb(250,175,3)">NAVis</span> cuts the query <span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"></path></svg></span> target matrix into blocks and runs those side by side:</p> <div class="highlight"><pre><span></span><code><span class="n">aba</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">nblast_allbyall</span><span class="p">(</span><span class="n">dps</span><span class="p">,</span> <span class="n">n_cores</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
 </code></pre></div> <p>You don't size the blocks yourself: <span style="color:rgb(250,175,3)">NAVis</span> times a single query and picks a grid where each block is a bounded amount of work — small enough that no core sits idle waiting for a straggler, large enough that handing one over isn't the expensive part.</p> <h3 id="choosing-a-backend">Choosing a backend<a class="headerlink" href="#choosing-a-backend" title="Permanent link">#</a></h3> <p><code>backend=</code> selects the engine that does the scoring:</p> <table> <thead> <tr> <th>Backend</th> <th>Needs</th> <th>Notes</th> </tr> </thead> <tbody> <tr> <td><code>builtin</code></td> <td>—</td> <td><span style="color:rgb(250,175,3)">NAVis</span>' own implementation, and the default. Supports every option, and is the only one that can spread an NBLAST across machines.</td> </tr> <tr> <td><code>fastcore</code></td> <td>—</td> <td>NBLAST reimplemented in Rust — considerably faster, and computes the whole matrix in one call. Doesn't support <code>approx_nn</code>, <code>scores="both"</code> or custom/analytic scoring functions.</td> </tr> </tbody> </table> <p><code>backend="auto"</code> picks the fastest backend that can serve the request and falls back to <code>builtin</code> for anything it can't. Set it for the whole session with <code>navis.config.default_nblast_backend = "auto"</code>, or per call:</p> <div class="highlight"><pre><span></span><code><span class="n">aba</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">nblast_allbyall</span><span class="p">(</span><span class="n">dps</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">)</span>
 </code></pre></div> <div class="admonition tip"> <p class="admonition-title">Don't build a matrix you're going to throw away</p> <p>If all you want is the best few matches per query — the usual case when matching against a large reference set — <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nblast_knn&lt;/span&gt;&lt;/code&gt;" href="../../../../reference/navis/#navis.nblast_knn"><code>navis.nblast_knn</code></a> returns just those instead of materialising the full <code>N x M</code> matrix.</p> </div> <h3 id="another-set-of-machines">Another set of machines<a class="headerlink" href="#another-set-of-machines" title="Permanent link">#</a></h3> <p><code>n_cores</code> runs out at the size of your machine. Past that, <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;set_parallel_backend&lt;/span&gt;&lt;/code&gt;" href="../../../../reference/navis/#navis.set_parallel_backend"><code>navis.set_parallel_backend</code></a> says <em>where</em> work runs, and the same NBLAST call runs there — the blocks of the score matrix are the units that travel:</p> <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio"><input id="__tabbed_1_2" name="__tabbed_1" type="radio"><div class="tabbed-labels"><label for="__tabbed_1_1">dask</label><label for="__tabbed_1_2">submitit (SLURM)</label></div> <div class="tabbed-content"> <div class="tabbed-block"> <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">dask.distributed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span>
 
@@ -223,7 +672,7 @@
 
 <span class="k">with</span> <span class="n">navis</span><span class="o">.</span><span class="n">set_parallel_backend</span><span class="p">(</span><span class="n">ex</span><span class="p">):</span>
     <span class="n">scores</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">nblast</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-</code></pre></div> </div> </div> </div> <p>Both need <code>pip install navis[cluster]</code>. How finely the matrix gets cut is read off the cluster where <span style="color:rgb(250,175,3)">NAVis</span> can see it, so <code>n_cores</code> on your laptop doesn't cap it.</p> <div class="admonition warning"> <p class="admonition-title"><code>fastcore</code> stays on one machine</p> <p>The <code>fastcore</code> backend computes the whole matrix in a single Rust call using its own threads, so it has nothing to hand to a parallel backend and will run everything locally. That's not the default — but it <em>is</em> what <code>backend="auto"</code> picks, so use <code>backend="builtin"</code> when you mean to distribute.</p> </div> <p>See the <a href="../6_misc/tutorial_misc_00_multiprocess">multiprocessing tutorial</a> for the full picture on backends.</p> <h2 id="what-next">What next?<a class="headerlink" href="#what-next" title="Permanent link">#</a></h2> <div class="grid cards"> <ul> <li> <p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 17v2h6v-2zM3 5v2h10V5zm10 16v-2h8v-2h-8v-2h-2v6zM7 9v2H3v2h4v2h2V9zm14 4v-2H11v2zm-6-4h2V7h4V5h-4V3h-2z"></path></svg></span> <strong>Custom score matrices</strong></p> <hr> <p>Train an NBLAST scoring matrix on your own data.</p> <p><a href="../tutorial_nblast_03_smat"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"></path></svg></span> Score matrices</a></p> </li> <li> <p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg></span> <strong>NBLAST against FlyCircuit</strong></p> <hr> <p>Match a query neuron against the entire FlyCircuit light-level dataset.</p> <p><a href="../zzz_tutorial_nblast_01_flycircuit"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"></path></svg></span> FlyCircuit example</a></p> </li> <li> <p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.46 6.28 11.05 9c-2.58.26-4.55 2.41-4.55 5a5 5 0 0 0 5 5c2.05 0 3.81-1.23 4.58-3H13.5v-2h8v2h-2.25a8.05 8.05 0 0 1-2.46 4h2.71v2h-16v-2h2.71a8 8 0 0 1-2.71-6c0-3.63 2.46-6.8 5.96-7.72m3.28-4.21.76 1.3.86-.5 3.5 6.06-3.47 2-3.5-6.06.87-.5-.76-1.3z"></path></svg></span> <strong>Light-level vs EM</strong></p> <hr> <p>Match a confocal image stack against hemibrain EM skeletons.</p> <p><a href="../zzz_tutorial_nblast_02_hemibrain"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"></path></svg></span> Light-level example</a></p> </li> </ul> </div> <p><strong>Total running time of the script:</strong> ( 0 minutes 3.906 seconds)</p> <div id="download_links"></div> <p><a class="md-button center" href="../tutorial_nblast_00_intro.py"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M256 32c0-17.7-14.3-32-32-32s-32 14.3-32 32v210.7l-41.4-41.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l96 96c12.5 12.5 32.8 12.5 45.3 0l96-96c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 242.7zM64 320c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64h320c35.3 0 64-28.7 64-64v-32c0-35.3-28.7-64-64-64h-46.9l-56.6 56.6c-31.2 31.2-81.9 31.2-113.1 0L110.9 320zm304 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48"></path></svg></span> Download Python source code: tutorial_nblast_00_intro.py</a></p> <p><a class="md-button center" href="../tutorial_nblast_00_intro.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M256 32c0-17.7-14.3-32-32-32s-32 14.3-32 32v210.7l-41.4-41.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l96 96c12.5 12.5 32.8 12.5 45.3 0l96-96c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 242.7zM64 320c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64h320c35.3 0 64-28.7 64-64v-32c0-35.3-28.7-64-64-64h-46.9l-56.6 56.6c-31.2 31.2-81.9 31.2-113.1 0L110.9 320zm304 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48"></path></svg></span> Download Jupyter notebook: tutorial_nblast_00_intro.ipynb</a></p> <p><a class="mkd-glr-signature" href="https://smarie.github.io/mkdocs-gallery">Gallery generated by mkdocs-gallery</a></p> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class="md-footer"> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class="md-copyright"> Made with <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener"> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class="md-dialog" data-md-component="dialog"> <div class="md-dialog__inner md-typeset"></div> </div> <div class="md-progress" data-md-component="progress" role="progressbar"></div> <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["content.tabs.link", "content.code.annotate", "navigation.indexes", "navigation.instant", "navigation.instant.progress", "navigation.tabs", "navigation.tabs.sticky", "content.code.copy", "content.tooltips"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script> <script src="../../../../assets/javascripts/bundle.d7400e89.min.js"></script> <script src="../../../../assets/_markdown_exec_pyodide.js"></script> <script src="../../../../javascripts/katex.js"></script> <script src="../../../../assets/external/unpkg.com/katex@0/dist/katex.min.js"></script> <script src="../../../../assets/external/unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>  <script id="init-glightbox">document.querySelectorAll('.glightbox').forEach(function(element) {
+</code></pre></div> </div> </div> </div> <p>Both need <code>pip install navis[cluster]</code>. How finely the matrix gets cut is read off the cluster where <span style="color:rgb(250,175,3)">NAVis</span> can see it, so <code>n_cores</code> on your laptop doesn't cap it.</p> <div class="admonition warning"> <p class="admonition-title"><code>fastcore</code> stays on one machine</p> <p>The <code>fastcore</code> backend computes the whole matrix in a single Rust call using its own threads, so it has nothing to hand to a parallel backend and will run everything locally. That's not the default — but it <em>is</em> what <code>backend="auto"</code> picks, so use <code>backend="builtin"</code> when you mean to distribute.</p> </div> <p>See the <a href="../6_misc/tutorial_misc_00_multiprocess">multiprocessing tutorial</a> for the full picture on backends.</p> <h2 id="what-next">What next?<a class="headerlink" href="#what-next" title="Permanent link">#</a></h2> <div class="grid cards"> <ul> <li> <p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 17v2h6v-2zM3 5v2h10V5zm10 16v-2h8v-2h-8v-2h-2v6zM7 9v2H3v2h4v2h2V9zm14 4v-2H11v2zm-6-4h2V7h4V5h-4V3h-2z"></path></svg></span> <strong>Custom score matrices</strong></p> <hr> <p>Train an NBLAST scoring matrix on your own data.</p> <p><a href="../tutorial_nblast_03_smat"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"></path></svg></span> Score matrices</a></p> </li> <li> <p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg></span> <strong>NBLAST against FlyCircuit</strong></p> <hr> <p>Match a query neuron against the entire FlyCircuit light-level dataset.</p> <p><a href="../zzz_tutorial_nblast_01_flycircuit"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"></path></svg></span> FlyCircuit example</a></p> </li> <li> <p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.46 6.28 11.05 9c-2.58.26-4.55 2.41-4.55 5a5 5 0 0 0 5 5c2.05 0 3.81-1.23 4.58-3H13.5v-2h8v2h-2.25a8.05 8.05 0 0 1-2.46 4h2.71v2h-16v-2h2.71a8 8 0 0 1-2.71-6c0-3.63 2.46-6.8 5.96-7.72m3.28-4.21.76 1.3.86-.5 3.5 6.06-3.47 2-3.5-6.06.87-.5-.76-1.3z"></path></svg></span> <strong>Light-level vs EM</strong></p> <hr> <p>Match a confocal image stack against hemibrain EM skeletons.</p> <p><a href="../zzz_tutorial_nblast_02_hemibrain"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"></path></svg></span> Light-level example</a></p> </li> </ul> </div> <p><strong>Total running time of the script:</strong> ( 0 minutes 17.297 seconds)</p> <div id="download_links"></div> <p><a class="md-button center" href="../tutorial_nblast_00_intro.py"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M256 32c0-17.7-14.3-32-32-32s-32 14.3-32 32v210.7l-41.4-41.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l96 96c12.5 12.5 32.8 12.5 45.3 0l96-96c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 242.7zM64 320c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64h320c35.3 0 64-28.7 64-64v-32c0-35.3-28.7-64-64-64h-46.9l-56.6 56.6c-31.2 31.2-81.9 31.2-113.1 0L110.9 320zm304 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48"></path></svg></span> Download Python source code: tutorial_nblast_00_intro.py</a></p> <p><a class="md-button center" href="../tutorial_nblast_00_intro.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M256 32c0-17.7-14.3-32-32-32s-32 14.3-32 32v210.7l-41.4-41.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l96 96c12.5 12.5 32.8 12.5 45.3 0l96-96c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 242.7zM64 320c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64h320c35.3 0 64-28.7 64-64v-32c0-35.3-28.7-64-64-64h-46.9l-56.6 56.6c-31.2 31.2-81.9 31.2-113.1 0L110.9 320zm304 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48"></path></svg></span> Download Jupyter notebook: tutorial_nblast_00_intro.ipynb</a></p> <p><a class="mkd-glr-signature" href="https://smarie.github.io/mkdocs-gallery">Gallery generated by mkdocs-gallery</a></p> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class="md-footer"> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class="md-copyright"> Made with <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener"> Material for MkDocs </a> </div> </div> </div> </footer> </div> <div class="md-dialog" data-md-component="dialog"> <div class="md-dialog__inner md-typeset"></div> </div> <div class="md-progress" data-md-component="progress" role="progressbar"></div> <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["content.tabs.link", "content.code.annotate", "navigation.indexes", "navigation.instant", "navigation.instant.progress", "navigation.tabs", "navigation.tabs.sticky", "content.code.copy", "content.tooltips"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script> <script src="../../../../assets/javascripts/bundle.d7400e89.min.js"></script> <script src="../../../../assets/_markdown_exec_pyodide.js"></script> <script src="../../../../javascripts/katex.js"></script> <script src="../../../../assets/external/unpkg.com/katex@0/dist/katex.min.js"></script> <script src="../../../../assets/external/unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>  <script id="init-glightbox">document.querySelectorAll('.glightbox').forEach(function(element) {
     try {
         var img = element.querySelector('img');
         if (img && img.src) {

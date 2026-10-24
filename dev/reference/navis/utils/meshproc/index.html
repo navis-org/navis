@@ -14,12 +14,7 @@
             Defaults to trimesh's `tol.merge`.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>digits_norm</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>            Decimal digits to consider for unit normals.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>digits_uv</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>            Decimal digits to consider for UV coordinates.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/meshproc.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> int</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/meshproc.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">119</span>
 <span class="normal">120</span>
 <span class="normal">121</span>
 <span class="normal">122</span>
@@ -90,7 +85,12 @@
 <span class="normal">187</span>
 <span class="normal">188</span>
 <span class="normal">189</span>
-<span class="normal">190</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">merge_vertices</span><span class="p">(</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">merge_vertices</span><span class="p">(</span>
     <span class="n">mesh</span><span class="p">,</span>
     <span class="n">merge_tex</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">merge_norm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -167,12 +167,7 @@
     <span class="n">inverse</span><span class="p">[</span><span class="n">referenced</span><span class="p">]</span> <span class="o">=</span> <span class="n">groups</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">referenced</span><span class="p">)[</span><span class="n">keep</span><span class="p">]</span>
     <span class="n">mesh</span><span class="o">.</span><span class="n">update_vertices</span><span class="p">(</span><span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="n">inverse</span><span class="p">)</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.utils.meshproc.process" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">meshproc</span><span class="o">.</span><span class="n">process</span></code> <a href="#navis.utils.meshproc.process" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Trimesh's <code>process=True</code>, on bare arrays.</p> <p>Drops non-finite vertices, then merges duplicates - the two passes <code>trimesh.Trimesh(..., process=True, validate=False)</code> runs, with the same result but without building a mesh object to throw away afterwards. Where there <em>is</em> an object to build, install :func:<code>merge_vertices</code> on it as <code>navis.Volume</code> and <code>navis.utils.TrimeshPlus</code> do - the merge then follows the object rather than happening once on the way in.</p> <p>Note that <code>validate=True</code> adds a face-level clean-up which this does not do; callers that want it should go through trimesh (see <code>navis.Mesh</code>).</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>vertices</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> (N, 3) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>faces</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> (M, 3) array | None</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>vertices</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K, 3) float64 array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>faces</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(M, 3) int64 array</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/meshproc.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">193</span>
-<span class="normal">194</span>
-<span class="normal">195</span>
-<span class="normal">196</span>
-<span class="normal">197</span>
-<span class="normal">198</span>
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.utils.meshproc.process" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">meshproc</span><span class="o">.</span><span class="n">process</span></code> <a href="#navis.utils.meshproc.process" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Trimesh's <code>process=True</code>, on bare arrays.</p> <p>Drops non-finite vertices, then merges duplicates - the two passes <code>trimesh.Trimesh(..., process=True, validate=False)</code> runs, with the same result but without building a mesh object to throw away afterwards. Where there <em>is</em> an object to build, install :func:<code>merge_vertices</code> on it as <code>navis.Volume</code> and <code>navis.utils.TrimeshPlus</code> do - the merge then follows the object rather than happening once on the way in.</p> <p>Note that <code>validate=True</code> adds a face-level clean-up which this does not do; callers that want it should go through trimesh (see <code>navis.Mesh</code>).</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>vertices</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> (N, 3) array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>faces</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> (M, 3) array | None</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>vertices</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K, 3) float64 array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>faces</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(M, 3) int64 array</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/meshproc.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">198</span>
 <span class="normal">199</span>
 <span class="normal">200</span>
 <span class="normal">201</span>
@@ -237,7 +232,15 @@
 <span class="normal">260</span>
 <span class="normal">261</span>
 <span class="normal">262</span>
-<span class="normal">263</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="n">vertices</span><span class="p">,</span> <span class="n">faces</span><span class="p">):</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="n">vertices</span><span class="p">,</span> <span class="n">faces</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Trimesh's `process=True`, on bare arrays.</span>
 
 <span class="sd">    Drops non-finite vertices, then merges duplicates - the two passes</span>
@@ -278,8 +281,11 @@
     <span class="c1"># that is not broken.</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">vertices</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
         <span class="n">finite</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">vertices</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="c1"># A face naming a dropped vertex is left pointing at vertex 0, which is</span>
-        <span class="c1"># what trimesh's `update_vertices` does with an unmapped index.</span>
+        <span class="c1"># A face naming a dropped vertex is either dropped too (trimesh &gt;= 5)</span>
+        <span class="c1"># or left pointing at vertex 0, which is what trimesh's</span>
+        <span class="c1"># `update_vertices` does with an unmapped index.</span>
+        <span class="k">if</span> <span class="n">_DROPS_NONFINITE_FACES</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">faces</span><span class="p">):</span>
+            <span class="n">faces</span> <span class="o">=</span> <span class="n">faces</span><span class="p">[</span><span class="n">finite</span><span class="p">[</span><span class="n">faces</span><span class="p">]</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span>
         <span class="n">inverse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
         <span class="n">inverse</span><span class="p">[</span><span class="n">finite</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">finite</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
         <span class="n">vertices</span> <span class="o">=</span> <span class="n">vertices</span><span class="p">[</span><span class="n">finite</span><span class="p">]</span>
@@ -310,12 +316,7 @@
     <span class="k">return</span> <span class="n">vertices</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">referenced</span><span class="p">)[</span><span class="n">keep</span><span class="p">]],</span> <span class="n">inverse</span><span class="p">[</span><span class="n">faces</span><span class="p">]</span>
 </code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.utils.meshproc.unique_rows" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">meshproc</span><span class="o">.</span><span class="n">unique_rows</span></code> <a href="#navis.utils.meshproc.unique_rows" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Group identical rows, numbered in order of first occurrence.</p> <p>Equivalent to <code>trimesh.grouping.unique_rows(rows, keep_order=True)</code>, but without the sort: rows are folded into one integer each and grouped by hash.</p> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>rows</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Integers. Floats would make the packing lossy and are rejected
     by the callers here, which quantize before calling.
-</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> (N, M) array</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>index</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p><code>rows[index]</code> are the distinct rows, in the order they first appear.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K, ) int array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>inverse</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Group of each row, such that <code>rows[index][inverse] == rows</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(N, ) int array</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/meshproc.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
+</code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> (N, M) array</code> </span> </p> </td> </tr> </tbody> </table> <table> <thead> <tr> <th><span class="doc-section-title">RETURNS</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>index</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p><code>rows[index]</code> are the distinct rows, in the order they first appear.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(K, ) int array</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>inverse</code> </td> <td class="doc-returns-details"> <div class="doc-md-description"> <p>Group of each row, such that <code>rows[index][inverse] == rows</code>.</p> </div> <p> <span class="doc-returns-annotation"> <b>TYPE:</b> <code>(N, ) int array</code> </span> </p> </td> </tr> </tbody> </table> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/utils/meshproc.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">55</span>
 <span class="normal">56</span>
 <span class="normal">57</span>
 <span class="normal">58</span>
@@ -346,7 +347,12 @@
 <span class="normal">83</span>
 <span class="normal">84</span>
 <span class="normal">85</span>
-<span class="normal">86</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">unique_rows</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
+<span class="normal">86</span>
+<span class="normal">87</span>
+<span class="normal">88</span>
+<span class="normal">89</span>
+<span class="normal">90</span>
+<span class="normal">91</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">unique_rows</span><span class="p">(</span><span class="n">rows</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Group identical rows, numbered in order of first occurrence.</span>
 
 <span class="sd">    Equivalent to `trimesh.grouping.unique_rows(rows, keep_order=True)`, but</span>
