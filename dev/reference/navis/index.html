@@ -38589,7 +38589,40 @@ large sets of nodes it might be more efficient to use
 <span class="gp">&gt;&gt;&gt; </span><span class="n">mirrored</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">mirror_brain</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">tem</span> <span class="n">plate</span><span class="o">=</span><span class="s1">'JRCFIB2018F'</span><span class="p">,</span> <span class="n">via</span><span class="o">=</span><span class="s1">'JRC2018F'</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># We also need to get back to raw coordinates</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">mirrored</span> <span class="o">=</span> <span class="n">mirrored</span> <span class="o">/</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">1000</span>
-</code></pre></div> <details class="see-also" open=""> <summary>See Also</summary> <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;mirror&lt;/span&gt;&lt;/code&gt;" href="#navis.mirror"><code>navis.mirror</code></a> Lower level function for mirroring. You can use this if you want to mirror data without having a registered template for it.</p> </details> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/transforms/templates.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1340</span>
+</code></pre></div> <details class="see-also" open=""> <summary>See Also</summary> <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;mirror&lt;/span&gt;&lt;/code&gt;" href="#navis.mirror"><code>navis.mirror</code></a> Lower level function for mirroring. You can use this if you want to mirror data without having a registered template for it.</p> </details> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/transforms/templates.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1307</span>
+<span class="normal">1308</span>
+<span class="normal">1309</span>
+<span class="normal">1310</span>
+<span class="normal">1311</span>
+<span class="normal">1312</span>
+<span class="normal">1313</span>
+<span class="normal">1314</span>
+<span class="normal">1315</span>
+<span class="normal">1316</span>
+<span class="normal">1317</span>
+<span class="normal">1318</span>
+<span class="normal">1319</span>
+<span class="normal">1320</span>
+<span class="normal">1321</span>
+<span class="normal">1322</span>
+<span class="normal">1323</span>
+<span class="normal">1324</span>
+<span class="normal">1325</span>
+<span class="normal">1326</span>
+<span class="normal">1327</span>
+<span class="normal">1328</span>
+<span class="normal">1329</span>
+<span class="normal">1330</span>
+<span class="normal">1331</span>
+<span class="normal">1332</span>
+<span class="normal">1333</span>
+<span class="normal">1334</span>
+<span class="normal">1335</span>
+<span class="normal">1336</span>
+<span class="normal">1337</span>
+<span class="normal">1338</span>
+<span class="normal">1339</span>
+<span class="normal">1340</span>
 <span class="normal">1341</span>
 <span class="normal">1342</span>
 <span class="normal">1343</span>
@@ -38835,40 +38868,7 @@ large sets of nodes it might be more efficient to use
 <span class="normal">1583</span>
 <span class="normal">1584</span>
 <span class="normal">1585</span>
-<span class="normal">1586</span>
-<span class="normal">1587</span>
-<span class="normal">1588</span>
-<span class="normal">1589</span>
-<span class="normal">1590</span>
-<span class="normal">1591</span>
-<span class="normal">1592</span>
-<span class="normal">1593</span>
-<span class="normal">1594</span>
-<span class="normal">1595</span>
-<span class="normal">1596</span>
-<span class="normal">1597</span>
-<span class="normal">1598</span>
-<span class="normal">1599</span>
-<span class="normal">1600</span>
-<span class="normal">1601</span>
-<span class="normal">1602</span>
-<span class="normal">1603</span>
-<span class="normal">1604</span>
-<span class="normal">1605</span>
-<span class="normal">1606</span>
-<span class="normal">1607</span>
-<span class="normal">1608</span>
-<span class="normal">1609</span>
-<span class="normal">1610</span>
-<span class="normal">1611</span>
-<span class="normal">1612</span>
-<span class="normal">1613</span>
-<span class="normal">1614</span>
-<span class="normal">1615</span>
-<span class="normal">1616</span>
-<span class="normal">1617</span>
-<span class="normal">1618</span>
-<span class="normal">1619</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mirror_brain</span><span class="p">(</span>
+<span class="normal">1586</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">mirror_brain</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s2">"core.NeuronObject"</span><span class="p">,</span> <span class="s2">"pd.DataFrame"</span><span class="p">,</span> <span class="s2">"np.ndarray"</span><span class="p">],</span>
     <span class="n">template</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">"TemplateBrain"</span><span class="p">],</span>
     <span class="n">mirror_axis</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"x"</span><span class="p">],</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"y"</span><span class="p">],</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"z"</span><span class="p">]]</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
@@ -53377,7 +53377,40 @@ large sets of nodes it might be more efficient to use
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Render into the JRC2018F template grid</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">img</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">render_template</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">template</span><span class="o">=</span><span class="n">flybrains</span><span class="o">.</span><span class="n">JRC2018F</span><span class="p">,</span>
 <span class="gp">... </span>                            <span class="n">source</span><span class="o">=</span><span class="s1">'JRCFIB2018Fraw'</span><span class="p">)</span>
-</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/transforms/templates.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1647</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/transforms/templates.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1614</span>
+<span class="normal">1615</span>
+<span class="normal">1616</span>
+<span class="normal">1617</span>
+<span class="normal">1618</span>
+<span class="normal">1619</span>
+<span class="normal">1620</span>
+<span class="normal">1621</span>
+<span class="normal">1622</span>
+<span class="normal">1623</span>
+<span class="normal">1624</span>
+<span class="normal">1625</span>
+<span class="normal">1626</span>
+<span class="normal">1627</span>
+<span class="normal">1628</span>
+<span class="normal">1629</span>
+<span class="normal">1630</span>
+<span class="normal">1631</span>
+<span class="normal">1632</span>
+<span class="normal">1633</span>
+<span class="normal">1634</span>
+<span class="normal">1635</span>
+<span class="normal">1636</span>
+<span class="normal">1637</span>
+<span class="normal">1638</span>
+<span class="normal">1639</span>
+<span class="normal">1640</span>
+<span class="normal">1641</span>
+<span class="normal">1642</span>
+<span class="normal">1643</span>
+<span class="normal">1644</span>
+<span class="normal">1645</span>
+<span class="normal">1646</span>
+<span class="normal">1647</span>
 <span class="normal">1648</span>
 <span class="normal">1649</span>
 <span class="normal">1650</span>
@@ -53516,40 +53549,7 @@ large sets of nodes it might be more efficient to use
 <span class="normal">1783</span>
 <span class="normal">1784</span>
 <span class="normal">1785</span>
-<span class="normal">1786</span>
-<span class="normal">1787</span>
-<span class="normal">1788</span>
-<span class="normal">1789</span>
-<span class="normal">1790</span>
-<span class="normal">1791</span>
-<span class="normal">1792</span>
-<span class="normal">1793</span>
-<span class="normal">1794</span>
-<span class="normal">1795</span>
-<span class="normal">1796</span>
-<span class="normal">1797</span>
-<span class="normal">1798</span>
-<span class="normal">1799</span>
-<span class="normal">1800</span>
-<span class="normal">1801</span>
-<span class="normal">1802</span>
-<span class="normal">1803</span>
-<span class="normal">1804</span>
-<span class="normal">1805</span>
-<span class="normal">1806</span>
-<span class="normal">1807</span>
-<span class="normal">1808</span>
-<span class="normal">1809</span>
-<span class="normal">1810</span>
-<span class="normal">1811</span>
-<span class="normal">1812</span>
-<span class="normal">1813</span>
-<span class="normal">1814</span>
-<span class="normal">1815</span>
-<span class="normal">1816</span>
-<span class="normal">1817</span>
-<span class="normal">1818</span>
-<span class="normal">1819</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">render_template</span><span class="p">(</span>
+<span class="normal">1786</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">render_template</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="s2">"core.NeuronObject"</span><span class="p">,</span>
     <span class="n">template</span><span class="p">:</span> <span class="n">TemplateBrain</span><span class="p">,</span>
     <span class="n">source</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -61257,7 +61257,40 @@ large sets of nodes it might be more efficient to use
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Plot side-by-side for comparison</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">m</span><span class="o">.</span><span class="n">plot3d</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">s</span><span class="o">.</span><span class="n">plot3d</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
-</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/transforms/templates.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1173</span>
+</code></pre></div> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/transforms/templates.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1140</span>
+<span class="normal">1141</span>
+<span class="normal">1142</span>
+<span class="normal">1143</span>
+<span class="normal">1144</span>
+<span class="normal">1145</span>
+<span class="normal">1146</span>
+<span class="normal">1147</span>
+<span class="normal">1148</span>
+<span class="normal">1149</span>
+<span class="normal">1150</span>
+<span class="normal">1151</span>
+<span class="normal">1152</span>
+<span class="normal">1153</span>
+<span class="normal">1154</span>
+<span class="normal">1155</span>
+<span class="normal">1156</span>
+<span class="normal">1157</span>
+<span class="normal">1158</span>
+<span class="normal">1159</span>
+<span class="normal">1160</span>
+<span class="normal">1161</span>
+<span class="normal">1162</span>
+<span class="normal">1163</span>
+<span class="normal">1164</span>
+<span class="normal">1165</span>
+<span class="normal">1166</span>
+<span class="normal">1167</span>
+<span class="normal">1168</span>
+<span class="normal">1169</span>
+<span class="normal">1170</span>
+<span class="normal">1171</span>
+<span class="normal">1172</span>
+<span class="normal">1173</span>
 <span class="normal">1174</span>
 <span class="normal">1175</span>
 <span class="normal">1176</span>
@@ -61388,40 +61421,7 @@ large sets of nodes it might be more efficient to use
 <span class="normal">1301</span>
 <span class="normal">1302</span>
 <span class="normal">1303</span>
-<span class="normal">1304</span>
-<span class="normal">1305</span>
-<span class="normal">1306</span>
-<span class="normal">1307</span>
-<span class="normal">1308</span>
-<span class="normal">1309</span>
-<span class="normal">1310</span>
-<span class="normal">1311</span>
-<span class="normal">1312</span>
-<span class="normal">1313</span>
-<span class="normal">1314</span>
-<span class="normal">1315</span>
-<span class="normal">1316</span>
-<span class="normal">1317</span>
-<span class="normal">1318</span>
-<span class="normal">1319</span>
-<span class="normal">1320</span>
-<span class="normal">1321</span>
-<span class="normal">1322</span>
-<span class="normal">1323</span>
-<span class="normal">1324</span>
-<span class="normal">1325</span>
-<span class="normal">1326</span>
-<span class="normal">1327</span>
-<span class="normal">1328</span>
-<span class="normal">1329</span>
-<span class="normal">1330</span>
-<span class="normal">1331</span>
-<span class="normal">1332</span>
-<span class="normal">1333</span>
-<span class="normal">1334</span>
-<span class="normal">1335</span>
-<span class="normal">1336</span>
-<span class="normal">1337</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">symmetrize_brain</span><span class="p">(</span>
+<span class="normal">1304</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">symmetrize_brain</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s2">"core.NeuronObject"</span><span class="p">,</span> <span class="s2">"pd.DataFrame"</span><span class="p">,</span> <span class="s2">"np.ndarray"</span><span class="p">],</span>
     <span class="n">template</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">"TemplateBrain"</span><span class="p">],</span>
     <span class="n">via</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
@@ -65301,6 +65301,8 @@ large sets of nodes it might be more efficient to use
             transformed into.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>via</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>            Optionally set intermediate template(s). This can be
             helpful to force a specific transformation sequence.
+            Multiple templates are visited in the given order using
+            the cheapest path between each of them.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str | list thereof</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>avoid</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>            Prohibit going through specific intermediate template(s).
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> str | list thereof</code> </span> <span class="doc-param-default"> <b>DEFAULT:</b> <code>None</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>affine_fallback</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>            In some cases the non-rigid transformation of points
             can fail - for example if points are outside the
@@ -65326,7 +65328,42 @@ large sets of nodes it might be more efficient to use
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">example_neurons</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Transform to FAFB14 space</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">xf</span> <span class="o">=</span> <span class="n">navis</span><span class="o">.</span><span class="n">xform_brain</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s1">'JRCFIB2018Fraw'</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s1">'FAFB14'</span><span class="p">)</span>
-</code></pre></div> <details class="see-also" open=""> <summary>See Also</summary> <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;xform&lt;/span&gt;&lt;/code&gt;" href="#navis.xform"><code>navis.xform</code></a> Lower level entry point that takes data and applies a given transform or sequence thereof. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;mirror_brain&lt;/span&gt;&lt;/code&gt;" href="#navis.mirror_brain"><code>navis.mirror_brain</code></a> Uses non-rigid transforms to mirror neurons from the left to the right side of given template brain and vice versa.</p> </details> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/transforms/templates.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1025</span>
+</code></pre></div> <details class="see-also" open=""> <summary>See Also</summary> <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;xform&lt;/span&gt;&lt;/code&gt;" href="#navis.xform"><code>navis.xform</code></a> Lower level entry point that takes data and applies a given transform or sequence thereof. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;mirror_brain&lt;/span&gt;&lt;/code&gt;" href="#navis.mirror_brain"><code>navis.mirror_brain</code></a> Uses non-rigid transforms to mirror neurons from the left to the right side of given template brain and vice versa.</p> </details> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/transforms/templates.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 990</span>
+<span class="normal"> 991</span>
+<span class="normal"> 992</span>
+<span class="normal"> 993</span>
+<span class="normal"> 994</span>
+<span class="normal"> 995</span>
+<span class="normal"> 996</span>
+<span class="normal"> 997</span>
+<span class="normal"> 998</span>
+<span class="normal"> 999</span>
+<span class="normal">1000</span>
+<span class="normal">1001</span>
+<span class="normal">1002</span>
+<span class="normal">1003</span>
+<span class="normal">1004</span>
+<span class="normal">1005</span>
+<span class="normal">1006</span>
+<span class="normal">1007</span>
+<span class="normal">1008</span>
+<span class="normal">1009</span>
+<span class="normal">1010</span>
+<span class="normal">1011</span>
+<span class="normal">1012</span>
+<span class="normal">1013</span>
+<span class="normal">1014</span>
+<span class="normal">1015</span>
+<span class="normal">1016</span>
+<span class="normal">1017</span>
+<span class="normal">1018</span>
+<span class="normal">1019</span>
+<span class="normal">1020</span>
+<span class="normal">1021</span>
+<span class="normal">1022</span>
+<span class="normal">1023</span>
+<span class="normal">1024</span>
+<span class="normal">1025</span>
 <span class="normal">1026</span>
 <span class="normal">1027</span>
 <span class="normal">1028</span>
@@ -65438,40 +65475,7 @@ large sets of nodes it might be more efficient to use
 <span class="normal">1134</span>
 <span class="normal">1135</span>
 <span class="normal">1136</span>
-<span class="normal">1137</span>
-<span class="normal">1138</span>
-<span class="normal">1139</span>
-<span class="normal">1140</span>
-<span class="normal">1141</span>
-<span class="normal">1142</span>
-<span class="normal">1143</span>
-<span class="normal">1144</span>
-<span class="normal">1145</span>
-<span class="normal">1146</span>
-<span class="normal">1147</span>
-<span class="normal">1148</span>
-<span class="normal">1149</span>
-<span class="normal">1150</span>
-<span class="normal">1151</span>
-<span class="normal">1152</span>
-<span class="normal">1153</span>
-<span class="normal">1154</span>
-<span class="normal">1155</span>
-<span class="normal">1156</span>
-<span class="normal">1157</span>
-<span class="normal">1158</span>
-<span class="normal">1159</span>
-<span class="normal">1160</span>
-<span class="normal">1161</span>
-<span class="normal">1162</span>
-<span class="normal">1163</span>
-<span class="normal">1164</span>
-<span class="normal">1165</span>
-<span class="normal">1166</span>
-<span class="normal">1167</span>
-<span class="normal">1168</span>
-<span class="normal">1169</span>
-<span class="normal">1170</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">xform_brain</span><span class="p">(</span>
+<span class="normal">1137</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">xform_brain</span><span class="p">(</span>
     <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="s2">"core.NeuronObject"</span><span class="p">,</span> <span class="s2">"pd.DataFrame"</span><span class="p">,</span> <span class="s2">"np.ndarray"</span><span class="p">],</span>
     <span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">target</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -65511,6 +65515,8 @@ large sets of nodes it might be more efficient to use
 <span class="sd">    via :               str | list thereof, optional</span>
 <span class="sd">                        Optionally set intermediate template(s). This can be</span>
 <span class="sd">                        helpful to force a specific transformation sequence.</span>
+<span class="sd">                        Multiple templates are visited in the given order using</span>
+<span class="sd">                        the cheapest path between each of them.</span>
 <span class="sd">    avoid :             str | list thereof, optional</span>
 <span class="sd">                        Prohibit going through specific intermediate template(s).</span>
 <span class="sd">    affine_fallback :   bool</span>

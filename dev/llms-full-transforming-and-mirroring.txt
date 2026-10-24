@@ -99,6 +99,8 @@ target :            str
 via :               str | list thereof, optional
                     Optionally set intermediate template(s). This can be
                     helpful to force a specific transformation sequence.
+                    Multiple templates are visited in the given order using
+                    the cheapest path between each of them.
 avoid :             str | list thereof, optional
                     Prohibit going through specific intermediate template(s).
 affine_fallback :   bool
@@ -1415,7 +1417,10 @@ source :        str
 target :        str
                 Target to which to transform to.
 via :           str | list thereof, optional
-                Force specific intermediate template(s).
+                Force specific intermediate template(s). Multiple
+                templates are visited in the given order. We use the
+                cheapest path between each pair of waypoints which means
+                the full path may go through a template more than once.
 avoid :         str | list thereof, optional
                 Avoid going through specific intermediate template(s).
 inverse_weight : bool | float
