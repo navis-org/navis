@@ -38,6 +38,7 @@ faces, same order - only faster: ~8x on the full `process=True` pass for a
 
 import numpy as np
 import pandas as pd
+import trimesh
 
 from trimesh import util
 from trimesh.constants import tol
@@ -45,6 +46,10 @@ from trimesh.constants import tol
 __all__ = ["unique_rows", "merge_vertices", "process"]
 
 _INT64_MAX = int(np.iinfo(np.int64).max)
+
+# From trimesh 5.0 on (trimesh#2445), `remove_infinite_values` drops the faces
+# that touch a non-finite vertex; before, they were left pointing at vertex 0.
+_DROPS_NONFINITE_FACES = int(trimesh.__version__.split(".")[0]) >= 5
 
 
 def unique_rows(rows):
@@ -231,8 +236,11 @@ def process(vertices, faces):
     # that is not broken.
     if not np.isfinite(vertices).all():
         finite = np.isfinite(vertices).all(axis=1)
-        # A face naming a dropped vertex is left pointing at vertex 0, which is
-        # what trimesh's `update_vertices` does with an unmapped index.
+        # A face naming a dropped vertex is either dropped too (trimesh >= 5)
+        # or left pointing at vertex 0, which is what trimesh's
+        # `update_vertices` does with an unmapped index.
+        if _DROPS_NONFINITE_FACES and len(faces):
+            faces = faces[finite[faces].all(axis=1)]
         inverse = np.zeros(n, dtype=np.int64)
         inverse[finite] = np.arange(finite.sum())
         vertices = vertices[finite]
