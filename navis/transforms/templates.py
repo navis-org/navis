@@ -542,7 +542,10 @@ class TemplateRegistry:
         target :        str
                         Target to which to transform to.
         via :           str | list thereof, optional
-                        Force specific intermediate template(s).
+                        Force specific intermediate template(s). Multiple
+                        templates are visited in the given order. We use the
+                        cheapest path between each pair of waypoints which means
+                        the full path may go through a template more than once.
         avoid :         str | list thereof, optional
                         Avoid going through specific intermediate template(s).
         inverse_weight : bool | float
@@ -608,60 +611,39 @@ class TemplateRegistry:
                         f'registrations. Did you mean "{best_match[0]}" '
                         "instead?"
                     )
+        else:
+            via = []
 
         if avoid:
             avoid = list(utils.make_iterable(avoid))
+            for v in [source, target] + via:
+                if v in avoid:
+                    raise ValueError(
+                        f'"{v}" can not be both in `avoid` and source, target or `via`.'
+                    )
+            # Note: this is a read-only view and does not alter the cached graph
+            G = G.subgraph([n for n in G.nodes if n not in avoid])
 
-        # This will raise a error message if no path is found
-        if not via and not avoid:
+        # Find the cheapest path for each leg between consecutive waypoints. Note
+        # that this deliberately allows the path to pass through the same template
+        # more than once: e.g. if `via` is a dead end (B in A -> B -> A -> C).
+        waypoints = [source] + via + [target]
+        path = [source]
+        for n1, n2 in zip(waypoints[:-1], waypoints[1:]):
             try:
-                path = nx.shortest_path(G, source, target, weight="weight")
+                path += nx.shortest_path(G, n1, n2, weight="weight")[1:]
             except nx.NetworkXNoPath:
-                raise nx.NetworkXNoPath(
-                    f"No bridging path connecting {source} and {target} found."
-                )
-        else:
-            # Go through all possible paths and find one that...
-            found_any = False  # track if we found any path
-            found_good = False  # track if we found a path matching the criteria
-            for path in nx.all_simple_paths(G, source, target):
-                found_any = True
-                # ... has all `via`s...
-                if via and all([v in path for v in via]):
-                    # ... and none of the `avoid`
-                    if avoid:
-                        if not any([v in path for v in avoid]):
-                            found_good = True
-                            break
-                    else:
-                        found_good = True
-                        break
-                # If we only have `avoid` but no `via`
-                elif avoid and not any([v in path for v in avoid]):
-                    found_good = True
-                    break
+                msg = f"No bridging path connecting {source} and {target}"
+                if via:
+                    msg += f" via {', '.join(map(str, via))}"
+                if avoid:
+                    msg += f" avoiding {', '.join(map(str, avoid))}"
+                if via:
+                    msg += f" (no path from {n1} to {n2})"
+                raise nx.NetworkXNoPath(f"{msg}.") from None
 
-            if not found_any:
-                raise nx.NetworkXNoPath(
-                    f"No bridging path connecting {source} and {target} found."
-                )
-            elif not found_good:
-                if via and avoid:
-                    raise nx.NetworkXNoPath(
-                        f"No bridging path connecting {source}"
-                        f'and {target} via "{via}" and '
-                        f'avoiding "{avoid}" found'
-                    )
-                elif via:
-                    raise nx.NetworkXNoPath(
-                        f"No bridging path connecting {source}"
-                        f'and {target} via "{via}" found.'
-                    )
-                else:
-                    raise nx.NetworkXNoPath(
-                        f"No bridging path connecting {source}"
-                        f'and {target} avoiding "{avoid}" found.'
-                    )
+        if len(set(path)) < len(path):
+            logger.warning(f"Bridging sequence contains loop: {' -> '.join(path)}")
 
         # `path` holds the sequence of nodes we are traversing but not which
         # transforms (i.e. edges) to use
@@ -828,32 +810,15 @@ class TemplateRegistry:
                             from source to target.
 
         """
-        # Generate sequence of nodes we need to find a path for
-        # Minimally it's just from source to target
-        nodes = np.array([source, target])
+        path, transforms = self.find_bridging_path(
+            source,
+            target,
+            via=via,
+            inverse_weight=inverse_weight,
+            prefer_forward=prefer_forward,
+        )
 
-        if via:
-            nodes = np.insert(nodes, 1, via)
-
-        seq = [nodes[0]]
-        transforms = []
-        for n1, n2 in zip(nodes[:-1], nodes[1:]):
-            path, tr = self.find_bridging_path(
-                n1,
-                n2,
-                inverse_weight=inverse_weight,
-                prefer_forward=prefer_forward,
-            )
-            seq = np.append(seq, path[1:])
-            transforms = np.append(transforms, tr)
-
-        if any(np.unique(seq, return_counts=True)[1] > 1):
-            logger.warning(f"Bridging sequence contains loop: {'->'.join(seq)}")
-
-        # Generate the transform sequence
-        transform_seq = TransformSequence(*transforms)
-
-        return seq, transform_seq
+        return np.array(path), TransformSequence(*transforms)
 
     def find_mirror_reg(self, template: str, non_found: str = "raise") -> tuple:
         """Search for a mirror transformation for given template.
@@ -1062,6 +1027,8 @@ def xform_brain(
     via :               str | list thereof, optional
                         Optionally set intermediate template(s). This can be
                         helpful to force a specific transformation sequence.
+                        Multiple templates are visited in the given order using
+                        the cheapest path between each of them.
     avoid :             str | list thereof, optional
                         Prohibit going through specific intermediate template(s).
     affine_fallback :   bool

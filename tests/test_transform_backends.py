@@ -19,6 +19,7 @@ import pathlib
 import pickle
 import warnings
 
+import networkx as nx
 import numpy as np
 import pytest
 
@@ -922,6 +923,78 @@ def test_reciprocal_is_deprecated():
     reg = TemplateRegistry(scan_paths=False)
     with pytest.warns(DeprecationWarning, match="inverse_weight"):
         reg.bridging_graph(reciprocal=0.5)
+
+
+def _shift(x=0, y=0, z=0):
+    from navis.transforms.affine import AffineTransform
+
+    M = np.eye(4)
+    M[:3, 3] = (x, y, z)
+    return AffineTransform(M)
+
+
+def _via_registry():
+    """Registry where S -> A -> T is cheap but a detour S -> X1 -> X2 -> A is
+    registered first (i.e. is the first simple path networkx enumerates).
+    B is a dead end hanging off A.
+
+    Weights are chosen such that no two candidate paths cost the same:
+    S -> A costs 1 vs 1.5 for the detour; X1 -> A costs 1 via X2 vs 1.5 via S.
+    """
+    from navis.transforms.templates import TemplateRegistry
+
+    reg = TemplateRegistry(scan_paths=False)
+    for s, t in [("S", "X1"), ("X1", "X2"), ("X2", "A")]:
+        reg.register_transform(
+            _shift(x=100), source=s, target=t, transform_type="bridging", weight=0.5
+        )
+    reg.register_transform(_shift(x=1), source="S", target="A", transform_type="bridging")
+    reg.register_transform(_shift(y=1), source="A", target="T", transform_type="bridging")
+    reg.register_transform(_shift(z=9.5), source="A", target="B", transform_type="bridging")
+    return reg
+
+
+def test_via_takes_the_cheapest_path():
+    """`via` used to take the first simple path containing it - not the cheapest."""
+    reg = _via_registry()
+    path, _ = reg.find_bridging_path("S", "T", via="A")
+    assert path == ["S", "A", "T"]
+
+
+def test_via_through_a_dead_end():
+    """A dead-end `via` is visited and left again (a simple path can't do that)."""
+    from navis.transforms.base import TransformSequence
+
+    reg = _via_registry()
+    path, transforms = reg.find_bridging_path("S", "T", via="B")
+    assert path == ["S", "A", "B", "A", "T"]
+
+    # Going to B and back again must cancel out
+    pts = np.array([[1.0, 2.0, 3.0]])
+    _, direct = reg.find_bridging_path("S", "T")
+    assert np.allclose(
+        TransformSequence(*transforms).xform(pts), TransformSequence(*direct).xform(pts)
+    )
+
+
+def test_via_order_and_avoid():
+    reg = _via_registry()
+
+    # Multiple `via`s are visited in the given order
+    path, _ = reg.find_bridging_path("S", "T", via=["X1", "B"])
+    assert path == ["S", "X1", "X2", "A", "B", "A", "T"]
+
+    # `avoid` removes templates from the graph altogether
+    assert reg.find_bridging_path("S", "X2")[0] == ["S", "X1", "X2"]
+    path, _ = reg.find_bridging_path("S", "X2", avoid="X1")
+    assert path == ["S", "A", "X2"]
+    # ... which means B (only reachable through A) becomes unreachable
+    with pytest.raises(nx.NetworkXNoPath):
+        reg.find_bridging_path("S", "T", via="B", avoid="A")
+
+    # Asking to both go through and avoid a template makes no sense
+    with pytest.raises(ValueError, match="avoid"):
+        reg.find_bridging_path("S", "T", via="A", avoid="A")
 
 
 @pytest.mark.parametrize("elastix_invertible", [False, True])
