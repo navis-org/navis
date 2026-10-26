@@ -11,14 +11,13 @@ def _can_write_r():
     """Check whether the installed `rdata` can write .rds/.rda files."""
     import rdata
 
-    # Writing arrived in rdata 1.0, which requires Python >= 3.11. On 3.10 we
-    # install the last version that runs there, which can only read.
+    # Writing arrived in rdata 1.0; older installs can only read.
     return hasattr(rdata, "unparser")
 
 
 needs_r_writer = pytest.mark.skipif(
     not _can_write_r(),
-    reason="writing .rds/.rda requires rdata >= 1.0, i.e. Python >= 3.11",
+    reason="writing .rds/.rda requires rdata >= 1.0",
 )
 
 
@@ -314,8 +313,8 @@ def test_r_data_read_fixture():
     """Read a pre-written .rda file.
 
     Every other R test writes before it reads, so they all skip where `rdata`
-    is too old to write (Python 3.10). This one keeps the reading side covered
-    there - see `tests/fixtures/r_data/generate.py` for how the file is made.
+    is too old to write. This one keeps the reading side covered there - see
+    `tests/fixtures/r_data/generate.py` for how the file is made.
     """
     filepath = Path(__file__).parent / "fixtures" / "r_data" / "objects.rda"
 
@@ -349,18 +348,11 @@ def test_r_data_read_fixture():
 )
 def test_r_data_write_needs_new_rdata():
     """Writing with an old `rdata` must fail with a message that helps."""
-    import sys
-
     nl = navis.example_neurons(1, kind="skeleton")
 
     with tempfile.TemporaryDirectory() as tempdir:
         with pytest.raises(ImportError, match=r"requires `rdata` >= 1\.0\.0"):
             navis.write_rds(nl, Path(tempdir) / "neurons.rds")
-
-        if sys.version_info < (3, 11):
-            # Telling these users to upgrade `rdata` would send them in circles
-            with pytest.raises(ImportError, match=r"requires Python >= 3\.11"):
-                navis.write_rds(nl, Path(tempdir) / "neurons.rds")
 
 
 def _have_nat():

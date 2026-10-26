@@ -28,7 +28,7 @@ If applicable, add screenshots to help explain your problem.
 
 **Your system**
 - NAVis version: [e.g. 1.5.0]
-- Python version: [e.g. Python 3.10]
+- Python version: [e.g. Python 3.13]
 - Operating System: [e.g. OSX, Windows or Linux]
 
 **Additional context**

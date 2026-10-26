@@ -5,13 +5,21 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Several dependencies have no 3.15 wheels yet - h5py above all (a core
+    # requirement, and its sdist needs HDF5 headers the runner does not have),
+    # plus pykdtree, scikit-image and PyYAML (via `dask[distributed]`). Let 3.15
+    # report red without failing the workflow until they catch up.
+    continue-on-error: ${{ matrix.python-version == '3.15' }}
     strategy:
+      # Without this the expected 3.15 failure would cancel the other versions.
+      fail-fast: false
       matrix:
         python-version:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
+          - "3.15"
     steps:
       # This cancels any such job that is still runnning
       - name: Cancel Previous Runs
@@ -39,7 +47,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install zstandard==0.16.0
           pip install numpy
           pip install flybrains --no-deps
           pip install pyarrow

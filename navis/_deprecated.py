@@ -114,7 +114,7 @@ def caller_stacklevel():
     under zipimport or `exec(compile(...))`.
 
     N.B. Python 3.12 has `warnings.warn(skip_file_prefixes=...)` for this;
-    `setup.py` still allows 3.10.
+    `setup.py` still allows 3.11.
     """
     # Frame 1 is our caller, which is the frame `warnings.warn` counts as
     # level 1 - so that is where the walk starts.

@@ -12,14 +12,20 @@ on: [push, pull_request]
 
 jobs:
   build:
+    # See test-package.yml: 3.15 wheels are still missing for a handful of
+    # dependencies, h5py chief among them.
+    continue-on-error: ${{ matrix.python-version == '3.15' }}
     strategy:
+      # Without this the expected 3.15 failure would cancel the other versions.
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
+          - "3.15"
     runs-on: ${{ matrix.os }}
     steps:
       # This cancels any such job that is still runnning

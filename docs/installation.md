@@ -6,15 +6,8 @@ hide:
 
 ## Installing NAVis
 
-{{ navis }} requires Python 3.10 or later. The instructions below assume that
+{{ navis }} requires Python 3.11 or later. The instructions below assume that
 you have already installed Python and its package manager [`pip`](https://pypi.org/project/pip/).
-
-!!! info "Python 3.10 caveat"
-
-    Everything works on Python 3.10 except *writing* R data files: that needs
-    `rdata` >= 1.0, which itself requires Python >= 3.11. Reading `.rds`/`.rda`
-    is unaffected. See the [R & the natverse](generated/gallery/0_io/tutorial_io_03_r)
-    tutorial.
 
 Open up a terminal and install {{ navis }} with:
 

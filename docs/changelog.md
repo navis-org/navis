@@ -35,6 +35,7 @@ pip install git+https://github.com/navis-org/navis@master
 - transforms: bridging edge weights now mean one thing and lower always wins, which changes ~29% of the paths in `navis-flybrains`; the CMTK/elastix `"binary"` and the `"python"` landmark backends are deprecated
 - [`ivscc_features`][navis.ivscc_features] returns neurons as *rows* (add a `.T` for the old layout) and several features changed meaning
 - note that a number of changes **change outputs**: NBLAST (now float32 coordinates), [`smooth_skeleton`][navis.smooth_skeleton] (centred window), [`smooth_mesh`][navis.smooth_mesh] (Taubin by default), [`smooth_voxels`][navis.smooth_voxels], [`downsample_neuron`][navis.downsample_neuron], [`collapse_nodes`][navis.collapse_nodes], [`fix_mesh`][navis.fix_mesh]`(fill_holes=True)` (which now closes openings of any size, so volumes and watertightness move), `betweenness_centrality(from_=)` and `node_label_sorting`
+- dropped support for Python 3.10; {{ navis }} now supports Python 3.11-3.15 (and with Python >= 3.11 a given, *writing* R data files now works on every supported version)
 
 ##### Additions
 - new [`masked`][navis.masked]: work on part of a neuron, then put it back - inside the block the neuron *is* the masked region, and edits are folded back in on the way out (see new tutorial)

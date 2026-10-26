@@ -19,14 +19,11 @@ dotprops, neuronlists, im3d) and `rgl` (mesh3d). All of it goes through
 [rdata](https://github.com/vnmabus/rdata), so neither direction needs a running
 R session or `rpy2`.
 
-Reading works with any `rdata`; writing additionally needs `rdata` >= 1.0,
-which in turn requires Python >= 3.11. On Python 3.10 the write functions
-therefore raise an `ImportError` while everything else keeps working.
+Reading works with any `rdata`; writing additionally needs `rdata` >= 1.0.
 
 """
 
 import rdata
-import sys
 import warnings
 
 import matplotlib.colors as mcl
@@ -921,21 +918,10 @@ def _write(x, filepath, file_type, compression, compresslevel, add_metadata):
 
     """
     if not hasattr(rdata, "unparser"):
-        msg = (
+        raise ImportError(
             "Writing R data files requires `rdata` >= 1.0.0, you have "
-            f"{rdata.__version__}. "
+            f"{rdata.__version__}. Please upgrade: `pip install -U rdata`."
         )
-        if sys.version_info < (3, 11):
-            # No amount of upgrading will help here - point at the actual cause.
-            msg += (
-                "`rdata` >= 1.0.0 requires Python >= 3.11, so it can not be "
-                f"installed on your Python {sys.version_info.major}."
-                f"{sys.version_info.minor}. Reading .rds/.rda files works "
-                "regardless; writing them needs a newer Python."
-            )
-        else:
-            msg += "Please upgrade: `pip install -U rdata`."
-        raise ImportError(msg)
 
     filepath = Path(filepath).expanduser()
     if filepath.is_dir():
