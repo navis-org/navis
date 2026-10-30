@@ -54,6 +54,7 @@ pip install git+https://github.com/navis-org/navis@master
 - new [`Pipeline`][navis.Pipeline]: a reusable, composable chain of operations that is sent to a worker *once* instead of once per function - `navis.Pipeline().heal_skeleton().prune_twigs(5000)`, or `nl.pipeline.heal_skeleton().run()` (see the multiprocessing tutorial)
 - `parallel=True` runs on a backend you can choose - `joblib` (the new default), `pathos`, `processes`, `threads`, `serial` or one you register - via the new [`set_parallel_backend`][navis.set_parallel_backend]; `dask` and `submitit` (SLURM) put it on a cluster (`pip install navis[cluster]`). NBLAST dispatches through the same layer
 - [`ivscc_features`][navis.ivscc_features] gained the features it was missing (radius-derived size, tip/branch point counts, bifurcation angles, `extent_z`, ...) plus two new tutorials
+- `models.BayesianTraversalModel(method='legacy')` restores the model as it was before 1.12.0 (which reports nodes downstream of a randomly-timed parent slightly early, #194), to reproduce older results
 
 ##### Improvements
 - the graph internals now run on navis-fastcore instead of igraph/networkx - [`betweenness_centrality`][navis.betweenness_centrality] 217ms :octicons-arrow-right-24: 0.5ms, [`reroot_skeleton`][navis.reroot_skeleton] 3x, [`cut_skeleton`][navis.cut_skeleton] 2x, [`collapse_nodes`][navis.collapse_nodes] 6x, and more (values unchanged)
@@ -73,6 +74,7 @@ pip install git+https://github.com/navis-org/navis@master
 - new `navis.config.strict` (or `NAVIS_STRICT=1`) for server and pipeline contexts: nothing prompts for input and remote fetches raise rather than return a partial result
 - new `navis.interfaces.clear_cache()`, and one pooled, retrying HTTP session for the whole library
 - two dependencies are gone (`six`, `pypng`) and `morphops`/`molesq` are imported lazily (~280 ms off `import navis`)
+- `models.BayesianTraversalModel.run` updates the whole frontier in one vectorised step per iteration instead of visiting nodes one at a time and rescanning the full edge array for each - 28s :octicons-arrow-right-24: 0.45s on a random 10k-node / 100k-edge graph (results agree with the old loop to within its convergence tolerance)
 
 ##### Fixes
 - [`subset_neuron`][navis.subset_neuron] has been rewritten onto a declarative per-type schema, which fixed four silent bugs - among them a `Mesh`'s connectors being mis-mapped and a `Dotprops`' soma pointing at whatever point had moved into that slot
