@@ -25,8 +25,7 @@ from ..compute.dispatch import default_n_workers, worker_initializer
 # Set up logging
 logger = config.get_logger(__name__)
 
-__all__ = ['BayesianTraversalModel', 'ConditionedBayesianTraversalModel',
-           'TraversalModel', 'linear_activation_p',
+__all__ = ['BayesianTraversalModel', 'TraversalModel', 'linear_activation_p',
            'random_linear_activation_function']
 
 
@@ -378,22 +377,35 @@ class BayesianTraversalModel(TraversalModel):
                         [`navis.models.network_models.linear_activation_p`][]
                         which will linearly scale probability of traversal
                         from 0 to 100% between edges weights 0 to 0.3.
+    method :            "conditioned" | "legacy"
+                        How an edge's traversal is accumulated over time (see
+                        Notes). "legacy" reproduces the model as it was before
+                        navis 1.12.
 
     Notes
     -----
     This model is a fast, deterministic approximation of the Monte-Carlo
-    [`navis.models.network_models.TraversalModel`][]. At each step it treats
-    every inbound edge as firing independently of whether that same edge
-    already failed to fire at earlier steps. That independence-across-time
-    assumption over-counts traversal, so a node appears to be reached slightly
-    too early whenever its parent itself activates at a random time: on the
-    minimal chain `0 -> 1 -> 2` with a per-step traversal probability of 0.5,
-    node 2 is reported ~0.23 layers early. Use
-    [`navis.models.network_models.ConditionedBayesianTraversalModel`][] for a
-    slower but locally exact alternative, or `TraversalModel` (Monte-Carlo) as
-    ground truth. Note also that, as with `TraversalModel`, results near the
-    `max_steps` horizon are affected by truncation - increase `max_steps` if a
-    node's traversal-time distribution has not effectively converged to 1.
+    [`navis.models.network_models.TraversalModel`][].
+
+    With `method='conditioned'` (the default) it propagates the full delivery
+    distribution of every inbound edge (the parent's traversal-time
+    distribution convolved with the edge's per-step firing probability) and is
+    *exact* for tree-like graphs and for single points of reconvergence (e.g. diamonds). 
+    It does, however, still assume that a node's parents are traversed *independently*,
+    and is only an approximation when two or more parents share correlated upstream ancestry:
+    on the minimal shared-ancestry graph `0 -> 1 -> {2, 3} -> 4` with a
+    per-step traversal probability of 0.5, parents 2 and 3 share node 1's
+    random activation time and node 4 is reported ~0.27 layers early.
+
+    With `method='legacy'` it additionally treats an edge's firing at each
+    step as independent of whether that same edge already failed to fire at
+    earlier steps. That over-counts traversal, on the chain `0 -> 1 -> 2` 
+    with a per-step traversal probability of 0.5, node 2 is reported ~0.23 layers early. 
+    Use it only to reproduce older results.
+
+    Note also that, as with `TraversalModel`, results near the `max_steps`
+    horizon are affected by truncation - increase `max_steps` if a node's
+    traversal-time distribution has not effectively converged to 1.
 
     Examples
     --------
@@ -439,11 +451,28 @@ class BayesianTraversalModel(TraversalModel):
     998           2          4       3.320           3.0
     999           2          4       3.195           3.0
 
+    On a chain the default method is exact, whereas `method='legacy'` reports
+    traversal too early:
+
+    >>> import pandas as pd
+    >>> # A chain 0 -> 1 -> 2; weight .15 means p = 0.5 of traversal per step
+    >>> edges = pd.DataFrame({'source': [0, 1], 'target': [1, 2],
+    ...                       'weight': [.15, .15]})
+    >>> means = {}
+    >>> for method in ('conditioned', 'legacy'):
+    ...     model = BayesianTraversalModel(edges, seeds=[0], max_steps=30,
+    ...                                    method=method)
+    ...     _ = model.run()
+    ...     means[method] = round(float(model.summary.loc[2, 'layer_mean']), 2)
+    >>> means
+    {'conditioned': 5.0, 'legacy': 4.77}
+
     """
 
     def __init__(self,
                  *args,
                  traversal_func: Optional[Callable] = None,
+                 method: str = 'conditioned',
                  **kwargs):
         """Initialize model."""
         super().__init__(*args, **kwargs)
@@ -454,6 +483,11 @@ class BayesianTraversalModel(TraversalModel):
             self.traversal_func = traversal_func
         else:
             raise ValueError('`traversal_func` must be None or a callable')
+
+        if method not in ('conditioned', 'legacy'):
+            raise ValueError('`method` must be "conditioned" or "legacy", '
+                             f'got "{method}"')
+        self.method = method
 
     def make_summary(self) -> pd.DataFrame:
         """Generate summary."""
@@ -484,14 +518,7 @@ class BayesianTraversalModel(TraversalModel):
         return self._summary
 
     def run(self, **kwargs) -> pd.DataFrame:
-        """Run model (single process, batched).
 
-        Every node whose CMF may still change is updated synchronously in a
-        single vectorised step per outer iteration, using
-        `np.multiply.reduceat` over CSR-style inbound/outbound adjacency,
-        rather than visiting the frontier node by node in Python and
-        rescanning the whole edge array for each of them.
-        """
         # For some reason this is required for progress bars in Jupyter to show
         print(' ', end='', flush=True)
 
@@ -537,7 +564,6 @@ class BayesianTraversalModel(TraversalModel):
         changed = np.unique(tgt[seed_mask[src]])
 
         iter_n = 0
-        frontier_history = []
 
         with config.tqdm(
                 total=None,
@@ -547,7 +573,6 @@ class BayesianTraversalModel(TraversalModel):
                 position=kwargs.get('position', 0)) as pbar:
             while changed.size:
                 iter_n += 1
-                frontier_history.append(int(changed.size))
 
                 # Gather the inbound edges of every node in the frontier into
                 # one flat, group-contiguous array. Every frontier node is the
@@ -561,30 +586,71 @@ class BayesianTraversalModel(TraversalModel):
                     break
                 pre_flat = src_by_tgt[edge_pos]
                 w_flat = w_by_tgt[edge_pos]
-
-                # Traversal probability for each inbound edge at each time.
-                posteriors = cmfs[pre_flat, :] * w_flat[:, None]
+                pre_cmf = cmfs[pre_flat, :]
 
                 # Offset of each frontier node's edge group in the flat array.
                 group_starts = np.empty(changed.size, dtype=np.int64)
                 group_starts[0] = 0
                 np.cumsum(counts[:-1], out=group_starts[1:])
 
-                # At each time, the probability that at least one inbound edge
-                # is traversed. ``reduceat`` gives the exact per-group product,
-                # without the roundoff of an exp-of-sum-of-logs.
-                new_pmf = 1. - np.multiply.reduceat(1. - posteriors,
-                                                    group_starts, axis=0)
-
-                # Offset the time-cumulative probability by 1 to account for
-                # traversal iteration. Use maximum of previous CMF as it is
-                # monotonic and to include fixed seed traversal.
                 old_cmf = cmfs[changed, :]
-                new_cmf = old_cmf.copy()
-                if T > 1:
-                    new_cmf[:, 1:] = np.maximum(
-                        old_cmf[:, 1:],
-                        1. - np.cumprod(1. - new_pmf[:, :-1], axis=1))
+                if self.method == 'conditioned':
+                    # Probability that each parent *first* activates at a
+                    # given step.
+                    pmf = np.diff(pre_cmf, axis=1, prepend=0.)
+
+                    # For each inbound edge, compute the probability that it
+                    # has delivered traversal to its target by a given step. An
+                    # edge whose parent became active at step ``k`` fires with
+                    # probability ``p`` at each subsequent step, so it has
+                    # delivered by step ``t`` with probability
+                    # ``1 - (1-p)^(t-k)``. The delivery CMF is therefore the
+                    # parent's activation-time PMF convolved with this
+                    # geometric edge-firing distribution. This correctly models
+                    # the fact that all of a single edge's per-step firings are
+                    # driven by the *same* (monotone) parent-activation event,
+                    # rather than treating them as independent across time (the
+                    # latter over-counts traversal and made nodes appear to be
+                    # reached too early - see #194). The convolution is
+                    # evaluated via the recurrence
+                    # ``c[t] = (1-p) * c[t-1] + pmf[t]``, with
+                    # ``deliver = parent_cmf - c``.
+                    q = 1. - w_flat
+                    c = np.empty_like(pmf)
+                    c[:, 0] = pmf[:, 0]
+                    for t in range(1, T):
+                        c[:, t] = q * c[:, t - 1] + pmf[:, t]
+                    deliver = pre_cmf - c
+
+                    # Combine inbound edges assuming independence *across
+                    # parents*. This is exact for tree-like graphs and single
+                    # points of reconvergence (e.g. diamonds); see the Notes in
+                    # the class docstring for the residual approximation.
+                    # ``reduceat`` gives the exact per-group product, without
+                    # the roundoff of an exp-of-sum-of-logs. Take the maximum
+                    # with the previous CMF as it is monotonic and to preserve
+                    # fixed seed traversal.
+                    new_cmf = np.maximum(
+                        old_cmf,
+                        1. - np.multiply.reduceat(1. - deliver,
+                                                  group_starts, axis=0))
+                else:
+                    # Traversal probability for each inbound edge at each time.
+                    posteriors = pre_cmf * w_flat[:, None]
+
+                    # At each time, the probability that at least one inbound
+                    # edge is traversed.
+                    new_pmf = 1. - np.multiply.reduceat(1. - posteriors,
+                                                        group_starts, axis=0)
+
+                    # Offset the time-cumulative probability by 1 to account
+                    # for traversal iteration. Use maximum of previous CMF as
+                    # it is monotonic and to include fixed seed traversal.
+                    new_cmf = old_cmf.copy()
+                    if T > 1:
+                        new_cmf[:, 1:] = np.maximum(
+                            old_cmf[:, 1:],
+                            1. - np.cumprod(1. - new_pmf[:, :-1], axis=1))
                 np.clip(new_cmf, 0., 1., out=new_cmf)
 
                 actually_changed = ~np.all(np.isclose(old_cmf, new_cmf), axis=1)
@@ -599,11 +665,8 @@ class BayesianTraversalModel(TraversalModel):
                 next_changed = np.unique(tgt_by_src[out_pos])
 
                 pbar.update(int(actually_changed.sum()))
-                pbar.set_postfix(
-                    _bayes_progress_postfix(
-                        iter_n, frontier_history, int(next_changed.size), pbar),
-                    refresh=False,
-                )
+                pbar.set_postfix(iter=iter_n, frontier=int(changed.size),
+                                 refresh=False)
                 changed = next_changed
 
         self.iterations = 1
@@ -613,176 +676,6 @@ class BayesianTraversalModel(TraversalModel):
     def run_parallel(self, *args, **kwargs) -> None:
         warnings.warn(f"{self.__class__.__name__} should not be run in parallel. Falling back to run.")
         self.run(**kwargs)
-
-
-class ConditionedBayesianTraversalModel(BayesianTraversalModel):
-    """Bayesian traversal model conditioned on parent activation times.
-
-    Like [`navis.models.network_models.BayesianTraversalModel`][] this model
-    propagates traversal probabilities through the network and converges to a
-    distribution of time of traversal for each node, rather than
-    stochastically sampling. Unlike it, it does not treat an edge's per-step
-    firings as independent of one another, which makes it exact on more graphs
-    but considerably slower (see Notes).
-
-    Unlike `TraversalModel`, this model should only be run once.
-    Note alse that `traversal_func` should be a function returing
-    probabilities of traversal, rather than a random boolean of traversal.
-
-    Parameters
-    ----------
-    edges :             pandas.DataFrame
-                        DataFrame representing an edge list. Must minimally have
-                        a `source` and `target` column.
-    seeds :             iterable
-                        Seed nodes for traversal. Nodes that aren't found in
-                        `edges['source']` will be (silently) removed.
-    weights :           str, optional
-                        Name of a column in `edges` used as weights. If not
-                        provided, all edges will be given a weight of 1. If using
-                        the default activation function the weights need to be
-                        between 0 and 1.
-    max_steps :         int
-                        Limits the number of steps for each iteration.
-    traversal_func :    callable, optional
-                        Function returning probability whether a given edge will be
-                        traversed or not in a given step. Must take numpy array
-                        (N, 1) of edge weights and return an array with
-                        probabilities of equal size. Defaults to
-                        [`navis.models.network_models.linear_activation_p`][]
-                        which will linearly scale probability of traversal
-                        from 0 to 100% between edges weights 0 to 0.3.
-
-    Notes
-    -----
-    For each node this model propagates the full delivery distribution of
-    every inbound edge (the parent's traversal-time distribution convolved
-    with the edge's per-step firing probability) and is therefore *exact* for
-    tree-like graphs and for single points of reconvergence (e.g. diamonds),
-    where the faster `BayesianTraversalModel` reports traversal slightly too
-    early. It does, however, still assume that a node's parents are traversed
-    *independently*. This holds whenever the parents' traversal times are
-    independent (as in a diamond), but is only an approximation when two or
-    more parents share correlated upstream ancestry: on the minimal
-    shared-ancestry graph `0 -> 1 -> {2, 3} -> 4` with a per-step traversal
-    probability of 0.5, parents 2 and 3 share node 1's random activation time
-    and node 4 is reported ~0.27 layers early. Use `TraversalModel`
-    (Monte-Carlo) as ground truth if exactness matters there. Note also that,
-    as with `TraversalModel`, results near the `max_steps` horizon are
-    affected by truncation - increase `max_steps` if a node's traversal-time
-    distribution has not effectively converged to 1.
-
-    That accuracy costs speed: this model visits the frontier one node at a
-    time in Python, where `BayesianTraversalModel` updates the whole frontier
-    in a single vectorised step. Prefer `BayesianTraversalModel` on large
-    networks unless the across-time bias matters for your analysis.
-
-    Examples
-    --------
-    >>> import pandas as pd
-    >>> from navis.models import ConditionedBayesianTraversalModel
-    >>> # A chain 0 -> 1 -> 2; weight .15 means p = 0.5 of traversal per step
-    >>> edges = pd.DataFrame({'source': [0, 1], 'target': [1, 2],
-    ...                       'weight': [.15, .15]})
-    >>> model = ConditionedBayesianTraversalModel(edges, seeds=[0], max_steps=30)
-    >>> res = model.run()
-    >>> # Node 2 is reached at layer 5 on average - here exactly, whereas
-    >>> # BayesianTraversalModel reports ~4.77
-    >>> print(round(float(model.summary.loc[2, 'layer_mean']), 2))
-    5.0
-
-    """
-
-    def run(self, **kwargs) -> pd.DataFrame:
-        """Run model (single process)."""
-
-        # For some reason this is required for progress bars in Jupyter to show
-        print(' ', end='', flush=True)
-        # For faster access, use the raw array
-        edges = self.edges[[self.source, self.target, self.weights]].values
-        id_type = self.edges[self.source].dtype
-        # Transform weights to traversal probabilities
-        edges[:, 2] = self.traversal_func(edges[:, 2])
-
-        # Change node IDs into indices in [0, len(nodes))
-        ids, edges_idx = np.unique(edges[:, :2], return_inverse=True)
-        ids = ids.astype(id_type)
-        edges_idx = edges_idx.reshape((edges.shape[0], 2))
-        edges_idx = np.concatenate(
-            (edges_idx, np.expand_dims(edges[:, 2], axis=1)),
-            axis=1)
-
-        cmfs = np.zeros((len(ids), self.max_steps), dtype=np.float64)
-        seed_idx = np.searchsorted(ids, self.seeds)
-        cmfs[seed_idx, :] = 1.
-        changed = set(edges_idx[np.isin(edges_idx[:, 0], seed_idx), 1].astype(id_type))
-
-        with config.tqdm(
-                total=0,
-                disable=config.pbar_hide,
-                leave=config.pbar_leave,
-                position=kwargs.get('position', 0)) as pbar:
-            while len(changed):
-                next_changed = []
-
-                pbar.total += len(changed)
-                pbar.refresh()
-
-                for idx in changed:
-                    cmf = cmfs[idx, :]
-                    inbound = edges_idx[edges_idx[:, 1] == idx, :]
-                    pre = inbound[:, 0].astype(np.int64)
-                    p_edge = inbound[:, 2]
-
-                    # Probability that each parent *first* activates at a given step.
-                    pmf = np.diff(cmfs[pre, :], axis=1, prepend=0.)
-
-                    # For each inbound edge, compute the probability that it has
-                    # delivered traversal to this node by a given step. An edge
-                    # whose parent became active at step ``k`` fires with
-                    # probability ``p`` at each subsequent step, so it has
-                    # delivered by step ``t`` with probability ``1 - (1-p)^(t-k)``.
-                    # The delivery CMF is therefore the parent's activation-time
-                    # PMF convolved with this geometric edge-firing distribution.
-                    # This correctly models the fact that all of a single edge's
-                    # per-step firings are driven by the *same* (monotone)
-                    # parent-activation event, rather than treating them as
-                    # independent across time (the latter over-counts traversal
-                    # and made this node appear to be reached too early - see #194).
-                    # The convolution is evaluated via the recurrence
-                    # ``c[t] = (1-p) * c[t-1] + pmf[t]``, with
-                    # ``deliver = parent_cmf - c``.
-                    q = 1 - p_edge
-                    c = np.empty_like(pmf)
-                    c[:, 0] = pmf[:, 0]
-                    for t in range(1, pmf.shape[1]):
-                        c[:, t] = q * c[:, t - 1] + pmf[:, t]
-                    deliver = cmfs[pre, :] - c
-
-                    # Combine inbound edges assuming independence *across parents*.
-                    # This is exact for tree-like graphs and single points of
-                    # reconvergence (e.g. diamonds); see the Notes in the class
-                    # docstring for the residual approximation. Take the maximum
-                    # with the previous CMF as it is monotonic and to preserve
-                    # fixed seed traversal.
-                    new_cmf = np.maximum(cmf, 1 - np.prod(1 - deliver, axis=0))
-                    np.clip(new_cmf, 0., 1., out=new_cmf)
-
-                    if np.allclose(cmf, new_cmf):
-                        continue
-
-                    cmfs[idx, :] = new_cmf
-
-                    # Notify downstream nodes that they have changed next iteration.
-                    post_idx = edges_idx[edges_idx[:, 0] == idx, 1].astype(id_type)
-                    next_changed.extend(list(post_idx))
-
-                pbar.update(len(changed))
-                changed = set(next_changed)
-
-        self.iterations = 1
-        self.results = pd.DataFrame({'node': ids, 'cmf': list(cmfs)})
-        return self.results
 
 
 def _repeat_ranges(starts: np.ndarray, ends: np.ndarray) -> np.ndarray:
@@ -800,49 +693,6 @@ def _repeat_ranges(starts: np.ndarray, ends: np.ndarray) -> np.ndarray:
     cumc = np.cumsum(counts)
     group_offsets = starts - np.concatenate(([0], cumc[:-1]))
     return np.arange(total, dtype=np.int64) + np.repeat(group_offsets, counts)
-
-
-def _bayes_progress_postfix(iter_n, frontier_history, next_frontier_size, pbar):
-    """Build a tqdm postfix dict for `BayesianTraversalModel.run`.
-
-    Reports the current outer iteration, the size of the current and next
-    frontier, and a best-effort ETA derived from the recent geometric decay of
-    the frontier (only meaningful once the frontier has been monotonically
-    decreasing for a few iterations).
-    """
-    info = {
-        'iter': iter_n,
-        'frontier': frontier_history[-1],
-        'next': next_frontier_size,
-    }
-    if next_frontier_size == 0:
-        info['eta'] = '~done'
-        return info
-    recent = frontier_history[-3:] + [next_frontier_size]
-    if len(recent) >= 3 and all(
-        recent[i + 1] <= recent[i] for i in range(len(recent) - 1)
-    ):
-        ratios = [
-            recent[i + 1] / recent[i]
-            for i in range(len(recent) - 1)
-            if recent[i] > 0
-        ]
-        ratios = [r for r in ratios if 0 < r < 1]
-        if ratios:
-            decay = float(np.mean(ratios))
-            remaining_iters = int(
-                np.ceil(np.log(1.0 / max(next_frontier_size, 1)) / np.log(decay))
-            )
-            remaining_iters = max(remaining_iters, 1)
-            elapsed = pbar.format_dict.get('elapsed', 0.0)
-            if iter_n > 0 and elapsed > 0:
-                sec_per_iter = elapsed / iter_n
-                info['eta'] = f'~{remaining_iters * sec_per_iter:.1f}s'
-            else:
-                info['eta'] = f'~{remaining_iters} it'
-    else:
-        info['eta'] = 'expanding'
-    return info
 
 
 def linear_activation_p(
