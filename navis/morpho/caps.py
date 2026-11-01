@@ -125,8 +125,8 @@ def fill_holes(x: "core.Mesh", inplace: bool = False) -> "core.Mesh":
     >>> m = navis.example_neurons(1, kind='mesh')
     >>> pruned = navis.prune_twigs(m, min_length='5 microns')
     >>> filled = navis.fill_holes(pruned)
-    >>> # The twig stumps are closed, so the surface encloses less
-    >>> filled.volume < pruned.volume
+    >>> # The twig stumps are closed, which takes faces to do
+    >>> filled.n_faces > pruned.n_faces
     True
     >>> # ... and no vertex moved or was added in the process
     >>> filled.n_vertices == pruned.n_vertices

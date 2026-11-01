@@ -27,6 +27,7 @@ from typing import Union, Optional, Sequence, List, Dict, Any
 from typing_extensions import Literal
 
 from .. import utils, config
+from ..utils.subclasses import anchored_volume
 from .base import UnitObject
 
 # Set up logging
@@ -365,6 +366,20 @@ class Volume(UnitObject, trimesh.Trimesh):
     def center(self) -> np.ndarray:
         """Center of mass."""
         return np.mean(self.vertices, axis=0)
+
+    @trimesh.caching.cache_decorator
+    def volume(self) -> float:
+        """Volume of this mesh, measured from the mesh and not from the origin.
+
+        Overrides trimesh's, which anchors on the origin. On a closed mesh the
+        two agree to about 1e-15; on an open one trimesh's answer depends on
+        where the mesh sits, badly enough to come back negative. The same
+        override is on `navis.Mesh`, so the two are comparable.
+
+        Still only meaningful if the mesh is closed - see `.is_volume`.
+
+        """
+        return anchored_volume(self)
 
     def __getstate__(self):
         """Get state (used e.g. for pickling)."""

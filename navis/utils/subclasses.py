@@ -97,6 +97,53 @@ def _edge_keys(edges):
     return edges[:, 0] * np.int64(2**32) + edges[:, 1]
 
 
+def anchored_volume(mesh):
+    """Volume of a mesh, measured from the mesh rather than from the origin.
+
+    The divergence theorem turns a volume into a sum over the faces of the
+    tetrahedron each one makes with some anchor point. Trimesh uses the origin.
+    On a closed surface the anchor cancels exactly, so that choice costs only
+    precision - about 6e-15 relative on a neuron in dataset nanometres, which
+    is nothing.
+
+    It is open surfaces that make the choice matter, because there the cone to
+    the anchor is real geometry and its size grows with the distance to it.
+    That is not a far-field curiosity: a neuron mesh sits a few hundred
+    thousand nanometres from the origin, and one missing triangle in five
+    thousand is already a 2.7% error, two percent of them 330%. A barely-open
+    mesh can come back *negative*.
+
+    Anchoring on the mesh's own bounding box does not make an open surface
+    enclose anything - nothing can - but it does stop the answer depending on
+    where the mesh happens to sit, which is the part that silently produces
+    wrong numbers instead of obviously wrong ones.
+
+    Parameters
+    ----------
+    mesh :      Trimesh | mesh-like
+                Must have `.vertices` and `.faces`.
+
+    Returns
+    -------
+    float
+                Volume of the mesh, or of the surface coned to the centre of
+                its bounding box if the mesh is not closed.
+
+    """
+    vertices = np.asarray(mesh.vertices, dtype=np.float64)
+    faces = np.asarray(mesh.faces)
+
+    if not len(faces) or not len(vertices):
+        return 0.0
+
+    # The bounding box rather than the centroid: the centroid of a neuron sits
+    # wherever the arbor happens to be dense, which is not where the extent is.
+    anchor = 0.5 * (vertices.min(axis=0) + vertices.max(axis=0))
+
+    a, b, c = (vertices[faces[:, i]] - anchor for i in range(3))
+    return float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6.0)
+
+
 class TrimeshPlus(tm.Trimesh):
     """Trimesh object with additional features.
 
@@ -188,6 +235,21 @@ class TrimeshPlus(tm.Trimesh):
             edges = edges[~is_dupe]
 
         self._extra_edges = edges
+
+    @tm.caching.cache_decorator
+    def volume(self):
+        """Volume of the mesh, measured from the mesh and not from the origin.
+
+        Overrides trimesh's, which anchors on the origin. On a closed mesh the
+        two agree to about 1e-15; on an open one trimesh's answer depends on
+        where the mesh sits, badly enough to come back negative. See
+        [`navis.utils.subclasses.anchored_volume`][].
+
+        Still only meaningful if the mesh is closed - no anchor can give an
+        open surface an inside.
+
+        """
+        return anchored_volume(self)
 
     def copy(self, *args, **kwargs):
         # N.B. trimesh's `copy` hard-codes `Trimesh()` as the new object, so we

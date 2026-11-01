@@ -475,8 +475,14 @@ class Mesh(BaseNeuron):
     def volume(self) -> float:
         """Volume of the neuron.
 
-        Calculated from the surface integral. Garbage if neuron is not
-        watertight.
+        Calculated from the surface integral, measured from the neuron's own
+        bounding box rather than from the origin - see
+        [`navis.utils.subclasses.anchored_volume`][]. That makes the answer
+        independent of where the neuron sits, which trimesh's is not.
+
+        Still garbage if the neuron is not watertight: no anchor gives an open
+        surface an inside. What the anchor buys is that the garbage stops
+        changing when you transform the neuron.
 
         """
         return float(self.trimesh.volume)
