@@ -128,7 +128,10 @@ def drop_internals(
     invaginations where one has pushed into the membrane from within. Both are
     found the same way - by [`navis.openness`][], which asks whether a face can
     see out - and the holes cutting them leaves are triangulated shut, so the
-    result is a surface, not a surface with bites taken out of it.
+    result is a surface, not a surface with bites taken out of it. Closed, that
+    is, rather than manifold: caps may add no vertices (that is what keeps the
+    vertex map intact), so a cap's chord occasionally lands on an edge the mesh
+    already had and leaves it carrying four faces.
 
     This is what to reach for when a mesh skeletonizes into a hairball. On a
     heavily invaginated FAFB neuron it takes the skeleton from 3,227 leafs to

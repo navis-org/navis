@@ -29,7 +29,7 @@ skeletor>=1.0.0
 # NBLAST core, for the mesh operations, simplification, smoothing and for the
 # CMTK/elastix and landmark transforms. 0.13 adds `segment_coords(flat=True)`,
 # which the plotting backends need.
-navis-fastcore>=0.13.0
+navis-fastcore>=0.13.1
 
 pathos>=0.2.7 #extra: pathos
 
