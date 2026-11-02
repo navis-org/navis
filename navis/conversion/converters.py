@@ -23,7 +23,7 @@ from numbers import Number
 from scipy.ndimage import gaussian_filter
 from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
-from typing import Union, Optional
+from typing import Union, Optional, Literal
 
 from .. import core, config, utils, morpho, graph
 
@@ -140,11 +140,200 @@ def points2skeleton(x: Union['core.Dotprops', np.ndarray],
     return graph.edges2neuron(mst_edges, vertices=pts)
 
 
+def _remap_vertices(x: 'core.Skeleton', mapping: dict):
+    """Point mesh vertices that sat on a removed node at the node replacing it.
+
+    No-op on skeletons that did not come from a mesh.
+    """
+    if not hasattr(x, 'vertex_map'):
+        return
+
+    vm = pd.Series(x.vertex_map)
+    x.vertex_map = vm.map(mapping).fillna(vm).astype(x.vertex_map.dtype).values
+
+
+def _shave_bristles(x: 'core.Skeleton',
+                    inplace: bool = False) -> 'core.Skeleton':
+    """Shave single-node bristles hanging straight off a branch point.
+
+    Parameters
+    ----------
+    x :         Skeleton
+                If the skeleton has a `vertex_map` (e.g. from
+                [`navis.conversion.mesh2skeleton`][]) it is updated too.
+    inplace :   bool
+                If False, will shave a copy of the original.
+
+    Returns
+    -------
+    Skeleton
+
+    """
+    if not inplace:
+        x = x.copy()
+
+    # --- alternative approach: drop all terminal segments that are more or less straight ---
+    # # First node of all small segments
+    # n1 = np.array([seg[0] for seg in x.small_segments])
+    # n2 = np.array([seg[-1] for seg in x.small_segments])
+
+    # # Which segments are terminal
+    # leafs = x.leafs.node_id.values
+    # bp = x.branch_points.node_id.values
+    # is_term = np.isin(n1, leafs) & np.isin(n2, bp)
+    # term_seg = np.array(x.small_segments, dtype=object)[is_term]
+
+    # # Calculate geodesic length of terminal segments
+    # seg_lengths = np.array([graph.segment_length(x, seg) for seg in term_seg])
+
+    # # Calculate Euclidean tip->end distance
+    # nodes = x.nodes.set_index('node_id')
+    # start = nodes.loc[[seg[0] for seg in term_seg], ["x", "y", "z"]].values
+    # end = nodes.loc[[seg[-1] for seg in term_seg], ["x", "y", "z"]].values
+    # L = np.sqrt(((start - end) ** 2).sum(axis=1))
+
+    # # Calculate tortuosity
+    # tort = seg_lengths / L
+
+    # # Drop all terminal segments that are more ore less straight
+    # seg_to_drop = term_seg[tort <= 1.2]
+    # nodes_to_drop = np.concatenate([t[:-1] for t in seg_to_drop])
+    # keep = x.nodes[~x.nodes.node_id.isin(nodes_to_drop)].node_id.values
+
+    # # Subset neuron
+    # x = morpho.subset_neuron(x, keep, inplace=True)
+
+    # # Fix vertex map
+    # for seg in seg_to_drop:
+    #     x.vertex_map[np.isin(x.vertex_map, seg[:-1])] = seg[-1]
+
+    # Find single node bristles
+    leafs = x.leafs.node_id.values
+
+    # Make sure we keep the soma
+    if x.has_soma:
+        leafs = leafs[~np.isin(leafs, x.soma)]
+
+    bp = x.branch_points.node_id.values
+    bristles = x.nodes[x.nodes.node_id.isin(leafs)
+                       & x.nodes.parent_id.isin(bp)]
+
+    # Subset neuron
+    keep = x.nodes[~x.nodes.node_id.isin(bristles.node_id)].node_id.values
+    x = morpho.subset_neuron(x, keep, inplace=True)
+
+    # Fix vertex map
+    _remap_vertices(x, dict(zip(bristles.node_id.values,
+                                bristles.parent_id.values)))
+
+    return x
+
+
+def _shave_variable(x: 'core.Skeleton',
+                    k: float = 2,
+                    n_base: int = 10,
+                    inplace: bool = False) -> 'core.Skeleton':
+    """Shave terminal twigs that are short relative to the branch they join.
+
+    A false tip on a thick process is typically a twig running from the axis of
+    that process out to its surface - i.e. about as long as the radius of the
+    branch it comes off. This drops every terminal twig shorter than `k` times
+    that radius, so the cut-off scales with local thickness instead of being a
+    fixed length. Twigs that run all the way to the root (i.e. whole branches
+    rather than bristles) are never dropped, nor is the soma.
+
+    Parameters
+    ----------
+    x :         Skeleton
+                Must have radii. If the skeleton has a `vertex_map` (e.g. from
+                [`navis.conversion.mesh2skeleton`][]) it is updated too.
+    k :         float
+                A terminal twig is dropped if its geodesic length is less than
+                `k` times the radius of the branch it joins. `k=0` drops nothing.
+    n_base :    int
+                The radius of the branch a twig joins is the median radius over
+                this many nodes, starting at the branch point and walking
+                rootwards. A node count rather than a distance keeps this
+                independent of the neuron's units.
+    inplace :   bool
+                If False, will shave a copy of the original.
+
+    Returns
+    -------
+    Skeleton
+
+    """
+    if not inplace:
+        x = x.copy()
+
+    if k <= 0:
+        return x
+
+    if x.nodes.radius.isnull().all():
+        raise ValueError('Skeleton has no radii to scale the cut-off by. Note '
+                         'that method "teasar" does not produce radii.')
+
+    # Terminal twigs are the linear segments running from a leaf up to a branch
+    # point. Segments ending at a root are whole branches and stay put.
+    leaf_ids = x.leafs.node_id.values
+    if x.has_soma:
+        leaf_ids = leaf_ids[~np.isin(leaf_ids, x.soma)]
+    leafs, bps = set(leaf_ids), set(x.branch_points.node_id.values)
+    twigs = [seg for seg in x.small_segments
+             if (seg[0] in leafs) and (seg[-1] in bps)]
+
+    nodes = x.nodes
+    node_ix = pd.Index(nodes.node_id)
+    # A -1 row index means "no such node": a root's parent ID is not a node ID,
+    # so `get_indexer` misses it. Appending a sentinel to both lookups makes -1
+    # land on that, which is what lets the walk below run unmasked - a branch
+    # point that runs out of ancestors simply collects NaN for the rest of its
+    # row. N.B. `fastcore.paths_to_root` would walk this too, but always goes
+    # all the way to the root rather than stopping after `n_base` nodes.
+    parent_ix = np.append(node_ix.get_indexer(nodes.parent_id), -1)
+    radii = np.append(nodes.radius.to_numpy(dtype=float), np.nan)
+
+    # Walk every branch point rootwards in lockstep, collecting radii as we go
+    walk = np.empty((len(twigs), n_base))
+    cur = node_ix.get_indexer(np.asarray([seg[-1] for seg in twigs],
+                                         dtype=nodes.node_id.dtype))
+    for i in range(n_base):
+        walk[:, i] = radii[cur]
+        cur = parent_ix[cur]
+    with warnings.catch_warnings():
+        # A branch point whose whole window is NaN just has no scale to go by -
+        # the `base_radius > 0` test below drops it out, no need to shout
+        warnings.simplefilter('ignore', RuntimeWarning)
+        base_radius = np.nanmedian(walk, axis=1)
+
+    lengths = graph.segment_lengths(x, twigs)
+
+    # N.B. a branch point can end up with radius 0 (see the fix further down in
+    # `mesh2skeleton`); we have no scale to go by there, so leave those alone.
+    drop = (base_radius > 0) & (lengths < (k * base_radius))
+
+    if not drop.any():
+        return x
+
+    # Everything on a dropped twig goes - except the branch point it hangs off,
+    # which belongs to the rest of the neuron. The same map says where the mesh
+    # vertices of each dropped node should point instead.
+    mapping = {n: seg[-1] for i in np.flatnonzero(drop) for seg in [twigs[i]]
+               for n in seg[:-1]}
+
+    keep = ~np.isin(nodes.node_id.values,
+                    np.fromiter(mapping, nodes.node_id.dtype, len(mapping)))
+    x = morpho.subset_neuron(x, keep, inplace=True)
+    _remap_vertices(x, mapping)
+
+    return x
+
+
 @utils.map_neuronlist(desc='Skeletonizing', allow_parallel=True)
 def mesh2skeleton(x: 'core.Mesh',
                   method: str = 'wavefront',
                   fix_mesh: bool = False,
-                  shave: bool = True,
+                  shave: Union[bool, Literal['bristles']] = True,
                   heal: bool = False,
                   connectors: bool = False,
                   inv_dist: Union[int, float] = None,
@@ -173,9 +362,17 @@ def mesh2skeleton(x: 'core.Mesh',
                 Whether to try to fix some common issues in the mesh before
                 skeletonization. Note that this might compromise the
                 vertex-to-node-ID mapping.
-    shave :     bool
+    shave :     bool | "bristles"
                 Whether to "shave" the resulting skeleton to reduce bristles
-                on the backbone.
+                on the backbone:
+                 - True: apply both rules below in turn
+                 - "bristles": apply only the first rule
+                 - False: leave the skeleton as it is
+                The two rules are to drop single-node bristles hanging off a
+                branch point, and then to drop terminal twigs shorter than
+                twice the radius of the branch they join - i.e. a cut-off that
+                scales with local thickness. The latter is experimental and
+                needs radii, so it is skipped for method "teasar".
     heal :      bool | "LEAFS" | "ALL"
                 Whether to heal the resulting skeleton if it is fragmented.
                 For more control over the stitching set `heal=False` and use
@@ -222,6 +419,7 @@ def mesh2skeleton(x: 'core.Mesh',
     """
     utils.eval_param(x, name='x', allowed_types=(core.Mesh, tm.Trimesh))
     utils.eval_param(method, name='method', allowed_values=('wavefront', 'teasar'))
+    utils.eval_param(shave, name='shave', allowed_values=(True, False, 'bristles'))
 
     if method == 'teasar' and inv_dist is None:
         raise ValueError('Must set `inv_dist` parameter when using method '
@@ -265,60 +463,16 @@ def mesh2skeleton(x: 'core.Mesh',
         _ = morpho.heal_skeleton(s, inplace=True, method='ALL')
 
     if shave:
-        # --- alternative approach: drop all terminal segments that are more or less straight ---
-        # # First node of all small segments
-        # n1 = np.array([seg[0] for seg in s.small_segments])
-        # n2 = np.array([seg[-1] for seg in s.small_segments])
+        s = _shave_bristles(s, inplace=True)
 
-        # # Which segments are terminal
-        # leafs = s.leafs.node_id.values
-        # bp = s.branch_points.node_id.values
-        # is_term = np.isin(n1, leafs) & np.isin(n2, bp)
-        # term_seg = np.array(s.small_segments, dtype=object)[is_term]
-
-        # # Calculate geodesic length of terminal segments
-        # seg_lengths = np.array([graph.segment_length(s, seg) for seg in term_seg])
-
-        # # Calculate Euclidean tip->end distance
-        # nodes = s.nodes.set_index('node_id')
-        # start = nodes.loc[[seg[0] for seg in term_seg], ["x", "y", "z"]].values
-        # end = nodes.loc[[seg[-1] for seg in term_seg], ["x", "y", "z"]].values
-        # L = np.sqrt(((start - end) ** 2).sum(axis=1))
-
-        # # Calculate tortuosity
-        # tort = seg_lengths / L
-
-        # # Drop all terminal segments that are more ore less straight
-        # seg_to_drop = term_seg[tort <= 1.2]
-        # nodes_to_drop = np.concatenate([t[:-1] for t in seg_to_drop])
-        # keep = s.nodes[~s.nodes.node_id.isin(nodes_to_drop)].node_id.values
-
-        # # Subset neuron
-        # s = morpho.subset_neuron(s, keep, inplace=True)
-
-        # # Fix vertex map
-        # for seg in seg_to_drop:
-        #     s.vertex_map[np.isin(s.vertex_map, seg[:-1])] = seg[-1]
-
-        # Find single node bristles
-        leafs = s.leafs.node_id.values
-
-        # Make sure we keep the soma
-        if s.has_soma:
-            leafs = leafs[~np.isin(leafs, s.soma)]
-
-        bp = s.branch_points.node_id.values
-        bristles = s.nodes[s.nodes.node_id.isin(leafs)
-                           & s.nodes.parent_id.isin(bp)]
-
-        # Subset neuron
-        keep = s.nodes[~s.nodes.node_id.isin(bristles.node_id)].node_id.values
-        s = morpho.subset_neuron(s, keep, inplace=True)
-
-        # Fix vertex map
-        mapping = dict(zip(bristles.node_id.values, bristles.parent_id.values))
-        vm = pd.Series(s.vertex_map)
-        s.vertex_map = vm.map(mapping).fillna(vm).astype(s.vertex_map.dtype).values
+        if shave != 'bristles':
+            # The second rule scales with radius, so it has nothing to go by on
+            # a skeleton without radii - method "teasar" produces none
+            if s.nodes.radius.isnull().all():
+                logger.warning('Skipping the radius-based shave: this skeleton '
+                               'has no radii.')
+            else:
+                s = _shave_variable(s, inplace=True)
 
     # In particular with method wavefront, some nodes (mostly leafs) can have
     # a radius of 0. We will fix this here by giving them 1/2 the radius of
