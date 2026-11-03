@@ -1718,6 +1718,28 @@ want: a stump left open splits the wave front just as a pocket mouth does.
     the faces that disagree read as buried and are cut out of otherwise
     healthy membrane. navis.fix_mesh will sort the winding out.
 
+!!! note "When the repair keeps what it cannot vouch for"
+
+    Dropping the surface that encloses nothing means reading a volume, and
+    a volume is only a volume when the surface is closed - so each piece is
+    closed first. Two things can stop that reading being trusted, and both
+    are reported through the log rather than passed over:
+
+    - the capping cannot close a piece at all (a boundary ring that pinches
+      on a vertex, say), so whether it encloses anything is never decided
+      and it is kept;
+    - the reading would condemn more than half of the surface it judged, in
+      which case it is held back on the grounds that a cell is not mostly
+      cavity.
+
+    Either way the mesh comes back repaired but may keep inside-out
+    surface, and the usual cause is winding - see the warning above.
+
+    These arrive as log messages, which means they are **lost under
+    `parallel=True`**: nothing a worker process writes to the log or the
+    warning stream finds its way back. Repair a `NeuronList` serially if
+    you want to see them.
+
 Parameters
 ----------
 x :         navis.Mesh/List | navis.Volume | trimesh.Trimesh

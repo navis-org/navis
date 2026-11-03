@@ -31522,7 +31522,7 @@ large sets of nodes it might be more efficient to use
                 <span class="n">x</span><span class="o">.</span><span class="n">connectors</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">disc</span><span class="p">,</span> <span class="n">id_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">snap</span><span class="p">(</span><span class="n">xyz</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="k">return</span> <span class="n">x</span>
-</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.drop_internals" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">drop_internals</span></code> <a href="#navis.drop_internals" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Remove the surface a mesh keeps on its inside.</p> <p>Anything the cell encloses goes: free-floating organelles, and the invaginations where one has pushed into the membrane from within. Both are found the same way - by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;openness&lt;/span&gt;&lt;/code&gt;" href="#navis.openness"><code>navis.openness</code></a>, which asks whether a face can see out - and the holes cutting them leaves are triangulated shut, so the result is a surface, not a surface with bites taken out of it. Closed, that is, rather than manifold: caps may add no vertices (that is what keeps the vertex map intact), so a cap's chord occasionally lands on an edge the mesh already had and leaves it carrying four faces.</p> <p>This is what to reach for when a mesh skeletonizes into a hairball. On a heavily invaginated FAFB neuron it takes the skeleton from 3,227 leafs to ~500 without losing a real branch, because each invagination was a tunnel the wave front could take a shortcut through.</p> <p>Only vertices are ever <em>removed</em> - caps re-use the ones already on the boundary - so connectors, extra edges, the skeleton correspondence and anything you attached yourself come through pointing where they pointed before.</p> <p>Note this also closes openings the mesh arrived with, e.g. a neurite truncated at the edge of the dataset. For skeletonization that is what you want: a stump left open splits the wave front just as a pocket mouth does.</p> <div class="admonition warning"> <p class="admonition-title">Faces must be wound outward</p> <p>Rays are fired into the hemisphere the face normal points into, so a consistently inward-wound mesh reads as entirely buried and comes back empty. A mesh wound <em>inconsistently</em> is worse, because it fails quietly: the faces that disagree read as buried and are cut out of otherwise healthy membrane. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;fix_mesh&lt;/span&gt;&lt;/code&gt;" href="#navis.fix_mesh"><code>navis.fix_mesh</code></a> will sort the winding out.</p> </div> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Mesh(es) to strip.
+</code></pre></div></td></tr></tbody></table></div> </details> </div> </div> <div class="doc doc-object doc-function"> <h2 id="navis.drop_internals" class="doc doc-heading"> <code class="highlight language-python"><span class="n">navis</span><span class="o">.</span><span class="n">drop_internals</span></code> <a href="#navis.drop_internals" class="headerlink" title="Permanent link">#</a></h2> <div class="doc doc-contents first"> <p>Remove the surface a mesh keeps on its inside.</p> <p>Anything the cell encloses goes: free-floating organelles, and the invaginations where one has pushed into the membrane from within. Both are found the same way - by <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;openness&lt;/span&gt;&lt;/code&gt;" href="#navis.openness"><code>navis.openness</code></a>, which asks whether a face can see out - and the holes cutting them leaves are triangulated shut, so the result is a surface, not a surface with bites taken out of it. Closed, that is, rather than manifold: caps may add no vertices (that is what keeps the vertex map intact), so a cap's chord occasionally lands on an edge the mesh already had and leaves it carrying four faces.</p> <p>This is what to reach for when a mesh skeletonizes into a hairball. On a heavily invaginated FAFB neuron it takes the skeleton from 3,227 leafs to ~500 without losing a real branch, because each invagination was a tunnel the wave front could take a shortcut through.</p> <p>Only vertices are ever <em>removed</em> - caps re-use the ones already on the boundary - so connectors, extra edges, the skeleton correspondence and anything you attached yourself come through pointing where they pointed before.</p> <p>Note this also closes openings the mesh arrived with, e.g. a neurite truncated at the edge of the dataset. For skeletonization that is what you want: a stump left open splits the wave front just as a pocket mouth does.</p> <div class="admonition warning"> <p class="admonition-title">Faces must be wound outward</p> <p>Rays are fired into the hemisphere the face normal points into, so a consistently inward-wound mesh reads as entirely buried and comes back empty. A mesh wound <em>inconsistently</em> is worse, because it fails quietly: the faces that disagree read as buried and are cut out of otherwise healthy membrane. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;fix_mesh&lt;/span&gt;&lt;/code&gt;" href="#navis.fix_mesh"><code>navis.fix_mesh</code></a> will sort the winding out.</p> </div> <div class="admonition note"> <p class="admonition-title">When the repair keeps what it cannot vouch for</p> <p>Dropping the surface that encloses nothing means reading a volume, and a volume is only a volume when the surface is closed - so each piece is closed first. Two things can stop that reading being trusted, and both are reported through the log rather than passed over:</p> <ul> <li>the capping cannot close a piece at all (a boundary ring that pinches on a vertex, say), so whether it encloses anything is never decided and it is kept;</li> <li>the reading would condemn more than half of the surface it judged, in which case it is held back on the grounds that a cell is not mostly cavity.</li> </ul> <p>Either way the mesh comes back repaired but may keep inside-out surface, and the usual cause is winding - see the warning above.</p> <p>These arrive as log messages, which means they are <strong>lost under <code>parallel=True</code></strong>: nothing a worker process writes to the log or the warning stream finds its way back. Repair a <code>NeuronList</code> serially if you want to see them.</p> </div> <table> <thead> <tr> <th><span class="doc-section-title">PARAMETER</span></th> <th><span>DESCRIPTION</span></th> </tr> </thead> <tbody> <tr class="doc-section-item"> <td> <code>x</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Mesh(es) to strip.
 </code></pre></div> </div> <p> <span class="doc-param-annotation"> <b>TYPE:</b> <code> navis.Mesh/List | navis.Volume | trimesh.Trimesh</code> </span> </p> </td> </tr> <tr class="doc-section-item"> <td> <code>threshold</code> </td> <td class="doc-param-details"> <div class="doc-md-description"> <div class="highlight"><pre><span></span><code>    Faces whose smoothed openness falls below this are cut. The
     operating range is 0.05-0.10; the buried mode sits at exactly
     zero, so any small value works, while above ~0.1 the cut starts
@@ -31548,9 +31548,7 @@ large sets of nodes it might be more efficient to use
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># This mesh is clean, so there is very little to take away</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">bool</span><span class="p">(</span><span class="n">stripped</span><span class="o">.</span><span class="n">n_faces</span> <span class="o">&gt;</span> <span class="n">m</span><span class="o">.</span><span class="n">n_faces</span> <span class="o">*</span> <span class="mf">0.95</span><span class="p">)</span>
 <span class="go">True</span>
-</code></pre></div> <details class="see-also" open=""> <summary>See Also</summary> <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;openness&lt;/span&gt;&lt;/code&gt;" href="#navis.openness"><code>navis.openness</code></a> The test this is built on, on its own - to see where a mesh is bad, or to pick a threshold. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;drop_fluff&lt;/span&gt;&lt;/code&gt;" href="#navis.drop_fluff"><code>navis.drop_fluff</code></a> Drops small <em>disconnected</em> pieces by size, wherever they sit. The two overlap rather than complement each other: a free-floating organelle is both small and inside, so either function takes it. This one is the right tool when you want the inside cleared regardless of size - and it is the only one that reaches an invagination, which is part of the main component and so invisible to any connectivity criterion. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;fill_holes&lt;/span&gt;&lt;/code&gt;" href="#navis.fill_holes"><code>navis.fill_holes</code></a> Closes openings without removing anything.</p> </details> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/internals.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
+</code></pre></div> <details class="see-also" open=""> <summary>See Also</summary> <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;openness&lt;/span&gt;&lt;/code&gt;" href="#navis.openness"><code>navis.openness</code></a> The test this is built on, on its own - to see where a mesh is bad, or to pick a threshold. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;drop_fluff&lt;/span&gt;&lt;/code&gt;" href="#navis.drop_fluff"><code>navis.drop_fluff</code></a> Drops small <em>disconnected</em> pieces by size, wherever they sit. The two overlap rather than complement each other: a free-floating organelle is both small and inside, so either function takes it. This one is the right tool when you want the inside cleared regardless of size - and it is the only one that reaches an invagination, which is part of the main component and so invisible to any connectivity criterion. <a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;fill_holes&lt;/span&gt;&lt;/code&gt;" href="#navis.fill_holes"><code>navis.fill_holes</code></a> Closes openings without removing anything.</p> </details> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/internals.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">114</span>
 <span class="normal">115</span>
 <span class="normal">116</span>
 <span class="normal">117</span>
@@ -31699,7 +31697,56 @@ large sets of nodes it might be more efficient to use
 <span class="normal">260</span>
 <span class="normal">261</span>
 <span class="normal">262</span>
-<span class="normal">263</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@utils</span><span class="o">.</span><span class="n">map_neuronlist</span><span class="p">(</span><span class="n">desc</span><span class="o">=</span><span class="s2">"Dropping"</span><span class="p">,</span> <span class="n">allow_parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@utils</span><span class="o">.</span><span class="n">map_neuronlist</span><span class="p">(</span><span class="n">desc</span><span class="o">=</span><span class="s2">"Dropping"</span><span class="p">,</span> <span class="n">allow_parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="nd">@utils</span><span class="o">.</span><span class="n">rebuilds</span><span class="p">(</span><span class="s2">"vertices"</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">drop_internals</span><span class="p">(</span>
     <span class="n">x</span><span class="p">,</span>
@@ -31744,6 +31791,28 @@ large sets of nodes it might be more efficient to use
 <span class="sd">        empty. A mesh wound *inconsistently* is worse, because it fails quietly:</span>
 <span class="sd">        the faces that disagree read as buried and are cut out of otherwise</span>
 <span class="sd">        healthy membrane. [`navis.fix_mesh`][] will sort the winding out.</span>
+
+<span class="sd">    !!! note "When the repair keeps what it cannot vouch for"</span>
+
+<span class="sd">        Dropping the surface that encloses nothing means reading a volume, and</span>
+<span class="sd">        a volume is only a volume when the surface is closed - so each piece is</span>
+<span class="sd">        closed first. Two things can stop that reading being trusted, and both</span>
+<span class="sd">        are reported through the log rather than passed over:</span>
+
+<span class="sd">        - the capping cannot close a piece at all (a boundary ring that pinches</span>
+<span class="sd">          on a vertex, say), so whether it encloses anything is never decided</span>
+<span class="sd">          and it is kept;</span>
+<span class="sd">        - the reading would condemn more than half of the surface it judged, in</span>
+<span class="sd">          which case it is held back on the grounds that a cell is not mostly</span>
+<span class="sd">          cavity.</span>
+
+<span class="sd">        Either way the mesh comes back repaired but may keep inside-out</span>
+<span class="sd">        surface, and the usual cause is winding - see the warning above.</span>
+
+<span class="sd">        These arrive as log messages, which means they are **lost under</span>
+<span class="sd">        `parallel=True`**: nothing a worker process writes to the log or the</span>
+<span class="sd">        warning stream finds its way back. Repair a `NeuronList` serially if</span>
+<span class="sd">        you want to see them.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -31822,17 +31891,31 @@ large sets of nodes it might be more efficient to use
     <span class="k">if</span> <span class="n">extra_edges</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">x</span><span class="o">.</span><span class="n">_extra_edges</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">vertices</span><span class="p">,</span> <span class="n">faces</span><span class="p">,</span> <span class="n">keep</span><span class="p">,</span> <span class="n">passes</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">fastcore</span><span class="o">.</span><span class="n">drop_internals</span><span class="p">(</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">vertices</span><span class="p">),</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">faces</span><span class="p">),</span>
-        <span class="n">threshold</span><span class="o">=</span><span class="n">threshold</span><span class="p">,</span>
-        <span class="n">n_rays</span><span class="o">=</span><span class="n">n_rays</span><span class="p">,</span>
-        <span class="n">smooth</span><span class="o">=</span><span class="n">smooth</span><span class="p">,</span>
-        <span class="n">iterations</span><span class="o">=</span><span class="n">iterations</span><span class="p">,</span>
-        <span class="n">hops</span><span class="o">=</span><span class="n">hops</span><span class="p">,</span>
-        <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
-        <span class="n">threads</span><span class="o">=</span><span class="n">threads</span><span class="p">,</span>
-    <span class="p">)</span>
+    <span class="c1"># fastcore says "I kept surface I could not vouch for" with `warnings.warn`</span>
+    <span class="c1"># and a `stacklevel` meant for a direct caller, which from here points at</span>
+    <span class="c1"># this line rather than at whoever asked for the repair. navis says this</span>
+    <span class="c1"># kind of thing through its logger, so catch them and say them again where</span>
+    <span class="c1"># they can be read. Anything else raised in there is passed through</span>
+    <span class="c1"># untouched - this is not the place to swallow a numpy warning.</span>
+    <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">(</span><span class="n">record</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">caught</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">"always"</span><span class="p">)</span>
+        <span class="n">vertices</span><span class="p">,</span> <span class="n">faces</span><span class="p">,</span> <span class="n">keep</span><span class="p">,</span> <span class="n">passes</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">fastcore</span><span class="o">.</span><span class="n">drop_internals</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">vertices</span><span class="p">),</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">faces</span><span class="p">),</span>
+            <span class="n">threshold</span><span class="o">=</span><span class="n">threshold</span><span class="p">,</span>
+            <span class="n">n_rays</span><span class="o">=</span><span class="n">n_rays</span><span class="p">,</span>
+            <span class="n">smooth</span><span class="o">=</span><span class="n">smooth</span><span class="p">,</span>
+            <span class="n">iterations</span><span class="o">=</span><span class="n">iterations</span><span class="p">,</span>
+            <span class="n">hops</span><span class="o">=</span><span class="n">hops</span><span class="p">,</span>
+            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+            <span class="n">threads</span><span class="o">=</span><span class="n">threads</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">caught</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">category</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"drop_internals"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">message</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="s1">'id'</span><span class="p">,</span><span class="w"> </span><span class="s1">'?'</span><span class="p">)</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">w</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn_explicit</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">message</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">category</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">lineno</span><span class="p">)</span>
 
     <span class="n">x</span><span class="o">.</span><span class="n">vertices</span> <span class="o">=</span> <span class="n">vertices</span>
     <span class="n">x</span><span class="o">.</span><span class="n">faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
@@ -31841,11 +31924,22 @@ large sets of nodes it might be more efficient to use
         <span class="n">x</span><span class="o">.</span><span class="n">_extra_edges</span> <span class="o">=</span> <span class="n">extra_edges</span>
 
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">passes</span><span class="p">):</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+        <span class="c1"># `dropped` is worth spelling out rather than leaving as the gap between</span>
+        <span class="c1"># the other numbers: it is the step that removes whole components, and a</span>
+        <span class="c1"># pass that discards most of a mesh that way otherwise reads as a small,</span>
+        <span class="c1"># tidy repair.</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">"drop_internals pass </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'buried'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'faces_before'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> "</span>
-            <span class="sa">f</span><span class="s2">"faces buried (</span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'recast'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> re-cast), </span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'capped'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> caps "</span>
-            <span class="sa">f</span><span class="s2">"-&gt; </span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'faces_after'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> faces"</span>
+            <span class="sa">f</span><span class="s2">"faces buried (</span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'recast'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> re-cast), </span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'dropped'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> dropped "</span>
+            <span class="sa">f</span><span class="s2">"as enclosing nothing, </span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'capped'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> caps -&gt; "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="s1">'faces_after'</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> faces"</span>
         <span class="p">)</span>
+        <span class="n">held</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">p</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"spared"</span><span class="p">,</span> <span class="s2">"unclosed"</span><span class="p">)</span> <span class="k">if</span> <span class="n">p</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">held</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">" (kept unjudged: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">held</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
 
     <span class="c1"># Every surviving vertex *is* one of the old ones - the repair only ever</span>
     <span class="c1"># removes, and the caps re-use what was already on the boundary - so this is</span>
@@ -42926,9 +43020,7 @@ large sets of nodes it might be more efficient to use
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># This mesh is clean, so almost every face can see out</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">bool</span><span class="p">((</span><span class="n">op</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">0.95</span><span class="p">)</span>
 <span class="go">True</span>
-</code></pre></div> <details class="see-also" open=""> <summary>See Also</summary> <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;drop_internals&lt;/span&gt;&lt;/code&gt;" href="#navis.drop_internals"><code>navis.drop_internals</code></a> The repair this scores for: cut the buried faces away and close the mesh back up.</p> </details> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/internals.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 41</span>
-<span class="normal"> 42</span>
-<span class="normal"> 43</span>
+</code></pre></div> <details class="see-also" open=""> <summary>See Also</summary> <p><a class="autorefs autorefs-internal" title="&lt;code class=&quot;highlight language-python&quot;&gt;&lt;span class=&quot;n&quot;&gt;navis&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;drop_internals&lt;/span&gt;&lt;/code&gt;" href="#navis.drop_internals"><code>navis.drop_internals</code></a> The repair this scores for: cut the buried faces away and close the mesh back up.</p> </details> <details class="mkdocstrings-source"> <summary>Source code in <code>navis/meshes/internals.py</code></summary> <div class="highlight"><table class="highlighttable"><tbody><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 43</span>
 <span class="normal"> 44</span>
 <span class="normal"> 45</span>
 <span class="normal"> 46</span>
@@ -42994,7 +43086,9 @@ large sets of nodes it might be more efficient to use
 <span class="normal">106</span>
 <span class="normal">107</span>
 <span class="normal">108</span>
-<span class="normal">109</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">openness</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_rays</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1985</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">openness</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_rays</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1985</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Fraction of rays leaving each face that escape the mesh.</span>
 
 <span class="sd">    For every face, this fires a cosine-weighted spray of rays into the</span>
