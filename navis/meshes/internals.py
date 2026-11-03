@@ -28,6 +28,8 @@ is the repair built on it.
 
 """
 
+import warnings
+
 import numpy as np
 
 from .. import config, utils
@@ -155,6 +157,28 @@ def drop_internals(
         the faces that disagree read as buried and are cut out of otherwise
         healthy membrane. [`navis.fix_mesh`][] will sort the winding out.
 
+    !!! note "When the repair keeps what it cannot vouch for"
+
+        Dropping the surface that encloses nothing means reading a volume, and
+        a volume is only a volume when the surface is closed - so each piece is
+        closed first. Two things can stop that reading being trusted, and both
+        are reported through the log rather than passed over:
+
+        - the capping cannot close a piece at all (a boundary ring that pinches
+          on a vertex, say), so whether it encloses anything is never decided
+          and it is kept;
+        - the reading would condemn more than half of the surface it judged, in
+          which case it is held back on the grounds that a cell is not mostly
+          cavity.
+
+        Either way the mesh comes back repaired but may keep inside-out
+        surface, and the usual cause is winding - see the warning above.
+
+        These arrive as log messages, which means they are **lost under
+        `parallel=True`**: nothing a worker process writes to the log or the
+        warning stream finds its way back. Repair a `NeuronList` serially if
+        you want to see them.
+
     Parameters
     ----------
     x :         navis.Mesh/List | navis.Volume | trimesh.Trimesh
@@ -232,17 +256,31 @@ def drop_internals(
     if extra_edges is not None:
         x._extra_edges = None
 
-    vertices, faces, keep, passes = utils.fastcore.drop_internals(
-        np.asarray(x.vertices),
-        np.asarray(x.faces),
-        threshold=threshold,
-        n_rays=n_rays,
-        smooth=smooth,
-        iterations=iterations,
-        hops=hops,
-        seed=seed,
-        threads=threads,
-    )
+    # fastcore says "I kept surface I could not vouch for" with `warnings.warn`
+    # and a `stacklevel` meant for a direct caller, which from here points at
+    # this line rather than at whoever asked for the repair. navis says this
+    # kind of thing through its logger, so catch them and say them again where
+    # they can be read. Anything else raised in there is passed through
+    # untouched - this is not the place to swallow a numpy warning.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        vertices, faces, keep, passes = utils.fastcore.drop_internals(
+            np.asarray(x.vertices),
+            np.asarray(x.faces),
+            threshold=threshold,
+            n_rays=n_rays,
+            smooth=smooth,
+            iterations=iterations,
+            hops=hops,
+            seed=seed,
+            threads=threads,
+        )
+
+    for w in caught:
+        if issubclass(w.category, UserWarning) and "drop_internals" in str(w.message):
+            logger.warning(f"{getattr(x, 'id', '?')}: {w.message}")
+        else:
+            warnings.warn_explicit(w.message, w.category, w.filename, w.lineno)
 
     x.vertices = vertices
     x.faces = np.asarray(faces, dtype=np.int64)
@@ -251,11 +289,22 @@ def drop_internals(
         x._extra_edges = extra_edges
 
     for i, p in enumerate(passes):
-        logger.debug(
+        # `dropped` is worth spelling out rather than leaving as the gap between
+        # the other numbers: it is the step that removes whole components, and a
+        # pass that discards most of a mesh that way otherwise reads as a small,
+        # tidy repair.
+        line = (
             f"drop_internals pass {i}: {p['buried']:,} of {p['faces_before']:,} "
-            f"faces buried ({p['recast']:,} re-cast), {p['capped']:,} caps "
-            f"-> {p['faces_after']:,} faces"
+            f"faces buried ({p['recast']:,} re-cast), {p['dropped']:,} dropped "
+            f"as enclosing nothing, {p['capped']:,} caps -> "
+            f"{p['faces_after']:,} faces"
         )
+        held = [
+            f"{p[k]:,} {k}" for k in ("spared", "unclosed") if p[k]
+        ]
+        if held:
+            line += f" (kept unjudged: {', '.join(held)})"
+        logger.debug(line)
 
     # Every surviving vertex *is* one of the old ones - the repair only ever
     # removes, and the caps re-use what was already on the boundary - so this is
