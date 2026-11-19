@@ -518,6 +518,29 @@ class BayesianTraversalModel(TraversalModel):
         return self._summary
 
     def run(self, **kwargs) -> pd.DataFrame:
+        """Run model (single process).
+
+        Propagates traversal probabilities from the seeds until no node's
+        traversal-time distribution changes any more. How edges are combined
+        is set by `method` (see the class Notes). The model is deterministic,
+        so it only needs to be run once.
+
+        Parameters
+        ----------
+        **kwargs
+                        `position` sets the progress bar's line (as for
+                        `TraversalModel.run`). Other keywords are ignored.
+
+        Returns
+        -------
+        pandas.DataFrame
+                        One row per node, with columns `node` (the node ID)
+                        and `cmf` (an array of length `max_steps` whose entry
+                        `t` is the probability that the node has been traversed
+                        by step `t + 1`). Also stored as `self.results`; use
+                        `.summary` for per-node layer statistics.
+
+        """
 
         # For some reason this is required for progress bars in Jupyter to show
         print(' ', end='', flush=True)
