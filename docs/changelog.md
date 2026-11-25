@@ -95,6 +95,7 @@ pip install git+https://github.com/navis-org/navis@master
 - [`fix_mesh`][navis.fix_mesh] raised an `AttributeError` on `trimesh >= 4.10`, and `Mesh(..., validate=True)` silently did nothing with `process=False`
 - plotting: [`plot3d`][navis.plot3d] raised for any skeleton plotted with `connectors=True` on plotly, `color_by=<neuron property>` worked only in matplotlib, `radius="auto"` was decided once for the whole [`NeuronList`][navis.NeuronList], `cn_colors` was broken in two of its three documented forms, several documented defaults were wrong, plus fixes to [`plot_flat`][navis.plot_flat] and [`plot2d`][navis.plot2d]
 - {{ navis }}' logger could be left silenced for the rest of the session, and `pip install navis[all]` pulled in `cloud-volume`
+- `models.BayesianTraversalModel`: the summary of a node that is not traversed with certainty within `max_steps` was computed from a truncated distribution - `layer_mean` was pulled towards the first step (and could fall below `layer_min`), `layer_median` fell back to the first step if the distribution never reached 50%, and `layer_max` was `max_steps + 1`. The summary is now conditioned on the node being traversed within `max_steps`, which is how `TraversalModel` behaves. A new `p_reached` column gives the probability of being traversed, and `run()` logs a warning when some nodes have `p_reached < 1`
 
 ## Version `1.12.0` { data-toc-label="1.12.0" }
 _Date: 13/06/26_

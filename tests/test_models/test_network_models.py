@@ -29,8 +29,10 @@ def test_traversal_models():
             assert row.layer_min == row.layer_max
         results[m] = res
 
+    # Only BayesianTraversalModel has a `p_reached` column
+    cols = results[TraversalModel].columns
     for m in models:
-        pd.testing.assert_frame_equal(results[TraversalModel], results[m])
+        pd.testing.assert_frame_equal(results[TraversalModel], results[m][cols])
 
 
 def test_bayesian_matches_montecarlo_diamond():
@@ -70,3 +72,55 @@ def test_bayesian_matches_montecarlo_diamond():
     for node in ts.index.intersection(bs.index):
         assert bs.loc[node, 'layer_mean'] == pytest.approx(
             ts.loc[node, 'layer_mean'], abs=0.05)
+
+
+def test_bayesian_summary_conditioned_on_reach(caplog):
+    """Regression test for #201.
+
+    On the chain 0->1->2 (every edge fires with p=0.3, max_steps=4) nodes 1 and
+    2 are not traversed with certainty. Their summary must be conditioned on
+    being traversed, as in TraversalModel. Previously it was computed from the
+    truncated distribution, which put node 2's layer_mean (1.56) and
+    layer_median (1) below its layer_min (3).
+    """
+    edges = pd.DataFrame({'source': [0, 1], 'target': [1, 2], 'weight': .3})
+    model = BayesianTraversalModel(edges, seeds=[0], max_steps=4,
+                                   traversal_func=lambda w: w)
+    with caplog.at_level('WARNING'):
+        model.run()
+    assert '2 of 3 traversed nodes' in caplog.text
+    s = model.summary
+
+    # Exact probability of each node being traversed at each layer (seed = 1)
+    p, q = .3, .7
+    reach = {
+        # Node 1 is traversed at layer k + 1 if edge 0->1 first fires at step k
+        1: {2: p, 3: q * p, 4: q * q * p},
+        # Node 2 needs both edges to fire: at layer 3, or at 4 after one delay
+        2: {3: p * p, 4: 2 * q * p * p},
+    }
+    medians = {1: 3, 2: 4}
+    for node, dist in reach.items():
+        p_reached = sum(dist.values())
+        row = s.loc[node]
+        assert row.p_reached == pytest.approx(p_reached)
+        assert row.layer_min == min(dist)
+        assert row.layer_max == max(dist)
+        assert row.layer_mean == pytest.approx(
+            sum(layer * pr for layer, pr in dist.items()) / p_reached)
+        assert row.layer_median == medians[node]
+
+    assert s.loc[0].tolist() == [1, 1, 1, 1, 1]
+
+
+def test_bayesian_no_warning_when_certain(caplog):
+    """No truncation warning if every traversed node is traversed for sure."""
+    G = nx.path_graph(5, create_using=nx.DiGraph)
+    edges = nx.to_pandas_edgelist(G)
+    edges['weight'] = 1.
+
+    model = BayesianTraversalModel(edges, seeds=[0], max_steps=5)
+    with caplog.at_level('WARNING'):
+        model.run()
+    assert 'max_steps' not in caplog.text
+    assert (model.summary.p_reached == 1).all()
