@@ -391,9 +391,15 @@ class BayesianTraversalModel(TraversalModel):
     but is only an approximation when two or more parents share correlated
     upstream ancestry. In that case the model may slightly mistime the node's
     traversal; use `TraversalModel` (Monte-Carlo) as ground truth if exactness
-    matters there. Note also that, as with `TraversalModel`, results near the
-    `max_steps` horizon are affected by truncation - increase `max_steps` if a
-    node's traversal-time distribution has not effectively converged to 1.
+    matters there.
+
+    As with `TraversalModel`, the summary's `layer_min`, `layer_max`,
+    `layer_mean` and `layer_median` are conditioned on a node being traversed
+    within `max_steps`. The `p_reached` column gives the probability of that
+    happening. A node with `p_reached < 1` would sometimes be traversed only
+    after `max_steps`, so its summary underestimates its traversal time;
+    `run()` logs a warning if any such nodes exist. Increase `max_steps` until
+    `p_reached` has effectively converged to 1.
 
     Examples
     --------
@@ -412,13 +418,13 @@ class BayesianTraversalModel(TraversalModel):
     >>> res = model.run()
     >>> # Get a summary
     >>> model.summary.tail()                                    # doctest: +SKIP
-          layer_min  layer_max  layer_mean  layer_median
+          layer_min  layer_max  layer_mean  layer_median  p_reached
     node
-    995           2          2        2.00             2
-    996           2          3        2.33             2
-    997           2          2        2.00             2
-    998           2          2        2.00             2
-    999           2          2        2.00             2
+    995           2          2        2.00             2        1.0
+    996           2          3        2.33             2        1.0
+    997           2          2        2.00             2        1.0
+    998           2          2        2.00             2        1.0
+    999           2          2        2.00             2        1.0
 
     Above Graph was traversed quickly (3 steps max). Let's adjust the
     traversal function:
@@ -431,13 +437,13 @@ class BayesianTraversalModel(TraversalModel):
     ...                                traversal_func=my_act)
     >>> res = model.run()
     >>> res.tail()                                              # doctest: +SKIP
-          layer_min  layer_max  layer_mean  layer_median
+          layer_min  layer_max  layer_mean  layer_median  p_reached
     node
-    995           2          4       3.210           3.0
-    996           2          4       3.280           3.0
-    997           2          4       3.260           3.0
-    998           2          4       3.320           3.0
-    999           2          4       3.195           3.0
+    995           2          4       3.210           3.0        1.0
+    996           2          4       3.280           3.0        1.0
+    997           2          4       3.260           3.0        1.0
+    998           2          4       3.320           3.0        1.0
+    999           2          4       3.195           3.0        1.0
 
     """
 
@@ -461,17 +467,22 @@ class BayesianTraversalModel(TraversalModel):
             logger.error('Must run simulation first.')
 
         cmfs = np.stack(self.results.cmf)
+        p_reached = cmfs[:, -1]
+
+        # Discard nodes that are never activated (CMFs are non-decreasing, so
+        # a CMF ending at 0 is 0 throughout)
+        valid = p_reached > 0
+
+        # Condition on the node being traversed within `max_steps`, like
+        # `TraversalModel` which only aggregates over iterations in which a
+        # node was reached. Without this, a CMF that never gets to 1 pulls
+        # the mean towards 0 and may never cross .5 for the median.
+        cmfs = cmfs[valid] / p_reached[valid, None]
+
+        # After normalising, every CMF ends at 1, so these always find a step
         layer_min = (cmfs != 0).argmax(axis=1)
-        valid = np.any(cmfs != 0, axis=1)
-        layer_max = (cmfs == 1.).argmax(axis=1)
-        layer_max[~np.any(cmfs == 1., axis=1)] = cmfs.shape[1]
-        # ``argmax`` returns 0 for an all-False row, which is indistinguishable
-        # from crossing the threshold at the very first step. Flag nodes whose
-        # CMF never reaches .5 with -1 instead (0 after the +1 offset below).
-        above_median = cmfs >= .5
-        layer_median = np.where(above_median.any(axis=1),
-                                above_median.argmax(axis=1),
-                                -1).astype(float)
+        layer_max = np.isclose(cmfs, 1.).argmax(axis=1)
+        layer_median = (cmfs >= .5).argmax(axis=1).astype(float)
         pmfs = np.diff(cmfs, axis=1, prepend=0.)
         layer_pmfs = pmfs * np.arange(pmfs.shape[1])
         layer_mean = np.sum(layer_pmfs, axis=1)
@@ -481,10 +492,8 @@ class BayesianTraversalModel(TraversalModel):
                 'layer_max': layer_max + 1,
                 'layer_mean': layer_mean + 1,
                 'layer_median': layer_median + 1,
-            }, index=self.results.node)
-
-        # Discard nodes that are never activated
-        summary = summary[valid]
+                'p_reached': p_reached[valid],
+            }, index=self.results.node[valid])
 
         self._summary = summary
         return self._summary
@@ -578,6 +587,19 @@ class BayesianTraversalModel(TraversalModel):
 
         self.iterations = 1
         self.results = pd.DataFrame({'node': ids, 'cmf': list(cmfs)})
+
+        p_reached = cmfs[:, -1]
+        n_uncertain = np.sum((p_reached > 0) & ~np.isclose(p_reached, 1.))
+        if n_uncertain:
+            logger.warning(f'{n_uncertain} of {np.sum(p_reached > 0)} traversed '
+                           'nodes are not traversed with certainty within '
+                           f'max_steps={self.max_steps}. Their summary is '
+                           'conditioned on being traversed within max_steps, '
+                           'so `layer_mean`, `layer_median` and `layer_max` '
+                           'underestimate their traversal time. See '
+                           '`summary.p_reached` and consider increasing '
+                           '`max_steps`.')
+
         return self.results
 
     def run_parallel(self, *args, **kwargs) -> None:
